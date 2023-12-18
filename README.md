@@ -24,3 +24,14 @@ int main() {
 	printf("You chose: %s", options[chosen]);
 }
 ```
+## Compile
+### You can compile it using tcc like that:
+```
+tcc -run nobuild.c
+```
+### Or compiling the nobuild once to generate c binary:
+```
+gcc -o c nobuild.c
+```
+### ./c to run the build system
+This compile the program

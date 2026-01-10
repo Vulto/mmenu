@@ -8,7 +8,7 @@
 #define CFLAGS  "-Wall",                    \
                 "-Wextra",                  \
                 "-Wfatal-errors",           \
-                "-std=c2x",                 \
+                "-std=c23",                 \
                 "-pedantic",                \
                 "-pedantic-errors",         \
                 "-Wmissing-include-dirs",   \
@@ -32,11 +32,11 @@ void Link(void) {
 }
 
 void Install(void) {
-    CMD("doas", "cp", "-f", BIN, PREFIX);
+    CMD("sudo", "cp", "-f", BIN, PREFIX);
 }
 
 void Wipe(void) {
-    CMD("doas", "rm", "-v", PREFIX""BIN);
+    CMD("sudo", "rm", "-v", PREFIX""BIN);
     CMD("rm", BIN, "c.old");
 }
 

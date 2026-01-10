@@ -25,13 +25,14 @@ int main() {
 }
 ```
 ## Compile
-### You can compile it using tcc like that:
+### You can run nobuild.c using tcc :
 ```
-tcc -run nobuild.c
+-c compile, -l link -i install (check nobuild.c for custom paths) 
+tcc -run nobuild.c -cli   
 ```
-### Or compiling the nobuild once to generate c binary:
+### Or compile nobuild once to generate c binary:
 ```
 gcc -o c nobuild.c
 ```
+## Once compiled you will can just run ./c everytime you need a rebuild
 ### ./c to run the build system
-This compile the program

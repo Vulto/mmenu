@@ -6,6 +6,7 @@
 
 /* Enable wide-character functions in ncurses */
 #define _XOPEN_SOURCE_EXTENDED
+#define _GNU_SOURCE   /* for strcasestr on glibc */
 
 #include <ncurses.h>
 #include <locale.h>
@@ -36,6 +37,17 @@ static wchar_t *mb_to_wc(const char *s) {
     wchar_t *w = malloc((n + 1) * sizeof(wchar_t));
     if (w) mbstowcs(w, s, n + 1);
     return w;
+}
+
+/* Convert the (small) current search input from wchar to multibyte for fast byte matching.
+   Only called once per keystroke, not per candidate. */
+static char *wc_to_mb(const wchar_t *w) {
+    if (!w || !*w) return strdup("");
+    size_t n = wcstombs(NULL, w, 0);
+    if (n == (size_t)-1) return NULL;
+    char *m = malloc(n + 1);
+    if (m) wcstombs(m, w, n + 1);
+    return m;
 }
 
 typedef struct { int *indices; int cap; int count; } filt;
@@ -81,18 +93,25 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     int selection = 0;
     int top = 0;
     int need_filter = 0;
+    int prev_input_len = 0;   /* for incremental filter optimization */
 
     const char *prompt_str = prompt ? prompt : "> ";
     size_t prompt_len = strlen(prompt_str);
 
     int ret = -1;
 
-    /* Initial filter (show all) */
+    /* Initial filter (show all for empty query - fast path) */
     filt_clear(&filtered);
-    for (int i = 0; i < n_options; i++) {
-        wchar_t *w = mb_to_wc(options[i]);
-        if (w && wcsstr(w, input) != NULL) filt_push(&filtered, i);
-        free(w);
+    if (input[0] == L'\0') {
+        for (int i = 0; i < n_options; i++) filt_push(&filtered, i);
+    } else {
+        char *q = wc_to_mb(input);
+        if (q) {
+            for (int i = 0; i < n_options; i++) {
+                if (strcasestr(options[i], q)) filt_push(&filtered, i);
+            }
+            free(q);
+        }
     }
     if (filtered.count > 0) selection = 0;
 
@@ -151,12 +170,44 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         }
 
         if (need_filter) {
-            filt_clear(&filtered);
-            for (int i = 0; i < n_options; i++) {
-                wchar_t *w = mb_to_wc(options[i]);
-                if (w && wcsstr(w, input) != NULL) filt_push(&filtered, i);
-                free(w);
+            char *q = wc_to_mb(input);
+            int do_full = 1;
+            if (q && input_len > prev_input_len && filtered.count > 0) {
+                /* Common case: user typed another char. Refine only the previous matches. */
+                filt newf;
+                newf.cap = filtered.count < INITIAL_CAP ? INITIAL_CAP : filtered.count;
+                newf.indices = malloc(newf.cap * sizeof(int));
+                if (newf.indices) {
+                    newf.count = 0;
+                    for (int k = 0; k < filtered.count; k++) {
+                        int oidx = filtered.indices[k];
+                        if (strcasestr(options[oidx], q)) {
+                            if (newf.count == newf.cap) {
+                                newf.cap *= 2;
+                                newf.indices = realloc(newf.indices, newf.cap * sizeof(int));
+                                if (!newf.indices) break;
+                            }
+                            newf.indices[newf.count++] = oidx;
+                        }
+                    }
+                    /* Swap in the smaller refined list */
+                    free(filtered.indices);
+                    filtered = newf;
+                    do_full = 0;
+                }
             }
+            if (do_full) {
+                filt_clear(&filtered);
+                if (!q || q[0] == '\0') {
+                    for (int i = 0; i < n_options; i++) filt_push(&filtered, i);
+                } else {
+                    for (int i = 0; i < n_options; i++) {
+                        if (strcasestr(options[i], q)) filt_push(&filtered, i);
+                    }
+                }
+            }
+            if (q) free(q);
+            prev_input_len = input_len;
             selection = filtered.count > 0 ? 0 : 0;
             top = 0;
         }

@@ -5,7 +5,8 @@ set -eu
 Bin=${1:-./build/mmenu}
 TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM
-Fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+Failures=0
+Fail() { printf 'FAIL: %s\n' "$*" >&2; Failures=$((Failures + 1)); }
 Pass() { printf 'PASS: %s\n' "$*"; }
 CheckEqual() {
     Name=$1
@@ -17,8 +18,9 @@ CheckEqual() {
         printf '%s\n--- actual (visible) ---\n' "$Name" >&2
         od -An -tx1c "$Actual" >&2
         Fail "$Name"
+    else
+        Pass "$Name"
     fi
-    Pass "$Name"
 }
 
 printf 'alpha needle omega\nNeedle uppercase\nnothing here\nneedle\nneedle\n\nfinal needle' > "$TmpDir/input"
@@ -65,7 +67,14 @@ CheckEqual 'large input returns all matching indexes in stable order' "$TmpDir/e
 
 if "$Bin" --filter < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing --filter query must be rejected with nonzero status'
+elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then
+    Fail 'missing --filter query must report an argument error instead of entering interactive mode'
+else
+    Pass 'missing --filter query is rejected with an argument diagnostic'
 fi
-Pass 'missing --filter query is rejected'
 
+if [ "$Failures" -ne 0 ]; then
+    printf '%s regression check(s) failed.\n' "$Failures" >&2
+    exit 1
+fi
 printf 'All CLI regression checks passed.\n'

@@ -78,10 +78,11 @@ recorded reproduction.
 
 ## Performance interpretation
 
-The benchmark uses deterministic data and validates output counts. The CI comparison
-builds the PR base revision and candidate with the same GCC flags on the same runner, then
-takes five samples per implementation at 100k and 1m records and compares medians. A
-candidate more than 2x slower at either size fails the gate. This is a deliberately coarse
-guard against severe regressions, not a guarantee against smaller regressions; artifacts
-retain the raw single-run sweep and comparison medians. Never claim a regression from one
-noisy sample.
+The benchmarks use deterministic data and validate output counts before timing. The
+throughput sweep retains five latency samples per size plus min/median/max summaries and
+peak RSS. The CI comparison builds the PR base revision and candidate with the same GCC
+flags on the same runner, then compares five-sample medians at 100k and 1m records. A
+candidate more than 2x slower or using more than 2x peak RSS fails the gate. These are
+deliberately coarse guards against severe regressions, not guarantees against smaller
+regressions; artifacts retain raw samples, summaries, ranking metrics, and environment
+metadata. Never claim a regression from one noisy sample.

@@ -14,7 +14,7 @@ printf 'items,samples,min_elapsed_ns,median_elapsed_ns,max_elapsed_ns,max_rss_ki
     printf 'compiler=%s\n' "$("$Compiler" --version | sed -n '1p')"
     printf 'flags=%s\n' "${BENCHMARK_CFLAGS:-unspecified}"
     printf 'samples_per_size=5\n'
-    printf 'rss_unit=KiB from GNU time %M\n'
+    printf 'rss_unit=KiB from GNU time %%M\n'
 } > "$Out.metadata.txt"
 
 for Count in 1000 10000 100000 1000000; do

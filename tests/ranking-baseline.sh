@@ -76,7 +76,7 @@ for Tool in mmenu fzf skim fzy; do
         Elapsed=$((End - Start))
         RSS=$(cat "$TmpDir/rss")
         Metrics=$(awk -v query_id="$QueryId" -v tool="$Tool" -f "$MetricsAwk" "$Judgments" "$TmpDir/result")
-        printf '%s,%s,%s,%s,%s\n' "$Metrics" "$Elapsed" "$RSS" "$Version" >> "$Out"
+        printf '%s,%s,%s,%s\n' "$Metrics" "$Elapsed" "$RSS" "$Version" >> "$Out"
     done
 done
 

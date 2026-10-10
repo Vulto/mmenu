@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define LINE_BUF_SIZE 4096
 #define CHUNK_CAP (1024 * 1024)   /* 1 MiB slabs for string data - huge reduction in mallocs */
 
 typedef struct {
@@ -24,8 +23,8 @@ typedef struct {
 static void lines_push(lines_t *l, char *s) {
     if (l->count == l->cap) {
         l->cap = l->cap ? l->cap * 2 : INITIAL_CAP;
-        l->lines = realloc(l->lines, l->cap * sizeof(char*));
-        if (!l->lines) { perror("realloc"); exit(1); }
+        l->lines = realloc(l->lines, (size_t)l->cap * sizeof(char *));
+        if (!l->lines) { perror("realloc"); exit(EXIT_FAILURE); }
     }
     l->lines[l->count++] = s;
 }
@@ -34,11 +33,11 @@ static void lines_push(lines_t *l, char *s) {
 static void lines_new_slab(lines_t *l) {
     if (l->slabs_count == l->slabs_cap) {
         l->slabs_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
-        l->slabs = realloc(l->slabs, l->slabs_cap * sizeof(char*));
-        if (!l->slabs) { perror("realloc slabs"); exit(1); }
+        l->slabs = realloc(l->slabs, (size_t)l->slabs_cap * sizeof(char *));
+        if (!l->slabs) { perror("realloc slabs"); exit(EXIT_FAILURE); }
     }
     char *slab = malloc(CHUNK_CAP);
-    if (!slab) { perror("malloc slab"); exit(1); }
+    if (!slab) { perror("malloc slab"); exit(EXIT_FAILURE); }
     l->slabs[l->slabs_count++] = slab;
     l->slab_used = 0;
 }
@@ -46,15 +45,19 @@ static void lines_new_slab(lines_t *l) {
 /* Append a nul-terminated string into the arena and return pointer inside it.
    Never invalidates previous pointers (we only append to current slab or start new). */
 static char *lines_arena_dup(lines_t *l, const char *src, size_t len) {
+    if (len == SIZE_MAX) {
+        fprintf(stderr, "mmenu: input record is too large\n");
+        exit(EXIT_FAILURE);
+    }
     if (len + 1 > CHUNK_CAP) {
         /* Rare: huge single line >1MB. Give it its own slab. */
         if (l->slabs_count == l->slabs_cap) {
             l->slabs_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
-            l->slabs = realloc(l->slabs, l->slabs_cap * sizeof(char*));
-            if (!l->slabs) { perror("realloc slabs"); exit(1); }
+            l->slabs = realloc(l->slabs, (size_t)l->slabs_cap * sizeof(char *));
+            if (!l->slabs) { perror("realloc slabs"); exit(EXIT_FAILURE); }
         }
         char *big = malloc(len + 1);
-        if (!big) { perror("malloc bigline"); exit(1); }
+        if (!big) { perror("malloc bigline"); exit(EXIT_FAILURE); }
         memcpy(big, src, len);
         big[len] = '\0';
         l->slabs[l->slabs_count++] = big;
@@ -71,34 +74,24 @@ static char *lines_arena_dup(lines_t *l, const char *src, size_t len) {
     return dst;
 }
 
+static void lines_free(lines_t *l) {
+    free(l->lines);
+    for (int i = 0; i < l->slabs_count; i++) free(l->slabs[i]);
+    free(l->slabs);
+}
+
 int main(int argc, char **argv) {
-    /* Faster buffered input for huge pipes */
-    setvbuf(stdin, NULL, _IOFBF, 64 * 1024);
-
-    lines_t opts = {0};
-    char buf[LINE_BUF_SIZE];
-
-    while (fgets(buf, sizeof(buf), stdin)) {
-        size_t len = strlen(buf);
-        if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
-        else if (len == sizeof(buf)-1) {
-            int c;
-            while ((c = getchar()) != EOF && c != '\n');
-        }
-        /* Store in chunked arena instead of per-line malloc */
-        char *stored = lines_arena_dup(&opts, buf, len);
-        lines_push(&opts, stored);
-    }
-
-    /* Non-interactive fast path: mmenu --filter "query"  (or -f)
-       Outputs matching lines (or indices with -t). Perfect for scripting
-       and for isolated matcher benchmarks. No ncurses, very fast. */
+    /* Parse arguments before reading stdin so malformed invocations fail promptly. */
     const char *filter_query = NULL;
     int output_index = 0;
     const char *prompt = "> ";
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--filter") || !strcmp(argv[i], "-f")) {
-            if (i + 1 < argc) filter_query = argv[++i];
+            if (i + 1 >= argc) {
+                fprintf(stderr, "mmenu: --filter requires a query argument\n");
+                return 2;
+            }
+            filter_query = argv[++i];
         } else if (!strcmp(argv[i], "-t")) {
             output_index = 1;
         } else if (i == 1 && !filter_query) {
@@ -106,37 +99,50 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (filter_query) {
+    /* Faster buffered input for huge pipes. */
+    setvbuf(stdin, NULL, _IOFBF, 64 * 1024);
+
+    lines_t opts = {0};
+    char *buf = NULL;
+    size_t buf_cap = 0;
+    ssize_t read_len;
+
+    /* getline preserves arbitrarily long records and the final unterminated record. */
+    while ((read_len = getline(&buf, &buf_cap, stdin)) != -1) {
+        size_t len = (size_t)read_len;
+        if (len > 0 && buf[len - 1] == '\n') len--;
+        char *stored = lines_arena_dup(&opts, buf, len);
+        lines_push(&opts, stored);
+    }
+    free(buf);
+    if (ferror(stdin)) {
+        perror("mmenu: reading stdin");
+        lines_free(&opts);
+        return EXIT_FAILURE;
+    }
+
+    /* Non-interactive fast path: outputs matching lines or original indexes. */
+    if (filter_query != NULL) {
         for (int i = 0; i < opts.count; i++) {
             if (strcasestr(opts.lines[i], filter_query)) {
                 if (output_index) printf("%d\n", i);
                 else printf("%s\n", opts.lines[i]);
             }
         }
-        /* cleanup and exit */
-        free(opts.lines);
-        for (int i = 0; i < opts.slabs_count; i++) free(opts.slabs[i]);
-        free(opts.slabs);
-        return 0;
+        lines_free(&opts);
+        return ferror(stdout) ? EXIT_FAILURE : 0;
     }
 
-    /* Interactive path (prompt already set by the arg loop above) */
     int chosen = mmenu((const char *const *)opts.lines, opts.count, prompt);
 
     if (chosen == -1) {
         printf("\n");
+    } else if (output_index) {
+        printf("%d\n", chosen);
     } else {
-        if (argc > 2 && argv[2] && argv[2][0] == 't') {
-            printf("%d\n", chosen);
-        } else {
-            printf("%s\n", opts.lines[chosen]);
-        }
+        printf("%s\n", opts.lines[chosen]);
     }
 
-    /* Free the O(1) pointer array + the O(total_size / CHUNK) slabs.
-       Massively fewer frees than before (N individual string frees). */
-    free(opts.lines);
-    for (int i = 0; i < opts.slabs_count; i++) free(opts.slabs[i]);
-    free(opts.slabs);
-    return 0;
+    lines_free(&opts);
+    return ferror(stdout) ? EXIT_FAILURE : 0;
 }

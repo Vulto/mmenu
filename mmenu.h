@@ -16,6 +16,8 @@
 #include <string.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 int mmenu(const char *const *options, int n_options, const char *prompt);
 
@@ -29,6 +31,16 @@ int mmenu(const char *const *options, int n_options, const char *prompt);
 static volatile sig_atomic_t resize_flag = 0;
 
 static void handle_resize(int sig) { (void)sig; resize_flag = 1; }
+
+static void mmenu_refresh_dimensions(FILE *tty, int *rows, int *cols) {
+    struct winsize Size;
+    if (ioctl(fileno(tty), TIOCGWINSZ, &Size) == 0 &&
+        Size.ws_row > 0 && Size.ws_col > 0) {
+        resizeterm((int)Size.ws_row, (int)Size.ws_col);
+    }
+    refresh();
+    getmaxyx(stdscr, *rows, *cols);
+}
 
 static wchar_t *mb_to_wc(const char *s) {
     if (!s) return NULL;
@@ -163,9 +175,7 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         if (resize_flag) {
             resize_flag = 0;
             endwin();
-            resizeterm(0, 0);
-            refresh();
-            getmaxyx(stdscr, rows, cols);
+            mmenu_refresh_dimensions(tty, &rows, &cols);
             visible = rows - 1;
         }
 

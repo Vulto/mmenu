@@ -22,6 +22,8 @@
 #include <wctype.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <limits.h>
 
 int mmenu(const char *const *options, int n_options, const char *prompt);
 
@@ -51,44 +53,68 @@ static wchar_t *mb_to_wc(const char *s) {
     size_t n = mbstowcs(NULL, s, 0);
     if (n == (size_t)-1) return NULL;
     wchar_t *w = malloc((n + 1) * sizeof(wchar_t));
-    if (w) mbstowcs(w, s, n + 1);
+    if (!w && errno == 0) errno = ENOMEM;
+    if (w && mbstowcs(w, s, n + 1) == (size_t)-1) {
+        free(w);
+        errno = EILSEQ;
+        return NULL;
+    }
     return w;
 }
 
 /* Convert the (small) current search input from wchar to multibyte for fast byte matching.
    Only called once per keystroke, not per candidate. */
 static char *wc_to_mb(const wchar_t *w) {
-    if (!w || !*w) return strdup("");
+    if (!w || !*w) {
+        char *empty = malloc(1);
+        if (!empty && errno == 0) errno = ENOMEM;
+        if (empty) empty[0] = '\0';
+        return empty;
+    }
     size_t n = wcstombs(NULL, w, 0);
     if (n == (size_t)-1) return NULL;
     char *m = malloc(n + 1);
-    if (m) wcstombs(m, w, n + 1);
+    if (!m && errno == 0) errno = ENOMEM;
+    if (m && wcstombs(m, w, n + 1) == (size_t)-1) {
+        free(m);
+        errno = EILSEQ;
+        return NULL;
+    }
     return m;
 }
 
 typedef struct { int *indices; int cap; int count; } filt;
 
-static void filt_init(filt *f) {
+static int filt_init(filt *f) {
     f->cap = INITIAL_CAP;
-    f->indices = malloc(f->cap * sizeof(int));
-    if (!f->indices) { perror("malloc"); exit(EXIT_FAILURE); }
     f->count = 0;
+    f->indices = malloc((size_t)f->cap * sizeof(int));
+    if (!f->indices) {
+        perror("mmenu: allocating filter");
+        f->cap = 0;
+        return 0;
+    }
+    return 1;
 }
 
-static void filt_push(filt *f, int idx) {
+static int filt_push(filt *f, int idx) {
     if (f->count == f->cap) {
+        if (f->cap > 0 && f->cap > INT_MAX / 2) {
+            errno = ENOMEM;
+            perror("mmenu: filter capacity");
+            return 0;
+        }
         int new_cap = f->cap <= 0 ? INITIAL_CAP : f->cap * 2;
         int *new_indices = realloc(f->indices, (size_t)new_cap * sizeof(int));
         if (!new_indices) {
-            perror("realloc");
-            free(f->indices);
-            f->indices = NULL;
-            exit(EXIT_FAILURE);
+            perror("mmenu: growing filter");
+            return 0;
         }
         f->indices = new_indices;
         f->cap = new_cap;
     }
     f->indices[f->count++] = idx;
+    return 1;
 }
 
 static void filt_clear(filt *f) { f->count = 0; }
@@ -128,7 +154,9 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     wchar_t input[MAX_INPUT_LEN + 1] = {0};
     int input_len = 0;
 
-    filt filtered; filt_init(&filtered);
+    int ret = -1;
+    filt filtered = {0};
+    if (!filt_init(&filtered)) goto cleanup;
 
     int selection = 0;
     int top = 0;
@@ -138,17 +166,20 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     const char *prompt_str = prompt ? prompt : "> ";
     size_t prompt_len = strlen(prompt_str);
 
-    int ret = -1;
-
     /* Initial filter (show all for empty query - fast path) */
     filt_clear(&filtered);
     if (input[0] == L'\0') {
-        for (int i = 0; i < n_options; i++) filt_push(&filtered, i);
+        for (int i = 0; i < n_options; i++) {
+            if (!filt_push(&filtered, i)) goto cleanup;
+        }
     } else {
         char *q = wc_to_mb(input);
         if (q) {
             for (int i = 0; i < n_options; i++) {
-                if (strcasestr(options[i], q)) filt_push(&filtered, i);
+                if (strcasestr(options[i], q) && !filt_push(&filtered, i)) {
+                    free(q);
+                    goto cleanup;
+                }
             }
             free(q);
         }
@@ -163,7 +194,12 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
+        errno = 0;
         wchar_t *w = mb_to_wc(options[oidx]);
+        if (!w && errno == ENOMEM) {
+            perror("mmenu: rendering option");
+            goto cleanup;
+        }
         if (w) {
             move(v + 1, 0);
             if (fidx == selection) attron(A_STANDOUT);
@@ -209,7 +245,12 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         }
 
         if (need_filter) {
+            errno = 0;
             char *q = wc_to_mb(input);
+            if (!q && errno == ENOMEM) {
+                perror("mmenu: converting filter");
+                goto cleanup;
+            }
             int do_full = 1;
             if (q && input_len > prev_input_len && filtered.count > 0) {
                 /* Common case: user typed another char. Refine only the previous matches. */
@@ -246,10 +287,18 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
             if (do_full) {
                 filt_clear(&filtered);
                 if (!q || q[0] == '\0') {
-                    for (int i = 0; i < n_options; i++) filt_push(&filtered, i);
+                    for (int i = 0; i < n_options; i++) {
+                        if (!filt_push(&filtered, i)) {
+                            free(q);
+                            goto cleanup;
+                        }
+                    }
                 } else {
                     for (int i = 0; i < n_options; i++) {
-                        if (strcasestr(options[i], q)) filt_push(&filtered, i);
+                        if (strcasestr(options[i], q) && !filt_push(&filtered, i)) {
+                            free(q);
+                            goto cleanup;
+                        }
                     }
                 }
             }
@@ -279,7 +328,12 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         for (int v = 0; v < visible && top + v < filtered.count; v++) {
             int fidx = top + v;
             int oidx = filtered.indices[fidx];
+            errno = 0;
             wchar_t *w = mb_to_wc(options[oidx]);
+            if (!w && errno == ENOMEM) {
+                perror("mmenu: rendering option");
+                goto cleanup;
+            }
             if (w) {
                 move(v + 1, 0);
                 if (fidx == selection) attron(A_STANDOUT);

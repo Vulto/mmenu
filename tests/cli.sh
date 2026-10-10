@@ -25,10 +25,10 @@ CheckEqual() {
 
 # Inverse filtering preserves original input order and supports all matcher modes.
 printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/input"
-printf 'beta\nalpha beta\n' > "$TmpDir/expected"
+printf 'beta\n' > "$TmpDir/expected"
 "$Bin" --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'inverse substring filter excludes matching records' "$TmpDir/expected" "$TmpDir/actual"
-printf '1\n3\n' > "$TmpDir/expected"
+printf '1\n' > "$TmpDir/expected"
 "$Bin" -v -f alpha -t < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'inverse substring filter emits original indexes' "$TmpDir/expected" "$TmpDir/actual"
 printf 'beta\nAlpha\nalpha beta\n' > "$TmpDir/expected"

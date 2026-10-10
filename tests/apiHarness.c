@@ -33,6 +33,6 @@ int main(int argc, char **argv)
     }
 
     int result = mmenu(options, count, prompt);
-    printf("\\nMMENU_RESULT=%d\\n", result);
+    printf("\nMMENU_RESULT=%d\n", result);
     return 0;
 }

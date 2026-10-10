@@ -109,7 +109,7 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 {
     if (previous == L'/' || previous == L'\\' || previous == L'_' ||
         previous == L'-' || previous == L'.' || previous == L' ' ||
-        previous == L':' || previous == L'\\t')
+        previous == L':' || previous == L'\t')
         return 1;
     return previous >= L'a' && previous <= L'z' &&
            current >= L'A' && current <= L'Z';
@@ -129,7 +129,7 @@ static int FuzzyScore(const char *candidate, const wchar_t *query,
     mbstate_t state = {0};
     const char *cursor = candidate;
 
-    while (*cursor && query_pos < query_len) {
+    while (*cursor) {
         wchar_t current;
         size_t bytes = mbrtowc(&current, cursor, MB_CUR_MAX, &state);
         if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)

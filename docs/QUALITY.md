@@ -45,7 +45,10 @@ the test to fit the fixed-size input buffer.
 
 ## Performance interpretation
 
-The benchmark uses deterministic data and checks output counts. Its timing output is for
-trend analysis. Before adding a hard performance-regression threshold, collect repeated
-baseline measurements on the same runner and define a defensible threshold accounting for
-run-to-run variation. Never claim a regression from one noisy sample.
+The benchmark uses deterministic data and validates output counts. The CI comparison
+builds the PR base revision and candidate with the same GCC flags on the same runner, then
+takes five samples per implementation at 100k and 1m records and compares medians. A
+candidate more than 2x slower at either size fails the gate. This is a deliberately coarse
+guard against severe regressions, not a guarantee against smaller regressions; artifacts
+retain the raw single-run sweep and comparison medians. Never claim a regression from one
+noisy sample.

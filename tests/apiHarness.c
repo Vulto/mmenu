@@ -47,12 +47,18 @@ int main(int argc, char **argv)
     int ascii_mode = argc > 1 && strcmp(argv[1], "ascii") == 0;
     int invalid_utf8_mode = argc > 1 && strcmp(argv[1], "invalid-utf8") == 0;
     int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
-    int fuzzy_mode = argc > 1 && strcmp(argv[1], "fuzzy") == 0;
+    int fuzzy_mode = argc > 1 && strncmp(argv[1], "fuzzy", 5) == 0;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
     } else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) {
         count = 0;
+    } else if (argc > 1 && strcmp(argv[1], "fuzzy-narrow") == 0) {
+        if (!SetTerminalSize(2, 8)) return 2;
+        narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "fuzzy-tiny") == 0) {
+        if (!SetTerminalSize(1, 1)) return 2;
+        narrow_mode = 1;
     } else if (argc > 1 && strcmp(argv[1], "narrow") == 0) {
         if (!SetTerminalSize(2, 8)) return 2;
         narrow_mode = 1;
@@ -124,6 +130,8 @@ int main(int argc, char **argv)
 
     int result;
     if (many_mode) result = mmenu(many_options, count, prompt);
+    else if (narrow_mode && fuzzy_mode)
+        result = mmenuEx(narrow_options, 3, prompt, MMENU_FUZZY);
     else if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
     else if (invalid_utf8_mode) result = mmenu(invalid_utf8_options, 2, prompt);
     else if (invalid_prompt_mode) result = mmenu(ascii_options, 3, invalid_prompt);

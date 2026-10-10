@@ -80,7 +80,8 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     if (!scr) { fclose(tty); fprintf(stderr, "Failed to init ncurses\n"); return -1; }
     set_term(scr);
 
-    cbreak(); noecho(); keypad(stdscr, TRUE);
+    /* raw() disables terminal-generated SIGINT so Ctrl-C reaches wget_wch and can cancel cleanly. */
+    raw(); noecho(); keypad(stdscr, TRUE);
     signal(SIGWINCH, handle_resize);
 
     int rows, cols; getmaxyx(stdscr, rows, cols);

@@ -44,6 +44,9 @@ jobs:
           fi
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c -lncursesw
+          $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c tests/apiHarness.c -o build/apiHarness-allocfail.o
+          $CC $CFLAGS -c tests/allocFail.c -o build/allocFail-api.o
+          $CC $CFLAGS -o build/api-test-allocfail build/apiHarness-allocfail.o build/allocFail-api.o -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c main.c -o build/main-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail.o
           $CC $CFLAGS -o build/mmenu-allocfail build/main-allocfail.o build/allocFail.o -lncursesw
@@ -57,7 +60,7 @@ jobs:
         run: sh tests/cli.sh build/mmenu
       - name: Interactive C API regression suite
         if: always() && steps.compile.outcome == 'success'
-        run: sh tests/interactive.sh build/api-test
+        run: sh tests/interactive.sh build/api-test build/api-test-allocfail
       - name: Allocation-failure injection
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/allocation-failure.sh build/mmenu-allocfail

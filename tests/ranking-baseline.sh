@@ -95,7 +95,7 @@ if ! cmp -s "$Expected" "$TmpDir/mmenu.actual"; then
 fi
 awk -F, 'BEGIN { OFS = "," } $1 == "mmenu-fuzzy" { print $2, $4, $5, $6, $7, $8 }' "$Out" > "$TmpDir/mmenu-fuzzy.actual"
 FuzzyExpected=tests/fixtures/ranking-mmenu-fuzzy.expected.csv
-if [ -f "$FuzzyExpected" ] && ! cmp -s "$FuzzyExpected" "$TmpDir/mmenu-fuzzy.actual"; then
+if ! cmp -s "$FuzzyExpected" "$TmpDir/mmenu-fuzzy.actual"; then
     printf 'mmenu fuzzy ranking baseline changed; inspect metrics before updating the golden file.\n' >&2
     diff -u "$FuzzyExpected" "$TmpDir/mmenu-fuzzy.actual" >&2 || true
     exit 1

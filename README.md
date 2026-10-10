@@ -21,7 +21,7 @@ mmenu --filter=QUERY [-t]
 mmenu -f QUERY [-t]
 ```
 
-Batch mode emits case-insensitive contiguous-substring matches in input order. An empty
+Batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. An empty
 query matches every input record; an empty input is valid. Batch mode is byte-oriented and
 preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII

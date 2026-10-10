@@ -17,13 +17,14 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   against grep's fixed-string oracle.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; pseudo-terminal tests cover NULL prompts and SIGWINCH resize events.
-- Allocation-failure injection deterministically fails the first three CLI-owned
-  arena/list allocations and requires a diagnostic and a non-crashing nonzero exit.
-- The public C API is fault-injected at initial filter allocation, filter-list growth
-  beyond 128 options, initial and post-filter rendering, non-empty and empty-query
-  conversion, and incremental-filter allocation. Fatal allocation failures must return
-  `-1`, emit a diagnostic, and clean up ncurses rather than terminating the host process;
-  failure to allocate the incremental filter must safely fall back to a full filter.
+- Allocation-failure injection sweeps every wrapped CLI allocation reached by small input,
+  a >1 MiB record, and a multi-megabyte corpus that forces arena/list growth. Each injected
+  failure must produce a diagnostic and a non-crashing nonzero exit.
+- The public C API allocation sweep first counts allocations in representative scenarios,
+  then fails each allocation index in turn under ASan/UBSan. It covers filter-list growth,
+  rendering, ASCII/Unicode query conversion, and incremental-filter fallback. Fatal failures
+  must return `-1`, emit diagnostics, and clean up ncurses rather than terminating the host
+  process; incremental-filter allocation failure must safely fall back to a full filter.
 - Repeated C API calls are tested after normal selection, cancellation, and an injected
   allocation failure to verify terminal/resource cleanup and state reset.
 - Locale tests cover ASCII case-insensitive matching under `C` and `C.UTF-8`, exact-byte
@@ -57,8 +58,8 @@ The suite covers CLI batch filtering, a deterministic generated differential cor
 ncurses interaction through a pseudo-terminal (including navigation bounds, cancellation,
 repeated query edits, Backspace, Unicode input, resize-triggered redraws, 2x8 clipping, and
 a 1x1 terminal), compiler/runtime health, and memory checks
-for batch and interactive paths. Allocation fault injection covers each explicit allocation
-path in the C API, including its incremental-filter fallback; it does not intercept
+for batch and interactive paths. Allocation fault injection sweeps all wrapped allocation
+calls reached by the representative CLI and C API scenarios; it does not intercept
 allocations internal to ncurses or the C library. More exhaustive terminal-width/redraw-geometry assertions across additional terminal types
 and broader fuzzing beyond the deterministic property corpus remain open. Comparative ranking metrics are now recorded against a fixed
 judged corpus; ranking improvements still require explicit relevance judgments and review.

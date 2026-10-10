@@ -1,13 +1,24 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /* Linked only into the fault-injection build; production allocation is unchanged. */
 static size_t AllocationCalls;
+static int ReportRegistered;
+
+static void ReportAllocationCount(void)
+{
+    if (getenv("MMENU_REPORT_ALLOC_COUNT"))
+        fprintf(stderr, "MMENU_ALLOC_CALLS=%zu\n", AllocationCalls);
+}
 
 static int ShouldFailAllocation(void)
 {
+    if (!ReportRegistered && getenv("MMENU_REPORT_ALLOC_COUNT")) {
+        if (atexit(ReportAllocationCount) == 0) ReportRegistered = 1;
+    }
     const char *value = getenv("MMENU_FAIL_ALLOC_AT");
     char *end = NULL;
     unsigned long long target;

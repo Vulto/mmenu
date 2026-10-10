@@ -2,7 +2,7 @@
 
 ## Matching contract
 
-`mmenu --filter QUERY` performs case-insensitive **contiguous substring** matching and
+`mmenu --filter QUERY` performs ASCII-case-insensitive **contiguous substring** matching and
 emits matches in original input order. It does not perform subsequence fuzzy matching or
 score/rank candidates. The C API uses the same matcher while narrowing the visible list.
 These are compatibility semantics, not a claim that input order is a relevance ranking.

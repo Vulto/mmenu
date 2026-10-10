@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "main", "qa/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mmenu-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.compiler }} / ${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        mode: [release, sanitizers]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ncurses-dev valgrind
+      - name: Compile with strict diagnostics
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          mkdir -p build
+          if [ "${{ matrix.mode }}" = sanitizers ]; then
+            CFLAGS="-O1 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=address,undefined"
+          else
+            CFLAGS="-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror"
+          fi
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
+      - name: CLI regression suite
+        run: sh tests/cli.sh build/mmenu
+      - name: Valgrind memory checks
+        if: matrix.compiler == 'gcc' && matrix.mode == 'release'
+        run: valgrind --quiet --error-exitcode=99 --leak-check=full --show-leak-kinds=all build/mmenu --filter needle < tests/fixtures/basic.txt > /dev/null
+      - name: Sanitizer regression suite
+        if: matrix.mode == 'sanitizers'
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: sh tests/cli.sh build/mmenu
+      - name: Performance measurements
+        if: matrix.compiler == 'gcc' && matrix.mode == 'release'
+        run: sh tests/benchmark.sh build/mmenu build/performance.csv
+      - name: Upload performance results
+        if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmenu-performance-${{ github.sha }}
+          path: build/performance.csv
+          if-no-files-found: ignore

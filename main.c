@@ -113,8 +113,8 @@ static void lines_free(lines_t *l) {
 
 static void print_usage(FILE *out) {
     fprintf(out,
-        "Usage: mmenu [PROMPT] [t|true] [-t]\n"
-        "       mmenu [--fuzzy | --exact] [PROMPT] [-t]\n"
+        "Usage: mmenu [PROMPT] [t|true] [-t] [--read0] [--print0]\n"
+        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--read0] [--print0]\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"

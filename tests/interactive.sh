@@ -3,6 +3,7 @@
 set -eu
 
 Bin=${1:-./build/api-test}
+AllocBin=${2:-./build/api-test-allocfail}
 TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM
 Failures=0
@@ -62,6 +63,26 @@ CheckApiContract() {
 CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
+
+CheckApiAllocationFailure() {
+    At=$1
+    if ! { sleep 0.2; printf '\\n'; } | env MMENU_FAIL_ALLOC_AT="$At" TERM=xterm timeout 5s script -q -e -c "$AllocBin many" /dev/null > "$TmpDir/alloc-output" 2> "$TmpDir/alloc-error"; then
+        printf 'FAIL: API allocation failure %s did not exit cleanly\\n' "$At" >&2
+        cat "$TmpDir/alloc-error" >&2
+        Failures=$((Failures + 1))
+    elif ! grep -aFq 'MMENU_RESULT=-1' "$TmpDir/alloc-output" ||
+         ! grep -aFq 'mmenu:' "$TmpDir/alloc-error"; then
+        printf 'FAIL: API allocation failure %s omitted result or diagnostic\\n' "$At" >&2
+        cat "$TmpDir/alloc-error" >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: API allocation failure %s returns safely with diagnostic\\n' "$At"
+    fi
+}
+
+CheckApiAllocationFailure 1
+CheckApiAllocationFailure 2
+CheckApiAllocationFailure 3
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\n' resize
 

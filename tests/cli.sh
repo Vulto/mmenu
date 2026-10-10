@@ -116,7 +116,7 @@ fi
 
 # Option parsing: documented aliases, ordering, and malformed combinations.
 printf 'alpha needle\nbeta needle\n' > "$TmpDir/options"
-printf '0\n' > "$TmpDir/expected"
+printf '0\n1\n' > "$TmpDir/expected"
 "$Bin" -t --filter needle < "$TmpDir/options" > "$TmpDir/actual"
 CheckEqual 'index flag before filter flag' "$TmpDir/expected" "$TmpDir/actual"
 "$Bin" --filter needle -t < "$TmpDir/options" > "$TmpDir/actual"

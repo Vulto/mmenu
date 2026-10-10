@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["master", "main", "qa/**"]
+    branches: ["master", "main"]
   pull_request:
   workflow_dispatch:
 
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mmenu-ci-${{ github.ref }}
+  group: mmenu-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

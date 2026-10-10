@@ -19,6 +19,8 @@ Batch filtering does not open ncurses:
 mmenu --filter QUERY [-t]
 mmenu --filter=QUERY [-t]
 mmenu -f QUERY [-t]
+mmenu --fuzzy [PROMPT] [-t]
+mmenu --fuzzy --filter QUERY [-t]
 ```
 
 Batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. An empty
@@ -26,7 +28,12 @@ query matches every input record; an empty input is valid. Batch mode is byte-or
 preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
 case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
-Unknown options, duplicate filter options, and unexpected positional arguments exit with
+The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
+results by early, adjacent, and word-boundary matches; ties retain input order. In fuzzy
+batch mode, use `--fuzzy --filter QUERY` (or `-f QUERY`); `-t` emits original input
+indexes in ranked order. Fuzzy mode requires valid multibyte query text; invalid multibyte
+candidate records are ignored. Without `--fuzzy`, the original substring behavior is
+unchanged. Unknown options, duplicate filter options, and unexpected positional arguments exit with
 status 2. Embedded NUL bytes and stdin/stdout I/O errors exit with status 1.
 
 Example:
@@ -38,9 +45,9 @@ find . -type f | mmenu -f .c -t
 ```
 
 ## For C programs
-The main (mmenu) function takes 3 inputs, the options, (similar to argv), the length of the options (similar to argc),
+The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
 and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
-The -lncurses flag is required at compilation. An example may look like:
+For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
 
 ```c
 #include "mmenu.h"
@@ -93,7 +100,7 @@ locate -r '\.c$' | mmenu --filter "mmenu"
 
 Performance is measured by the repeatable harnesses in `tests/benchmark.sh` and `tests/performance-regression.sh`. Ranking quality is measured separately by MRR, NDCG@5, and Recall@5 against a deterministic judged corpus, with `fzf`, `skim`, and `fzy` recorded as fuzzy-matching references. These tools use different matching semantics, so the reports explicitly separate throughput from relevance quality. See [the benchmark methodology](docs/BENCHMARKS.md) for the contract and interpretation.
 
-The original simple substring (now case-insensitive) behavior is preserved for backward compatibility. No fuzzy scoring was added in this round (kept minimal); the focus was raw speed for the existing filter model.
+The original substring behavior remains the default for backward compatibility. Fuzzy matching is explicitly opt-in through `--fuzzy` or the `mmenuEx(..., MMENU_FUZZY)` C API.
 
 ## Notes
 - Requires ncursesw (`-lncursesw` when linking the C API).

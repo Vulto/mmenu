@@ -114,12 +114,15 @@ static void lines_free(lines_t *l) {
 static void print_usage(FILE *out) {
     fprintf(out,
         "Usage: mmenu [PROMPT] [t|true] [-t]\n"
+        "       mmenu [--fuzzy] [PROMPT] [-t]\n"
+        "       mmenu [--fuzzy] --filter QUERY [-t]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t]\n"
         "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
         "second positional argument t or true, and the -t flag, print the selected\n"
-        "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n");
+        "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
+        "--fuzzy enables subsequence matching and score-ranked results in interactive and batch modes.\n");
 }
 
 static int argument_error(const char *message) {
@@ -145,6 +148,7 @@ int main(int argc, char **argv) {
     /* Parse arguments before reading stdin so malformed invocations fail promptly. */
     const char *filter_query = NULL;
     int filter_seen = 0;
+    int fuzzy_mode = 0;
     int output_index = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -154,6 +158,10 @@ int main(int argc, char **argv) {
         if (!strcmp(arg, "--help") || !strcmp(arg, "-h")) {
             print_usage(stdout);
             return flush_stdout();
+        }
+        if (!strcmp(arg, "--fuzzy")) {
+            fuzzy_mode = 1;
+            continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
             if (filter_seen)
@@ -227,17 +235,45 @@ int main(int argc, char **argv) {
 
     /* Non-interactive fast path: outputs matching lines or original indexes. */
     if (filter_query != NULL) {
-        for (int i = 0; i < opts.count; i++) {
-            if (strcasestr(opts.lines[i], filter_query)) {
-                if (output_index) printf("%d\n", i);
-                else printf("%s\n", opts.lines[i]);
+        if (fuzzy_mode) {
+            setlocale(LC_ALL, "");
+            errno = 0;
+            wchar_t *query = mb_to_wc(filter_query);
+            if (!query) {
+                if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
+                else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
+                lines_free(&opts);
+                return EXIT_FAILURE;
+            }
+            FuzzyMatch *matches = NULL;
+            int match_count = 0;
+            if (!FuzzyCollect((const char *const *)opts.lines, opts.count,
+                              query, &matches, &match_count)) {
+                free(query);
+                lines_free(&opts);
+                return EXIT_FAILURE;
+            }
+            for (int i = 0; i < match_count; i++) {
+                int index = matches[i].index;
+                if (output_index) printf("%d\n", index);
+                else printf("%s\n", opts.lines[index]);
+            }
+            free(matches);
+            free(query);
+        } else {
+            for (int i = 0; i < opts.count; i++) {
+                if (strcasestr(opts.lines[i], filter_query)) {
+                    if (output_index) printf("%d\n", i);
+                    else printf("%s\n", opts.lines[i]);
+                }
             }
         }
         lines_free(&opts);
         return flush_stdout();
     }
 
-    int chosen = mmenu((const char *const *)opts.lines, opts.count, prompt);
+    int chosen = mmenuEx((const char *const *)opts.lines, opts.count, prompt,
+                         fuzzy_mode ? MMENU_FUZZY : 0);
 
     if (chosen == -1) {
         printf("\n");

@@ -23,13 +23,14 @@ printf 'tool,query_id,candidates,matched,relevant,mrr,ndcg_at_5,recall_at_5,elap
     printf 'revision=%s\n' "${GITHUB_SHA:-unknown}"
     printf 'host=%s\n' "$(uname -a)"
     printf 'metric_definition=MRR;NDCG@5 with gain 2^grade-1;Recall@5 over all judged relevant candidates\n'
-    printf 'mmenu_semantics=case-insensitive contiguous substring matching; preserves input order; no fuzzy ranking\n'
+    printf 'mmenu_semantics=ASCII-case-insensitive contiguous substring matching; preserves input order\n'
+    printf 'mmenu_fuzzy_semantics=ASCII-case-insensitive subsequence matching; boundary/adjacency scoring; score-ranked with stable ties\n'
     printf 'reference_semantics=fuzzy subsequence matching with tool-specific scoring and ranking; versions recorded per row\n'
 } > "$Out.metadata.txt"
 
-for Tool in mmenu fzf skim fzy; do
+for Tool in mmenu mmenu-fuzzy fzf skim fzy; do
     case "$Tool" in
-        mmenu) Version=${GITHUB_SHA:-unknown} ;;
+        mmenu|mmenu-fuzzy) Version=${GITHUB_SHA:-unknown} ;;
         fzf) Version=$(fzf --version 2>&1 | head -n 1 || true) ;;
         skim) Version=$(sk --version 2>&1 | head -n 1 || true) ;;
         fzy) Version=$(fzy --version 2>&1 | head -n 1 || true) ;;
@@ -44,6 +45,12 @@ for Tool in mmenu fzf skim fzy; do
         Start=$(date +%s%N)
         if [ "$Tool" = mmenu ]; then
             if /usr/bin/time -f '%M' -o "$TmpDir/rss" "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/result"; then
+                Status=0
+            else
+                Status=$?
+            fi
+        elif [ "$Tool" = mmenu-fuzzy ]; then
+            if /usr/bin/time -f '%M' -o "$TmpDir/rss" "$Bin" --fuzzy --filter "$Query" < "$TmpDir/input" > "$TmpDir/result"; then
                 Status=0
             else
                 Status=$?
@@ -84,6 +91,13 @@ awk -F, 'BEGIN { OFS = "," } $1 == "mmenu" { print $2, $4, $5, $6, $7, $8 }' "$O
 if ! cmp -s "$Expected" "$TmpDir/mmenu.actual"; then
     printf 'mmenu ranking baseline changed; inspect metrics before updating the golden file.\n' >&2
     diff -u "$Expected" "$TmpDir/mmenu.actual" >&2 || true
+    exit 1
+fi
+awk -F, 'BEGIN { OFS = "," } $1 == "mmenu-fuzzy" { print $2, $4, $5, $6, $7, $8 }' "$Out" > "$TmpDir/mmenu-fuzzy.actual"
+FuzzyExpected=tests/fixtures/ranking-mmenu-fuzzy.expected.csv
+if ! cmp -s "$FuzzyExpected" "$TmpDir/mmenu-fuzzy.actual"; then
+    printf 'mmenu fuzzy ranking baseline changed; inspect metrics before updating the golden file.\n' >&2
+    diff -u "$FuzzyExpected" "$TmpDir/mmenu-fuzzy.actual" >&2 || true
     exit 1
 fi
 

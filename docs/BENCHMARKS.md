@@ -3,9 +3,11 @@
 ## Matching contract
 
 `mmenu --filter QUERY` performs ASCII-case-insensitive **contiguous substring** matching and
-emits matches in original input order. It does not perform subsequence fuzzy matching or
-score/rank candidates. The C API uses the same matcher while narrowing the visible list.
-These are compatibility semantics, not a claim that input order is a relevance ranking.
+emits matches in original input order. The default C API behaves the same. Opt-in
+`--fuzzy --filter QUERY` and `mmenuEx(..., MMENU_FUZZY)` use ASCII-case-insensitive
+subsequence matching, rewarding early, adjacent, and word-boundary matches and sorting by
+score with stable input-order ties. The fuzzy score is a practical heuristic, not a learned
+relevance model.
 
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
 synthetic path-like corpus with manually assigned relevance grades. It is an initial
@@ -25,7 +27,8 @@ The ranking baseline records:
   relevant candidates in that query's judgments.
 - **Matched count**, candidate count, tool version, elapsed nanoseconds, and peak RSS in KiB.
 
-The golden file `tests/fixtures/ranking-mmenu.expected.csv` locks the current `mmenu`
+The golden files `tests/fixtures/ranking-mmenu.expected.csv` and
+`tests/fixtures/ranking-mmenu-fuzzy.expected.csv` lock the default and fuzzy `mmenu`
 metrics. Changes require reviewing the changed output and relevance judgments; never
 update the golden file merely to make a failing test pass. `fzf`, `skim` (`sk`), and
 `fzy` are evaluated on the same candidate order and judgments. Their fuzzy matching and
@@ -41,6 +44,7 @@ skim 5.7.4, and fzy 1.0. Mean metrics across the four fixed query groups were:
 | Tool | Mean MRR | Mean NDCG@5 | Mean Recall@5 |
 |---|---:|---:|---:|
 | mmenu (substring, input order) | 0.5000 | 0.2083 | 0.2708 |
+| mmenu (fuzzy, stable ties) | 1.0000 | 0.8878 | 0.8750 |
 | fzf 0.44.1 | 1.0000 | 0.8878 | 0.8750 |
 | skim 5.7.4 | 1.0000 | 0.8878 | 0.8750 |
 | fzy 1.0 | 1.0000 | 0.8529 | 0.8750 |
@@ -53,14 +57,15 @@ not a claim that these four queries represent all user searches.
 | Query group | Tool | MRR | NDCG@5 | Recall@5 |
 |---|---|---:|---:|---:|
 | menu | mmenu | 1.0000 | 0.6084 | 0.8333 |
-| menu | fzf / skim / fzy | 1.0000 | 0.8273 | 0.8333 |
+| menu | mmenu-fuzzy / fzf / skim | 1.0000 | 0.8273 | 0.8333 |
+| menu | fzy | 1.0000 | 0.8273 | 0.8333 |
 | mmh | mmenu | 0.0000 | 0.0000 | 0.0000 |
-| mmh | fzf / skim / fzy | 1.0000 | 0.8839 | 0.6667 |
+| mmh | mmenu-fuzzy / fzf / skim / fzy | 1.0000 | 0.8839 | 0.6667 |
 | tst | mmenu | 0.0000 | 0.0000 | 0.0000 |
-| tst | fzf / skim | 1.0000 | 0.9896 | 1.0000 |
+| tst | mmenu-fuzzy / fzf / skim | 1.0000 | 0.9896 | 1.0000 |
 | tst | fzy | 1.0000 | 0.8502 | 1.0000 |
 | cfg | mmenu | 1.0000 | 0.2248 | 0.2500 |
-| cfg | fzf / skim / fzy | 1.0000 | 0.8502 | 1.0000 |
+| cfg | mmenu-fuzzy / fzf / skim / fzy | 1.0000 | 0.8502 | 1.0000 |
 
 The reference versions in that run were fzf 0.44.1, skim 5.7.4, and fzy 1.0. The tiny
 ranking benchmark also records elapsed time and RSS per invocation, but those measurements

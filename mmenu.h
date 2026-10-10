@@ -24,11 +24,18 @@
 #include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
+
+/* MMENU_FUZZY enables subsequence matching and score-ranked results. */
+enum { MMENU_FUZZY = 1u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
-   Matching is ASCII-case-insensitive; non-ASCII bytes are matched exactly.
-   Invalid multibyte strings return -1 before ncurses/terminal initialization. */
+   Default matching is ASCII-case-insensitive substring matching; non-ASCII
+   characters are matched exactly. MMENU_FUZZY enables ranked subsequence
+   matching. Invalid multibyte strings return -1 before terminal initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
+int mmenuEx(const char *const *options, int n_options, const char *prompt,
+            unsigned int flags);
 
 #endif /* MMENU_H */
 
@@ -88,6 +95,137 @@ static char *wc_to_mb(const wchar_t *w) {
 
 typedef struct { int *indices; int cap; int count; } filt;
 
+typedef struct {
+    int index;
+    long long score;
+} FuzzyMatch;
+
+static wchar_t FoldAscii(wchar_t ch)
+{
+    return ch >= L'A' && ch <= L'Z' ? ch + (L'a' - L'A') : ch;
+}
+
+static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
+{
+    if (previous == L'/' || previous == L'\\' || previous == L'_' ||
+        previous == L'-' || previous == L'.' || previous == L' ' ||
+        previous == L':' || previous == L'\t')
+        return 1;
+    return previous >= L'a' && previous <= L'z' &&
+           current >= L'A' && current <= L'Z';
+}
+
+/* Greedy subsequence score: reward early, word-boundary, and adjacent matches;
+   penalize leading and internal gaps. Invalid multibyte candidates do not match. */
+static int FuzzyScore(const char *candidate, const wchar_t *query,
+                      long long *result)
+{
+    size_t query_len = wcslen(query);
+    size_t query_pos = 0;
+    size_t candidate_pos = 0;
+    size_t last_match = SIZE_MAX;
+    wchar_t previous = 0;
+    long long score = 0;
+    mbstate_t state = {0};
+    const char *cursor = candidate;
+
+    while (*cursor) {
+        wchar_t current;
+        size_t bytes = mbrtowc(&current, cursor, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)
+            return 0;
+
+        if (query_pos < query_len &&
+            FoldAscii(current) == FoldAscii(query[query_pos])) {
+            score += 10;
+            if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
+                score += 8;
+            if (last_match == SIZE_MAX) {
+                if (candidate_pos > (size_t)LLONG_MAX)
+                    score = LLONG_MIN / 2;
+                else
+                    score -= (long long)candidate_pos;
+            } else {
+                size_t gap = candidate_pos - last_match - 1;
+                if (gap == 0) score += 15;
+                else if (gap > (size_t)LLONG_MAX / 4)
+                    score = LLONG_MIN / 2;
+                else score -= (long long)gap;
+            }
+            last_match = candidate_pos;
+            query_pos++;
+        }
+
+        previous = current;
+        candidate_pos++;
+        cursor += bytes;
+    }
+
+    if (query_pos != query_len) return 0;
+    *result = score;
+    return 1;
+}
+
+static int CompareFuzzyMatches(const void *left, const void *right)
+{
+    const FuzzyMatch *a = left;
+    const FuzzyMatch *b = right;
+    if (a->score > b->score) return -1;
+    if (a->score < b->score) return 1;
+    return (a->index > b->index) - (a->index < b->index);
+}
+
+/* Returns score-ranked matching indices; ties retain original input order. */
+static int FuzzyCollect(const char *const *options, int n_options,
+                        const wchar_t *query, FuzzyMatch **result,
+                        int *result_count)
+{
+    FuzzyMatch *matches = NULL;
+    int count = 0;
+    int capacity = 0;
+
+    *result = NULL;
+    *result_count = 0;
+
+    for (int i = 0; i < n_options; i++) {
+        long long score;
+        if (!FuzzyScore(options[i], query, &score)) continue;
+
+        if (count == capacity) {
+            if (capacity > INT_MAX / 2) {
+                free(matches);
+                errno = ENOMEM;
+                perror("mmenu: fuzzy result capacity");
+                return 0;
+            }
+            int new_capacity = capacity ? capacity * 2 : INITIAL_CAP;
+            if ((size_t)new_capacity > SIZE_MAX / sizeof(*matches)) {
+                free(matches);
+                errno = ENOMEM;
+                perror("mmenu: fuzzy result capacity");
+                return 0;
+            }
+            FuzzyMatch *new_matches =
+                realloc(matches, (size_t)new_capacity * sizeof(*matches));
+            if (!new_matches) {
+                if (errno == 0) errno = ENOMEM;
+                perror("mmenu: growing fuzzy results");
+                free(matches);
+                return 0;
+            }
+            matches = new_matches;
+            capacity = new_capacity;
+        }
+        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+    }
+
+    if (count > 1)
+        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+    *result = matches;
+    *result_count = count;
+    return 1;
+}
+
 static int filt_init(filt *f) {
     f->cap = INITIAL_CAP;
     f->count = 0;
@@ -122,8 +260,13 @@ static int filt_push(filt *f, int idx) {
 
 static void filt_clear(filt *f) { f->count = 0; }
 
-int mmenu(const char *const *options, int n_options, const char *prompt) {
+int mmenuEx(const char *const *options, int n_options, const char *prompt,
+            unsigned int flags) {
     /* Validate the public API before touching the terminal or initializing ncurses. */
+    if (flags & ~MMENU_FUZZY) {
+        fprintf(stderr, "mmenu: unsupported API flags\\n");
+        return -1;
+    }
     if (n_options < 0) {
         fprintf(stderr, "mmenu: option count must not be negative\\n");
         return -1;
@@ -186,8 +329,24 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         for (int i = 0; i < n_options; i++) {
             if (!filt_push(&filtered, i)) goto cleanup;
         }
+    } else if (flags & MMENU_FUZZY) {
+        FuzzyMatch *matches = NULL;
+        int match_count = 0;
+        if (!FuzzyCollect(options, n_options, input, &matches, &match_count))
+            goto cleanup;
+        for (int i = 0; i < match_count; i++) {
+            if (!filt_push(&filtered, matches[i].index)) {
+                free(matches);
+                goto cleanup;
+            }
+        }
+        free(matches);
     } else {
         char *q = wc_to_mb(input);
+        if (!q && errno == ENOMEM) {
+            perror("mmenu: converting filter");
+            goto cleanup;
+        }
         if (q) {
             for (int i = 0; i < n_options; i++) {
                 if (strcasestr(options[i], q) && !filt_push(&filtered, i)) {
@@ -259,6 +418,20 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         }
 
         if (need_filter) {
+            if (flags & MMENU_FUZZY) {
+                FuzzyMatch *matches = NULL;
+                int match_count = 0;
+                if (!FuzzyCollect(options, n_options, input, &matches, &match_count))
+                    goto cleanup;
+                filt_clear(&filtered);
+                for (int i = 0; i < match_count; i++) {
+                    if (!filt_push(&filtered, matches[i].index)) {
+                        free(matches);
+                        goto cleanup;
+                    }
+                }
+                free(matches);
+            } else {
             errno = 0;
             char *q = wc_to_mb(input);
             if (!q && errno == ENOMEM) {
@@ -317,8 +490,10 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
                 }
             }
             if (q) free(q);
+
+            }
             prev_input_len = input_len;
-            selection = filtered.count > 0 ? 0 : 0;
+            selection = 0;
             top = 0;
         }
 
@@ -366,6 +541,11 @@ cleanup:
     delscreen(scr);
     fclose(tty);
     return ret;
+}
+
+int mmenu(const char *const *options, int n_options, const char *prompt)
+{
+    return mmenuEx(options, n_options, prompt, 0);
 }
 
 #endif /* MMENU_IMPLEMENTATION */

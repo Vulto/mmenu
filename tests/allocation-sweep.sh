@@ -22,7 +22,13 @@ Fail() {
 ProbeCli() {
     Name=$1
     Input=$2
-    if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter needle < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
+    Query=${3:-needle}
+    Mode=${4:-substring}
+    if [ "$Mode" = fuzzy ]; then
+        if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
+            Fail "CLI probe failed for $Name"
+        fi
+    elif ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
         Fail "CLI probe failed for $Name"
     fi
     Count=$(GetAllocationCount "$TmpDir/cli-probe.err")
@@ -33,11 +39,19 @@ ProbeCli() {
 SweepCli() {
     Name=$1
     Input=$2
-    Total=$(ProbeCli "$Name" "$Input")
+    Query=${3:-needle}
+    Mode=${4:-substring}
+    Total=$(ProbeCli "$Name" "$Input" "$Query" "$Mode")
     [ "$Total" -gt 0 ] || Fail "CLI scenario $Name did not allocate"
     At=1
     while [ "$At" -le "$Total" ]; do
-        if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter needle < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
+        if [ "$Mode" = fuzzy ]; then
+            if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
+                Status=0
+            else
+                Status=$?
+            fi
+        elif MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
             Status=0
         else
             Status=$?
@@ -100,6 +114,7 @@ awk 'BEGIN { for (i = 0; i < 1048577; i++) printf "x"; printf " needle\nshort ne
 awk 'BEGIN { for (i = 0; i < 230000; i++) printf "src/module-%06d-needle-padding-padding.c\n", i; }' > "$TmpDir/arena-growth.input"
 
 SweepCli small "$TmpDir/small.input"
+SweepCli fuzzy "$TmpDir/small.input" ndl fuzzy
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 
@@ -107,5 +122,6 @@ SweepApi many many '\n'
 SweepApi query-edit '' 'needle\n'
 SweepApi incremental-fallback '' 'n\177\n'
 SweepApi unicode-query '' 'café\n'
+SweepApi fuzzy fuzzy 'ndl\n'
 
 printf 'All exhaustive allocation-failure sweeps passed.\n'

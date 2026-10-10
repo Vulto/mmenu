@@ -31,6 +31,32 @@ CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
 CheckSelection 'Ctrl-C cancels selection' -1 '\003'
 
+
+CheckApiContract() {
+    Mode=$1
+    Diagnostic=$2
+    if ! "$Bin" "$Mode" > "$TmpDir/api-output" 2> "$TmpDir/api-error"; then
+        printf 'FAIL: API contract %s returned nonzero\\n' "$Mode" >&2
+        cat "$TmpDir/api-error" >&2
+        Failures=$((Failures + 1))
+    elif ! grep -Fq 'MMENU_API_RESULT=invalid-rejected' "$TmpDir/api-output"; then
+        printf 'FAIL: API contract %s was not rejected cleanly\\n' "$Mode" >&2
+        Failures=$((Failures + 1))
+    elif ! grep -Fq "$Diagnostic" "$TmpDir/api-error"; then
+        printf 'FAIL: API contract %s omitted diagnostic: %s\\n' "$Mode" "$Diagnostic" >&2
+        cat "$TmpDir/api-error" >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: API rejects %s before terminal initialization\\n' "$Mode"
+    fi
+}
+
+CheckApiContract invalid-null-options 'options must not be NULL'
+CheckApiContract invalid-negative-count 'option count must not be negative'
+CheckApiContract invalid-null-entry 'option 1 must not be NULL'
+CheckSelection 'NULL prompt uses the default prompt' 0 '\\n' null-prompt
+CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\\n' resize
+
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2
     exit 1

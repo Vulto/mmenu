@@ -295,7 +295,7 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
     /* Validate the public API before touching the terminal or initializing ncurses. */
     if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
-        fprintf(stderr, "mmenu: unsupported or conflicting API flags\n");
+        fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");
         return -1;
     }
     if (n_options < 0) {

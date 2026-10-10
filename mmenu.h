@@ -25,6 +25,9 @@
 #include <errno.h>
 #include <limits.h>
 
+/* Options and prompt must be valid multibyte strings in the active locale.
+   Matching is ASCII-case-insensitive; non-ASCII bytes are matched exactly.
+   Invalid multibyte strings return -1 before ncurses/terminal initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
 
 #endif /* MMENU_H */
@@ -137,6 +140,17 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
     }
 
     setlocale(LC_ALL, "");
+
+    for (int i = 0; i < n_options; i++) {
+        if (mbstowcs(NULL, options[i], 0) == (size_t)-1) {
+            fprintf(stderr, "mmenu: option %d is not valid in the current locale\n", i);
+            return -1;
+        }
+    }
+    if (prompt && mbstowcs(NULL, prompt, 0) == (size_t)-1) {
+        fprintf(stderr, "mmenu: prompt is not valid in the current locale\n");
+        return -1;
+    }
 
     FILE *tty = fopen("/dev/tty", "r+");
     if (!tty) { perror("fopen /dev/tty"); exit(EXIT_FAILURE); }

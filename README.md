@@ -22,7 +22,10 @@ mmenu -f QUERY [-t]
 ```
 
 Batch mode emits case-insensitive contiguous-substring matches in input order. An empty
-query matches every input record; an empty input is valid. `-h`/`--help` prints usage.
+query matches every input record; an empty input is valid. Batch mode is byte-oriented and
+preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
+requires valid multibyte options and prompt text in the active locale; matching folds ASCII
+case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
 Unknown options, duplicate filter options, and unexpected positional arguments exit with
 status 2. Embedded NUL bytes and stdin/stdout I/O errors exit with status 1.
 

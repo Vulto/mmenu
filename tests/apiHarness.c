@@ -31,7 +31,8 @@ int main(int argc, char **argv)
     memset(long_option, 'x', sizeof(long_option) - 1);
     long_option[sizeof(long_option) - 1] = '\0';
     const char *narrow_options[] = {long_option, "beta", "needle"};
-    const char invalid_option[] = "\\xff" "bad";
+    const char invalid_option[] = "\xff" "bad";
+    const char invalid_prompt[] = "\xff" "prompt";
     const char *invalid_utf8_options[] = {invalid_option, "alpha"};
     const char *ascii_options[] = {"alpha", "beta", "needle"};
     const char *many_options[140];
@@ -44,6 +45,7 @@ int main(int argc, char **argv)
     int narrow_mode = 0;
     int ascii_mode = argc > 1 && strcmp(argv[1], "ascii") == 0;
     int invalid_utf8_mode = argc > 1 && strcmp(argv[1], "invalid-utf8") == 0;
+    int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
@@ -102,6 +104,7 @@ int main(int argc, char **argv)
     int result;
     if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
     else if (invalid_utf8_mode) result = mmenu(invalid_utf8_options, 2, prompt);
+    else if (invalid_prompt_mode) result = mmenu(ascii_options, 3, invalid_prompt);
     else if (ascii_mode) result = mmenu(ascii_options, 3, prompt);
     else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) result = mmenu(NULL, 0, prompt);
     else result = mmenu(options, count, prompt);

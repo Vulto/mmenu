@@ -175,26 +175,30 @@ CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal st
 CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003' "$(TERM=xterm tput kcud1)\n" -1 1 normal
 CheckRepeatedCalls 'API allocation failure cleans up before the next call' '' '\n' -1 0 allocfail
 
-CheckInvalidUtf8Option() {
+CheckInvalidLocaleText() {
     Locale=$1
-    if LC_ALL="$Locale" "$Bin" invalid-utf8 > "$TmpDir/invalid-utf8-output" 2> "$TmpDir/invalid-utf8-error"; then
-        if grep -aFq 'MMENU_RESULT=-1' "$TmpDir/invalid-utf8-output" &&
-           grep -qi 'not valid in the current locale' "$TmpDir/invalid-utf8-error"; then
-            printf 'PASS: invalid UTF-8 option rejected under locale %s\n' "$Locale"
+    Mode=$2
+    Diagnostic=$3
+    if LC_ALL="$Locale" "$Bin" "$Mode" > "$TmpDir/invalid-text-output" 2> "$TmpDir/invalid-text-error"; then
+        if grep -aFq 'MMENU_RESULT=-1' "$TmpDir/invalid-text-output" &&
+           grep -qi "$Diagnostic" "$TmpDir/invalid-text-error"; then
+            printf 'PASS: %s rejected under locale %s\n' "$Mode" "$Locale"
         else
-            printf 'FAIL: invalid UTF-8 option omitted result/diagnostic under locale %s\n' "$Locale" >&2
-            cat "$TmpDir/invalid-utf8-error" >&2
+            printf 'FAIL: %s omitted result/diagnostic under locale %s\n' "$Mode" "$Locale" >&2
+            cat "$TmpDir/invalid-text-error" >&2
             Failures=$((Failures + 1))
         fi
     else
         Status=$?
-        printf 'FAIL: invalid UTF-8 option exited process under locale %s (status %s)\n' "$Locale" "$Status" >&2
-        cat "$TmpDir/invalid-utf8-error" >&2
+        printf 'FAIL: %s exited process under locale %s (status %s)\n' "$Mode" "$Locale" "$Status" >&2
+        cat "$TmpDir/invalid-text-error" >&2
         Failures=$((Failures + 1))
     fi
 }
-CheckInvalidUtf8Option C
-CheckInvalidUtf8Option C.UTF-8
+CheckInvalidLocaleText C invalid-utf8 'option 0 is not valid in the current locale'
+CheckInvalidLocaleText C.UTF-8 invalid-utf8 'option 0 is not valid in the current locale'
+CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current locale'
+CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

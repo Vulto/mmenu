@@ -23,6 +23,28 @@ CheckEqual() {
     fi
 }
 
+# Fuzzy mode is opt-in; legacy substring mode must keep its existing contract.
+printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
+printf 'src/mmh.c\nsrc/mmenu.h\nsrc/m-m-h.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter mmh < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy batch mode finds subsequences and ranks by score' "$TmpDir/expected" "$TmpDir/actual"
+printf '3\n1\n2\n' > "$TmpDir/expected"
+"$Bin" --fuzzy -f mmh -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy index mode emits original input indexes in ranked order' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nbeta\n' > "$TmpDir/input"
+printf 'alpha\nbeta\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty fuzzy query preserves input order' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --fuzzy --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'unmatched fuzzy query emits no records' /dev/null "$TmpDir/actual"
+if printf '\377bad\n' | "$Bin" --fuzzy --filter a > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid multibyte fuzzy query must be rejected'
+elif ! grep -qi 'fuzzy query is not valid' "$TmpDir/stderr"; then
+    Fail 'invalid multibyte fuzzy query must explain the error'
+else
+    Pass 'invalid multibyte fuzzy query is rejected'
+fi
+
 printf 'alpha needle omega\nNeedle uppercase\nnothing here\nneedle\nneedle\n\nfinal needle' > "$TmpDir/input"
 printf 'alpha needle omega\nNeedle uppercase\nneedle\nneedle\nfinal needle\n' > "$TmpDir/expected"
 "$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"

@@ -12,7 +12,7 @@ CheckSelection() {
     Name=$1
     Expected=$2
     Keys=$3
-    if ! { sleep 0.2; printf '%b' "$Keys"; } | TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+    if ! { sleep 0.2; printf '%b' "$Keys"; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
         printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
         cat "$TmpDir/error" >&2
         Failures=$((Failures + 1))
@@ -42,6 +42,8 @@ CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
+CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
+CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'
 CheckSelection 'Backspace clears an unmatched query' 0 'x\177\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
@@ -172,6 +174,27 @@ CheckRepeatedCalls() {
 CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n' "$(TERM=xterm tput kcud1)\n" 0 1 normal
 CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003' "$(TERM=xterm tput kcud1)\n" -1 1 normal
 CheckRepeatedCalls 'API allocation failure cleans up before the next call' '' '\n' -1 0 allocfail
+
+CheckInvalidUtf8Option() {
+    Locale=$1
+    if LC_ALL="$Locale" "$Bin" invalid-utf8 > "$TmpDir/invalid-utf8-output" 2> "$TmpDir/invalid-utf8-error"; then
+        if grep -aFq 'MMENU_RESULT=-1' "$TmpDir/invalid-utf8-output" &&
+           grep -qi 'not valid in the current locale' "$TmpDir/invalid-utf8-error"; then
+            printf 'PASS: invalid UTF-8 option rejected under locale %s\n' "$Locale"
+        else
+            printf 'FAIL: invalid UTF-8 option omitted result/diagnostic under locale %s\n' "$Locale" >&2
+            cat "$TmpDir/invalid-utf8-error" >&2
+            Failures=$((Failures + 1))
+        fi
+    else
+        Status=$?
+        printf 'FAIL: invalid UTF-8 option exited process under locale %s (status %s)\n' "$Locale" "$Status" >&2
+        cat "$TmpDir/invalid-utf8-error" >&2
+        Failures=$((Failures + 1))
+    fi
+}
+CheckInvalidUtf8Option C
+CheckInvalidUtf8Option C.UTF-8
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

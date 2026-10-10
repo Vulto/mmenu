@@ -201,6 +201,11 @@ printf 'alpha needle\r\n' > "$TmpDir/expected"
 "$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'CRLF record endings are preserved' "$TmpDir/expected" "$TmpDir/actual"
 
+printf '\377needle\n' > "$TmpDir/input"
+cp "$TmpDir/input" "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'batch mode preserves invalid UTF-8 bytes' "$TmpDir/expected" "$TmpDir/actual"
+
 printf 'alpha\000needle\n' > "$TmpDir/input"
 if "$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'embedded NUL input must be rejected'

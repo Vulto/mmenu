@@ -26,6 +26,10 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   failure to allocate the incremental filter must safely fall back to a full filter.
 - Repeated C API calls are tested after normal selection, cancellation, and an injected
   allocation failure to verify terminal/resource cleanup and state reset.
+- Locale tests cover ASCII case-insensitive matching under `C` and `C.UTF-8`, exact-byte
+  behavior for non-ASCII case differences, valid UTF-8 interaction, and invalid multibyte
+  API options under both locales. Batch mode remains byte-oriented except that embedded NUL
+  records are rejected.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
 - Valgrind checks the batch path for invalid accesses and leaks.
 - Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,

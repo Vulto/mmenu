@@ -66,14 +66,16 @@ CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 
 CheckApiAllocationFailure() {
     At=$1
-    if ! { sleep 0.2; printf '\n'; } | env MMENU_FAIL_ALLOC_AT="$At" TERM=xterm timeout 5s script -q -e -c "$AllocBin many" /dev/null > "$TmpDir/alloc-output" 2> "$TmpDir/alloc-error"; then
+    if ! env MMENU_FAIL_ALLOC_AT="$At" TERM=xterm timeout 5s script -q -e -c "$AllocBin many" /dev/null > "$TmpDir/alloc-output" 2> "$TmpDir/alloc-error"; then
         printf 'FAIL: API allocation failure %s did not exit cleanly\n' "$At" >&2
         cat "$TmpDir/alloc-error" >&2
+        tail -c 2000 "$TmpDir/alloc-output" >&2
         Failures=$((Failures + 1))
     elif ! grep -aFq 'MMENU_RESULT=-1' "$TmpDir/alloc-output" ||
-         ! grep -aFq 'mmenu:' "$TmpDir/alloc-error"; then
+         ! grep -aFq 'mmenu:' "$TmpDir/alloc-output"; then
         printf 'FAIL: API allocation failure %s omitted result or diagnostic\n' "$At" >&2
         cat "$TmpDir/alloc-error" >&2
+        tail -c 2000 "$TmpDir/alloc-output" >&2
         Failures=$((Failures + 1))
     else
         printf 'PASS: API allocation failure %s returns safely with diagnostic\n' "$At"

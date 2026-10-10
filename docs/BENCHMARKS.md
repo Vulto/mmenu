@@ -3,7 +3,7 @@
 ## Matching contract
 
 `mmenu --filter QUERY` performs ASCII-case-insensitive **contiguous substring** matching and
-emits matches in original input order. The default C API behaves the same. Opt-in
+emits matches in original input order. The default C API behaves the same. Opt-in `--exact --filter QUERY` matches whole records byte-for-byte, case-sensitively, preserving input order. The C API exposes this as `MMENU_EXACT`. Opt-in
 `--fuzzy --filter QUERY` and `mmenuEx(..., MMENU_FUZZY)` use ASCII-case-insensitive
 subsequence matching, rewarding early, adjacent, and word-boundary matches and sorting by
 score with stable input-order ties. The fuzzy score is a practical heuristic, not a learned

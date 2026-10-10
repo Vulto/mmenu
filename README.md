@@ -20,15 +20,17 @@ mmenu --filter QUERY [-t]
 mmenu --filter=QUERY [-t]
 mmenu -f QUERY [-t]
 mmenu --fuzzy [PROMPT] [-t]
+mmenu --exact [PROMPT] [-t]
 mmenu --fuzzy --filter QUERY [-t]
+mmenu --exact --filter QUERY [-t]
 ```
 
-Batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. An empty
+Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
 query matches every input record; an empty input is valid. Batch mode is byte-oriented and
 preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
 case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
-The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
+The optional `--exact` mode matches only records exactly equal to the query, including case and all bytes. An empty exact query matches only empty records. The `--exact` and `--fuzzy` modes cannot be combined. The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
 results by early, adjacent, and word-boundary matches; ties retain input order. In the
 interactive menu, matched fuzzy characters are bolded and underlined. In fuzzy
 batch mode, use `--fuzzy --filter QUERY` (or `-f QUERY`); `-t` emits original input
@@ -48,7 +50,7 @@ find . -type f | mmenu -f .c -t
 ## For C programs
 The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
 and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
-For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
+For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. These flags are mutually exclusive; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
 
 ```c
 #include "mmenu.h"
@@ -85,6 +87,8 @@ mmenu is now optimized for large piped inputs (hundreds of thousands to millions
 Options (in addition to the legacy positional prompt and `t`/`true` index argument):
 
 - `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching lines (or indices with `-t`), without initializing ncurses.
+- `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode.
+- `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
 - `-h`/`--help`: print usage.
   ```bash

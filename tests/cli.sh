@@ -23,6 +23,28 @@ CheckEqual() {
     fi
 }
 
+# Exact mode uses byte-exact whole-record equality and preserves duplicate order.
+printf 'alpha\nAlpha\nalpha beta\nalpha\n\n' > "$TmpDir/input"
+printf 'alpha\nalpha\n' > "$TmpDir/expected"
+"$Bin" --exact --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode matches whole records and preserves duplicates' "$TmpDir/expected" "$TmpDir/actual"
+printf '0\n3\n' > "$TmpDir/expected"
+"$Bin" --exact -f alpha -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode index output uses original input indexes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\n' > "$TmpDir/expected"
+"$Bin" --exact --filter Alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode is case-sensitive' "$TmpDir/expected" "$TmpDir/actual"
+printf '\n' > "$TmpDir/expected"
+"$Bin" --exact --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact empty query matches only empty records' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --exact --fuzzy --filter alpha < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'conflicting exact and fuzzy modes must fail'
+elif ! grep -Fq 'mutually exclusive' "$TmpDir/stderr"; then
+    Fail 'conflicting matching modes must explain the error'
+else
+    Pass 'conflicting matching modes are rejected'
+fi
+
 # Fuzzy mode is opt-in; legacy substring mode must keep its existing contract.
 printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
 printf 'src/mmh.c\nsrc/mmenu.h\nsrc/m-m-h.c\n' > "$TmpDir/expected"

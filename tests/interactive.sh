@@ -25,7 +25,7 @@ CheckSelection() {
 }
 
 CheckSelection 'Enter selects the first option' 0 '\n'
-CheckSelection 'Down arrow moves selection to the second option' 1 '\033[B\n'
+CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty

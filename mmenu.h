@@ -381,7 +381,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
         if (q) {
             for (int i = 0; i < n_options; i++) {
                 if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
-                     strcasestr(options[i], q) != NULL) &&\n                    !filt_push(&filtered, i)) {
+                     strcasestr(options[i], q) != NULL) &&
+                    !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
                 }
@@ -517,7 +518,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
                 } else {
                     for (int i = 0; i < n_options; i++) {
                         if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
-                         strcasestr(options[i], q) != NULL) &&\n                        !filt_push(&filtered, i)) {
+                         strcasestr(options[i], q) != NULL) &&
+                        !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
                         }

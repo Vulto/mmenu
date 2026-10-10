@@ -23,6 +23,7 @@ mmenu --fuzzy [PROMPT] [-t]
 mmenu --exact [PROMPT] [-t]
 mmenu --fuzzy --filter QUERY [-t]
 mmenu --exact --filter QUERY [-t]
+mmenu --invert-match --filter QUERY [-t]
 ```
 
 Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
@@ -30,7 +31,7 @@ query matches every input record; an empty input is valid. Batch mode is byte-or
 preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
 case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
-The optional `--exact` mode matches only records exactly equal to the query, including case and all bytes. An empty exact query matches only empty records. The `--exact` and `--fuzzy` modes cannot be combined. The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
+`--invert-match` (or `-v`) emits records that do not match the selected batch matcher, in original input order; it requires `--filter` and also supports `-t` indexes. The optional `--exact` mode matches only records exactly equal to the query, including case and all bytes. An empty exact query matches only empty records. The `--exact` and `--fuzzy` modes cannot be combined. The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
 results by early, adjacent, and word-boundary matches; ties retain input order. In the
 interactive menu, matched fuzzy characters are bolded and underlined. In fuzzy
 batch mode, use `--fuzzy --filter QUERY` (or `-f QUERY`); `-t` emits original input
@@ -88,6 +89,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 
 - `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching lines (or indices with `-t`), without initializing ncurses.
 - `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode.
+- `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
 - `-h`/`--help`: print usage.

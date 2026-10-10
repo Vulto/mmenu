@@ -69,7 +69,7 @@ CheckEqual 'large input returns all matching indexes in stable order' "$TmpDir/e
 # The generated corpus and query set are deterministic for reproducible failures.
 awk 'BEGIN {
     for (i = 0; i < 5000; i++) {
-        printf "row-%05d alpha-%d Needle-%d punctuation.[x] Z9\\n", i, i % 17, i % 31;
+        printf "row-%05d alpha-%d Needle-%d punctuation.[x] Z9\n", i, i % 17, i % 31;
     }
 }' > "$TmpDir/input"
 for Query in alpha-3 needle 'punctuation.[x]' Z9 missing; do

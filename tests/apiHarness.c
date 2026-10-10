@@ -15,13 +15,15 @@
 
 int main(int argc, char **argv)
 {
-    const char *options[] = {"alpha", "beta", "needle"};
+    const char *options[] = {"alpha", "beta", "needle", "café-日本語"};
     const char *null_entry_options[] = {"alpha", NULL, "needle"};
-    int count = 3;
+    int count = 4;
     const char *prompt = "test> ";
     pid_t resize_child = -1;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
+        count = 0;
+    } else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) {
         count = 0;
     } else if (argc > 1 && strcmp(argv[1], "resize") == 0) {
         resize_child = fork();
@@ -52,7 +54,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    int result = mmenu(options, count, prompt);
+    int result = (argc > 1 && strcmp(argv[1], "null-empty") == 0) ? mmenu(NULL, 0, prompt) : mmenu(options, count, prompt);
     printf("\nMMENU_RESULT=%d\n", result);
     return 0;
 }

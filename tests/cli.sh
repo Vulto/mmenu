@@ -113,6 +113,115 @@ else
     Pass 'missing --filter query is rejected with an argument diagnostic'
 fi
 
+
+# Option parsing: documented aliases, ordering, and malformed combinations.
+printf 'alpha needle\nbeta needle\n' > "$TmpDir/options"
+printf '0\n' > "$TmpDir/expected"
+"$Bin" -t --filter needle < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'index flag before filter flag' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter needle -t < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'index flag after filter flag' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter=needle < "$TmpDir/options" > "$TmpDir/actual"
+printf 'alpha needle\nbeta needle\n' > "$TmpDir/expected"
+CheckEqual 'equals form of long filter option' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter= < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'equals form accepts an empty query' "$TmpDir/options" "$TmpDir/actual"
+
+CheckRejectedArgs() {
+    Name=$1
+    shift
+    if "$Bin" "$@" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "$Name must be rejected"
+    else
+        Status=$?
+        if [ "$Status" -ne 2 ] || ! grep -qi 'argument\|option\|usage' "$TmpDir/stderr"; then
+            printf 'FAIL: %s expected status 2 and an argument diagnostic, got %s\n' "$Name" "$Status" >&2
+            cat "$TmpDir/stderr" >&2
+            Fail "$Name"
+        else
+            Pass "$Name"
+        fi
+    fi
+}
+CheckRejectedArgs 'unknown option is rejected' --bogus
+CheckRejectedArgs 'duplicate filter options are rejected' --filter needle -f other
+CheckRejectedArgs 'positional prompt is rejected in batch mode' --filter needle prompt
+CheckRejectedArgs 'extra positional argument is rejected' prompt extra
+CheckRejectedArgs 'filter-like unknown option is rejected' --filterx needle
+
+# Legacy interactive positional index mode remains supported by the documented CLI.
+CheckInteractiveIndexMode() {
+    Name=$1
+    shift
+    printf 'alpha\nbeta\n' > "$TmpDir/options"
+    printf '0\n' > "$TmpDir/expected"
+    if ! printf '\n' | TERM=xterm timeout 5s script -q -e -c "$Bin $* < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+        printf 'FAIL: %s did not exit cleanly\n' "$Name" >&2
+        cat "$TmpDir/stderr" >&2
+        Fail "$Name"
+    else
+        CheckEqual "$Name" "$TmpDir/expected" "$TmpDir/selected"
+    fi
+}
+CheckInteractiveIndexMode 'legacy positional t selects index output' prompt t
+CheckInteractiveIndexMode 'legacy positional true selects index output' prompt true
+CheckInteractiveIndexMode 'flag index mode works before positional prompt' -t prompt
+CheckInteractiveIndexMode 'flag index mode works after positional prompt' prompt -t
+
+# Empty stdin is valid and produces no batch output.
+: > "$TmpDir/input"
+: > "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty input produces empty output' "$TmpDir/expected" "$TmpDir/actual"
+
+# Preserve CRLF records exactly and reject embedded NUL bytes explicitly.
+printf 'alpha needle\r\nno match\r\n' > "$TmpDir/input"
+printf 'alpha needle\r\n' > "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'CRLF record endings are preserved' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'alpha\000needle\n' > "$TmpDir/input"
+if "$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'embedded NUL input must be rejected'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'NUL' "$TmpDir/stderr"; then
+        Fail 'embedded NUL input must report a clear diagnostic and status 1'
+    else
+        Pass 'embedded NUL input is rejected explicitly'
+    fi
+fi
+
+# Large standalone slabs must not corrupt the following record.
+awk 'BEGIN { for (i = 0; i < 1048577; i++) printf "x"; printf " needle\nshort needle\n"; }' > "$TmpDir/input"
+cp "$TmpDir/input" "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'over-1MiB record followed by another record remains intact' "$TmpDir/expected" "$TmpDir/actual"
+
+# stdout write errors must be observed before the process returns.
+printf 'needle\n' > "$TmpDir/input"
+if "$Bin" --filter needle < "$TmpDir/input" > /dev/full 2> "$TmpDir/stderr"; then
+    Fail 'stdout write failure must return nonzero status'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'stdout\|writing' "$TmpDir/stderr"; then
+        Fail 'stdout write failure must report a diagnostic and status 1'
+    else
+        Pass 'stdout write failures are reported'
+    fi
+fi
+
+if "$Bin" --filter needle 0<&- > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'stdin read failure must return nonzero status'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'reading stdin' "$TmpDir/stderr"; then
+        Fail 'stdin read failure must report a diagnostic and status 1'
+    else
+        Pass 'stdin read failures are reported'
+    fi
+fi
+
 if [ "$Failures" -ne 0 ]; then
     printf '%s regression check(s) failed.\n' "$Failures" >&2
     exit 1

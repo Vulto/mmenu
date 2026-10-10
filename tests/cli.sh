@@ -84,7 +84,7 @@ awk 'BEGIN {
         a = (i * 37 + 11) % 101;
         b = (i * 17 + 3) % 47;
         marker = (i % 13 == 0) ? "needle" : "other";
-        printf "Case-%04d|group-%02d|token-%02d|literal.[*]?|%s\\n", i, a, b, marker;
+        printf "Case-%04d|group-%02d|token-%02d|literal.[*]?|%s\n", i, a, b, marker;
     }
     print "café-日本語";
     print "CAFÉ-日本語";
@@ -98,7 +98,7 @@ done
 for Flag in --filter -f; do
     if "$Bin" "$Flag" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "missing query after $Flag must be rejected"
-    elif ! grep -qi 'filter.*query\\|query.*filter' "$TmpDir/stderr"; then
+    elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then
         Fail "missing query after $Flag must explain the argument error"
     else
         Pass "missing query after $Flag is rejected"

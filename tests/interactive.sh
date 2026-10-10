@@ -11,7 +11,7 @@ CheckSelection() {
     Name=$1
     Expected=$2
     Keys=$3
-    if ! printf '%b' "$Keys" | TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+    if ! { sleep 0.2; printf '%b' "$Keys"; } | TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
         printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
         cat "$TmpDir/error" >&2
         Failures=$((Failures + 1))

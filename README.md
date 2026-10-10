@@ -60,18 +60,18 @@ int main() {
 	printf("You chose: %s", options[chosen]);
 }
 ```
-## Compile
-### You can run nobuild.c using tcc :
+## Build
+
+Requires a C compiler and the ncursesw development headers.
+
+```sh
+cc -std=c11 -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
+./mmenu --help
 ```
--c compile, -l link -i install (check nobuild.c for custom paths) 
-tcc -run nobuild.c -cli   
-```
-### Or compile nobuild once to generate c binary:
-```
-gcc -o c nobuild.c
-```
-## Once compiled you will can just run ./c everytime you need a rebuild
-### ./c to run the build system
+
+The build creates a local `mmenu` executable; generated binaries and object files are
+not committed. The documented `nobuild.c` driver is not present in this repository, and
+the standalone menu does not require `nobuild.h` to compile.
 
 ## Performance and ranking baselines
 

@@ -152,6 +152,7 @@ int main(int argc, char **argv) {
     int fuzzy_mode = 0;
     int exact_mode = 0;
     int invert_mode = 0;
+    int no_sort = 0;
     int output_index = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -172,6 +173,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--invert-match") || !strcmp(arg, "-v")) {
             invert_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--no-sort")) {
+            no_sort = 1;
             continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
@@ -217,6 +222,8 @@ int main(int argc, char **argv) {
         return argument_error("--fuzzy and --exact are mutually exclusive");
     if (invert_mode && !filter_seen)
         return argument_error("--invert-match requires --filter");
+    if (no_sort && (!fuzzy_mode || !filter_seen))
+        return argument_error("--no-sort requires --fuzzy and --filter");
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
@@ -287,6 +294,24 @@ int main(int argc, char **argv) {
                     else printf("%s\n", opts.lines[i]);
                 }
             }
+        } else if (fuzzy_mode && no_sort) {
+            setlocale(LC_ALL, "");
+            errno = 0;
+            wchar_t *query = mb_to_wc(filter_query);
+            if (!query) {
+                if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
+                else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
+                lines_free(&opts);
+                return EXIT_FAILURE;
+            }
+            for (int i = 0; i < opts.count; i++) {
+                long long score;
+                if (FuzzyScore(opts.lines[i], query, &score)) {
+                    if (output_index) printf("%d\n", i);
+                    else printf("%s\n", opts.lines[i]);
+                }
+            }
+            free(query);
         } else if (fuzzy_mode) {
             setlocale(LC_ALL, "");
             errno = 0;

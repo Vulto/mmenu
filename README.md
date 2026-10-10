@@ -22,6 +22,7 @@ mmenu -f QUERY [-t]
 mmenu --fuzzy [PROMPT] [-t]
 mmenu --exact [PROMPT] [-t]
 mmenu --fuzzy --filter QUERY [-t]
+mmenu --fuzzy --no-sort --filter QUERY [-t]
 mmenu --exact --filter QUERY [-t]
 mmenu --invert-match --filter QUERY [-t]
 ```
@@ -91,6 +92,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
+- `--no-sort`: with `--fuzzy --filter`, keep matching records in original input order instead of ranking by score; requires both flags.
 - `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
 - `-h`/`--help`: print usage.
   ```bash

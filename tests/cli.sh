@@ -45,6 +45,22 @@ else
     Pass 'inverse filter requires a batch query'
 fi
 
+# Fuzzy --no-sort keeps matched records in original input order.
+printf 'zzab\nabzz\nacb\nbbb\n' > "$TmpDir/input"
+printf 'zzab\nabzz\nacb\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy no-sort preserves input order while filtering subsequences' "$TmpDir/expected" "$TmpDir/actual"
+printf '0\n1\n2\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter ab -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy no-sort preserves original indexes' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'no-sort without fuzzy mode must fail'
+elif ! grep -Fq 'requires --fuzzy and --filter' "$TmpDir/stderr"; then
+    Fail 'no-sort without fuzzy mode must explain the error'
+else
+    Pass 'no-sort requires fuzzy batch mode'
+fi
+
 # Exact mode uses byte-exact whole-record equality and preserves duplicate order.
 printf 'alpha\nAlpha\nalpha beta\nalpha\n\n' > "$TmpDir/input"
 printf 'alpha\nalpha\n' > "$TmpDir/expected"

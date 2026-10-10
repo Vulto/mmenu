@@ -79,6 +79,13 @@ jobs:
       - name: Ranking-quality baseline
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/ranking-baseline.sh build/mmenu build/ranking-baseline.csv
+      - name: Coverage-guided matcher fuzzing
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'clang' && matrix.mode == 'sanitizers'
+        env:
+          LC_ALL: C.UTF-8
+        run: |
+          clang -O1 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined -D_DEFAULT_SOURCE -o build/fuzz-matcher tests/fuzz/matcher.c -lncursesw
+          timeout 45s build/fuzz-matcher -max_total_time=15 -max_len=8192 -print_final_stats=1 tests/fuzz/corpus
       - name: Allocation-failure injection
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/allocation-failure.sh build/mmenu-allocfail

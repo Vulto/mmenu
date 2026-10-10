@@ -99,6 +99,10 @@ find / -type f 2>/dev/null | mmenu "open: " | xargs -d'\n' -n1 less
 locate -r '\.c$' | mmenu --filter "mmenu" 
 ```
 
+The fuzzy matcher also has a bounded Clang libFuzzer target in `tests/fuzz/matcher.c`,
+seeded with subsequence, repeated-character, empty-query, and Unicode cases. CI runs it under
+ASan/UBSan and checks ranking invariants in addition to the deterministic regression suite.
+
 Performance is measured by the repeatable harnesses in `tests/benchmark.sh` and `tests/performance-regression.sh`. Ranking quality is measured separately by MRR, NDCG@5, and Recall@5 against a deterministic judged corpus, with `fzf`, `skim`, and `fzy` recorded as fuzzy-matching references. These tools use different matching semantics, so the reports explicitly separate throughput from relevance quality. See [the benchmark methodology](docs/BENCHMARKS.md) for the contract and interpretation.
 
 The original substring behavior remains the default for backward compatibility. Fuzzy matching is explicitly opt-in through `--fuzzy` or the `mmenuEx(..., MMENU_FUZZY)` C API.

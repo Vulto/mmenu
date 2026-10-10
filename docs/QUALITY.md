@@ -17,8 +17,10 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 - Allocation-failure injection deterministically fails the first three CLI-owned
   arena/list allocations and requires a diagnostic and a non-crashing nonzero exit.
 - The public C API is fault-injected at initial filter allocation, filter-list growth
-  beyond 128 options, and initial rendering. Each failure must return `-1`, emit a
-  diagnostic, and clean up the ncurses session rather than terminating the host process.
+  beyond 128 options, initial and post-filter rendering, non-empty and empty-query
+  conversion, and incremental-filter allocation. Fatal allocation failures must return
+  `-1`, emit a diagnostic, and clean up ncurses rather than terminating the host process;
+  failure to allocate the incremental filter must safely fall back to a full filter.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
 - Valgrind checks the batch path for invalid accesses and leaks.
 - A deterministic benchmark records input bytes, item count, match count, and elapsed
@@ -40,13 +42,15 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 
 ## Current scope and known gaps
 
-The initial suite covers CLI batch filtering, deterministic differential matching, basic
-ncurses interaction through a pseudo-terminal, compiler/runtime health, and memory checks
-for both batch and interactive paths. Resize coverage currently verifies a real pseudo-terminal size-change signal without
-asserting pixel-perfect redraw geometry. Terminal-width boundaries, full keyboard-binding
-coverage, allocation-failure injection for every individual C API allocation site,
-broader fuzz/property testing, and comparative fuzzy-ranking quality remain open. Do not claim
-complete coverage until those areas have explicit tests.
+The suite covers CLI batch filtering, a deterministic generated differential corpus,
+ncurses interaction through a pseudo-terminal (including navigation bounds, cancellation,
+backspace, Unicode input, and resize signals), compiler/runtime health, and memory checks
+for batch and interactive paths. Allocation fault injection covers each explicit allocation
+path in the C API, including its incremental-filter fallback; it does not intercept
+allocations internal to ncurses or the C library. Terminal-width and redraw-geometry
+assertions, broader fuzzing beyond the deterministic property corpus, and comparative
+fuzzy-ranking quality remain open. Do not claim complete coverage until those areas have
+explicit tests.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current
 implementation, preserve the failure as evidence and fix the input reader; do not change

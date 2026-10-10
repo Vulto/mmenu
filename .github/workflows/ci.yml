@@ -44,7 +44,7 @@ jobs:
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c -lncursesw
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh
       - name: GCC static analyzer
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release' && steps.compile.outcome == 'success'
         run: gcc -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c -lncursesw
@@ -61,10 +61,24 @@ jobs:
       - name: Performance measurements
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/benchmark.sh build/mmenu build/performance.csv
+      - name: Compare performance against base revision
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No comparable base revision for this event; benchmark artifact remains available."
+            exit 0
+          fi
+          BaselineDir="$RUNNER_TEMP/mmenu-baseline-src"
+          BaselineBin="$RUNNER_TEMP/mmenu-baseline-bin"
+          git worktree add --detach "$BaselineDir" "$BASE_SHA"
+          gcc -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o "$BaselineBin" "$BaselineDir/main.c" -lncursesw
+          sh tests/performance-regression.sh "$BaselineBin" build/mmenu build/performance-regression.csv
       - name: Upload performance results
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: mmenu-performance-${{ github.sha }}
-          path: build/performance.csv
+          path: build/*.csv
           if-no-files-found: ignore

@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #define MMENU_IMPLEMENTATION
 #include "../../mmenu.h"
 
@@ -61,7 +60,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     FuzzyMatch *matches = NULL;
     int match_count = 0;
     if (!FuzzyCollect(options, option_count, query, &matches, &match_count))
-        abort();
+        return 0;
 
     for (int i = 0; i < match_count; i++) {
         if (matches[i].index < 0 || matches[i].index >= option_count)

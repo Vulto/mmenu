@@ -136,12 +136,13 @@ CheckSelection 'one-cell terminal does not crash on selection' 0 '\n' tiny
 
 CheckRepeatedCalls() {
     Name=$1
-    Keys=$2
-    First=$3
-    Second=$4
-    Mode=$5
+    FirstKeys=$2
+    SecondKeys=$3
+    First=$4
+    Second=$5
+    Mode=$6
     if [ "$Mode" = allocfail ]; then
-        if ! { sleep 0.2; printf '%b' "$Keys"; } |
+        if ! { sleep 0.4; printf '%b' "$SecondKeys"; } |
              MMENU_FAIL_ALLOC_AT=1 TERM=xterm timeout 5s script -q -e -c "$AllocBin repeat" /dev/null > "$TmpDir/repeat-output" 2> "$TmpDir/repeat-error"; then
             printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
             cat "$TmpDir/repeat-error" >&2
@@ -149,7 +150,7 @@ CheckRepeatedCalls() {
             return
         fi
     else
-        if ! { sleep 0.2; printf '%b' "$Keys"; } |
+        if ! { sleep 0.2; printf '%b' "$FirstKeys"; sleep 0.2; printf '%b' "$SecondKeys"; } |
              TERM=xterm timeout 5s script -q -e -c "$Bin repeat" /dev/null > "$TmpDir/repeat-output" 2> "$TmpDir/repeat-error"; then
             printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
             cat "$TmpDir/repeat-error" >&2
@@ -168,9 +169,9 @@ CheckRepeatedCalls() {
     fi
 }
 
-CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n\033[B\n' 0 1 normal
-CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003\033[B\n' -1 1 normal
-CheckRepeatedCalls 'API allocation failure cleans up before the next call' '\n' -1 0 allocfail
+CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n' '\033[B\n' 0 1 normal
+CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003' '\033[B\n' -1 1 normal
+CheckRepeatedCalls 'API allocation failure cleans up before the next call' '' '\n' -1 0 allocfail
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

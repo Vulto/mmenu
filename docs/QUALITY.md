@@ -32,10 +32,12 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 
 ## Current scope and known gaps
 
-This first suite focuses on the CLI batch filter and compiler/runtime health. Interactive
-ncurses input, resize handling, keyboard navigation, terminal widths, C API behavior,
-allocation-failure injection, fuzz/property testing, and comparative fuzzy-ranking quality
-are not yet comprehensively covered. Add these before claiming complete coverage.
+The initial suite covers CLI batch filtering, deterministic differential matching, basic
+ncurses interaction through a pseudo-terminal, compiler/runtime health, and memory checks
+for both batch and interactive paths. Resize handling, terminal-width boundaries, full
+keyboard-binding coverage, allocation-failure injection, broader fuzz/property testing,
+and comparative fuzzy-ranking quality are not yet comprehensively covered. Do not claim
+complete coverage until those areas have explicit tests.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current
 implementation, preserve the failure as evidence and fix the input reader; do not change

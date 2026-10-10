@@ -43,19 +43,24 @@ The long-record test intentionally rejects silent truncation. If it fails on the
 implementation, preserve the failure as evidence and fix the input reader; do not change
 the test to fit the fixed-size input buffer.
 
-## Confirmed defects exposed by this baseline
+## Defects exposed by the baseline
 
-- Long input records are truncated at the fixed input-buffer boundary; the regression test
-  expects the full record to be preserved.
-- A missing argument after --filter does not produce a dedicated usage error and instead
-  falls through toward interactive initialization.
-- Ctrl-C is not reliably handled as a cancellation return by the interactive API because
-  the terminal's signal-generating behavior can terminate the process before wget_wch
-  receives the control character.
+The original regression run reproduced these defects; fixes are now present on the
+quality branch and are guarded by the original assertions:
 
-These are implementation defects, not waived tests. Keep the gates failing until the code
-is fixed and the exact same regression tests pass. Add further defects here only when
-supported by a reproducible CI failure or another recorded reproduction.
+- Long records were truncated at the fixed input-buffer boundary. Input now uses getline
+  and retains the complete record, including a final record without a newline.
+- A missing argument after --filter fell through toward interactive initialization.
+  Argument validation now emits a diagnostic and exits with status 2 before reading stdin.
+- Ctrl-C could be consumed by terminal signal handling before wget_wch received it.
+  The interactive terminal is configured to deliver Ctrl-C to the cancellation handler.
+- GCC's static analyzer identified unsafe direct assignment of realloc results in the
+  interactive filter. Buffer growth now retains the old allocation until reallocation
+  succeeds, and incremental filtering falls back to a full filter if growth fails.
+
+Do not remove or weaken the regression assertions that originally exposed these defects.
+New findings must be added only when supported by a reproducible CI failure or another
+recorded reproduction.
 
 ## Performance interpretation
 

@@ -90,7 +90,7 @@ awk 'BEGIN {
     print "CAFÉ-日本語";
 }' > "$TmpDir/input"
 for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value 'café-日本語'; do
-    grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
+    LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
     "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
     CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
 done

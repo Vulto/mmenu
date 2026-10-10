@@ -121,7 +121,9 @@ SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 SweepApi many many '\n'
 SweepApi query-edit '' 'needle\n'
 SweepApi incremental-fallback '' 'n\177\n'
+SweepApi incremental-realloc many-edit 'a\177\n'
 SweepApi unicode-query '' 'café\n'
 SweepApi fuzzy fuzzy 'ndl\n'
+SweepApi fuzzy-result-growth fuzzy-many 'a\n'
 
 printf 'All exhaustive allocation-failure sweeps passed.\n'

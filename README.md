@@ -3,10 +3,35 @@
 Small ncurses menu for c programs and shell scripts, similar to suckless' dmenu. 
 
 ## For shell scripts
-It reads the contents of stdin and changes them to stdout. It takes the second argument as the prompt, and if the third one is set to "t" or "true", it will write the index of the line instead of the line itself.
-An example might look like: 
+
+Interactive mode reads one option per line from stdin:
+
+```text
+mmenu [PROMPT] [t|true] [-t]
+```
+
+The selected line is printed by default. For compatibility, a second positional argument
+of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead.
+
+Batch filtering does not open ncurses:
+
+```text
+mmenu --filter QUERY [-t]
+mmenu --filter=QUERY [-t]
+mmenu -f QUERY [-t]
+```
+
+Batch mode emits case-insensitive contiguous-substring matches in input order. An empty
+query matches every input record; an empty input is valid. `-h`/`--help` prints usage.
+Unknown options, duplicate filter options, and unexpected positional arguments exit with
+status 2. Embedded NUL bytes and stdin/stdout I/O errors exit with status 1.
+
+Example:
+
 ```bash
-ls -1 --color=never | mmenu "select file: " | xargs less -R 
+ls -1 --color=never | mmenu "select file: " | xargs less -R
+find . -type f | mmenu --filter=.c
+find . -type f | mmenu -f .c -t
 ```
 
 ## For C programs
@@ -37,7 +62,7 @@ gcc -o c nobuild.c
 ## Once compiled you will can just run ./c everytime you need a rebuild
 ### ./c to run the build system
 
-## Performance (vs fzf and previous versions)
+## Performance and ranking baselines
 
 mmenu is now optimized for large piped inputs (hundreds of thousands to millions of lines):
 
@@ -46,9 +71,11 @@ mmenu is now optimized for large piped inputs (hundreds of thousands to millions
 - Incremental refinement: typing more characters only scans the shrinking set of previous matches (O(M) instead of O(N) per keystroke).
 - Batch latency and peak RSS are measured by CI. Interactive first-paint latency is not yet included in the automated timing gate.
 
-New flags (in addition to the old positional prompt and trailing `t` for index output):
+Options (in addition to the legacy positional prompt and `t`/`true` index argument):
 
-- `--filter QUERY` (or `-f QUERY`): non-interactive batch mode. Outputs matching lines (or indices with `-t`). Extremely fast, zero ncurses. Ideal for scripting and for direct matcher benchmarks.
+- `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching lines (or indices with `-t`), without initializing ncurses.
+- `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
+- `-h`/`--help`: print usage.
   ```bash
   cat huge-list.txt | mmenu --filter "foo" | head
   mmenu -f "bar" -t < million-lines.txt

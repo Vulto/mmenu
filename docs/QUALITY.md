@@ -10,8 +10,11 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 
 - GCC and Clang compile with C11, -Wall, -Wextra, -Wpedantic, and -Werror.
 - CLI contract tests verify output bytes, status, ordering, case handling, indexes,
-  empty records, final records without newline, large inputs, generated deterministic
-  corpora, and differential matching against grep's fixed-string oracle.
+  legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
+  unknown/duplicate options, empty records, CRLF, final records without newline, empty
+  input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin
+  errors, stdout write errors, generated deterministic corpora, and differential matching
+  against grep's fixed-string oracle.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; pseudo-terminal tests cover NULL prompts and SIGWINCH resize events.
 - Allocation-failure injection deterministically fails the first three CLI-owned
@@ -64,6 +67,15 @@ quality branch and are guarded by the original assertions:
 
 - Long records were truncated at the fixed input-buffer boundary. Input now uses getline
   and retains the complete record, including a final record without a newline.
+- A record larger than the 1 MiB arena slab could leave the next record writing into the
+  large record's allocation. Large records now force the following ordinary record into
+  a fresh slab; a >1 MiB followed-by-small-record regression test guards this.
+- Unknown options and extra positional arguments were silently ignored, legacy `t`/`true`
+  index arguments were not honored, and `--filter=QUERY` was not parsed. The parser now
+  validates argument combinations, documents `--help`/`-h`, and preserves the legacy form.
+- Embedded NUL bytes were silently treated as C-string terminators, and buffered stdout
+  errors could be missed before process exit. NUL records are rejected explicitly and
+  stdout is flushed and checked before returning.
 - A missing argument after --filter fell through toward interactive initialization.
   Argument validation now emits a diagnostic and exits with status 2 before reading stdin.
 - Ctrl-C could be consumed by terminal signal handling before wget_wch received it.

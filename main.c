@@ -115,7 +115,7 @@ static void print_usage(FILE *out) {
     fprintf(out,
         "Usage: mmenu [PROMPT] [t|true] [-t]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t]\n"
-        "       mmenu --help\n"
+        "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
         "second positional argument t or true, and the -t flag, print the selected\n"

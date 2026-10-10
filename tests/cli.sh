@@ -167,12 +167,27 @@ CheckInteractiveIndexMode() {
         Fail "$Name"
     else
         CheckEqual "$Name" "$TmpDir/expected" "$TmpDir/selected"
+        if grep -aFq 'prompt' "$TmpDir/terminal"; then
+            Pass "$Name preserves the positional prompt"
+        else
+            Fail "$Name did not display the positional prompt"
+        fi
     fi
 }
 CheckInteractiveIndexMode 'legacy positional t selects index output' prompt t
 CheckInteractiveIndexMode 'legacy positional true selects index output' prompt true
 CheckInteractiveIndexMode 'flag index mode works before positional prompt' -t prompt
 CheckInteractiveIndexMode 'flag index mode works after positional prompt' prompt -t
+
+# CLI cancellation is successful and emits only the documented empty result line.
+printf 'alpha\nbeta\n' > "$TmpDir/options"
+printf '\n' > "$TmpDir/expected"
+if { sleep 0.2; printf '\003'; } | TERM=xterm timeout 5s script -q -e -c "$Bin prompt < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    CheckEqual 'CLI Ctrl-C cancellation emits an empty result line' "$TmpDir/expected" "$TmpDir/selected"
+else
+    Fail 'CLI Ctrl-C cancellation should exit successfully'
+    cat "$TmpDir/stderr" >&2
+fi
 
 # Empty stdin is valid and produces no batch output.
 : > "$TmpDir/input"

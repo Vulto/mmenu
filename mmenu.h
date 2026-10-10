@@ -166,6 +166,35 @@ static int FuzzyScore(const char *candidate, const wchar_t *query,
     return 1;
 }
 
+/* Highlight the same greedy subsequence used by FuzzyScore, clipping by
+   terminal display cells so wide Unicode characters do not overrun the row. */
+static void RenderFuzzyOption(const wchar_t *option, int columns,
+                              const wchar_t *query)
+{
+    size_t query_pos = 0;
+    int used_columns = 0;
+
+    for (size_t i = 0; option[i] && used_columns < columns; i++) {
+        wchar_t ch = option[i];
+        int width = wcwidth(ch);
+        if (width < 0) {
+            ch = L' ';
+            width = 1;
+        }
+        if (width > 0 && used_columns + width > columns) break;
+
+        int matched = query[query_pos] != L'\0' &&
+                      FoldAscii(ch) == FoldAscii(query[query_pos]);
+        if (matched) {
+            query_pos++;
+            attron(A_BOLD | A_UNDERLINE);
+        }
+        addnwstr(&ch, 1);
+        if (matched) attroff(A_BOLD | A_UNDERLINE);
+        used_columns += width;
+    }
+}
+
 static int CompareFuzzyMatches(const void *left, const void *right)
 {
     const FuzzyMatch *a = left;
@@ -376,7 +405,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
         if (w) {
             move(v + 1, 0);
             if (fidx == selection) attron(A_STANDOUT);
-            printw("%.*ls", cols, w);
+            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, cols, input);
+            else printw("%.*ls", cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
             clrtoeol();
             free(w);
@@ -526,7 +556,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
             if (w) {
                 move(v + 1, 0);
                 if (fidx == selection) attron(A_STANDOUT);
-                printw("%.*ls", cols, w);
+                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, cols, input);
+                else printw("%.*ls", cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
                 clrtoeol();
                 free(w);

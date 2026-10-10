@@ -58,6 +58,18 @@ int main(int argc, char **argv)
     } else if (argc > 1 && strcmp(argv[1], "tiny") == 0) {
         if (!SetTerminalSize(1, 1)) return 2;
         narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "wide") == 0) {
+        if (!SetTerminalSize(24, 80)) return 2;
+        narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "one-row") == 0) {
+        if (!SetTerminalSize(1, 40)) return 2;
+        narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "one-column") == 0) {
+        if (!SetTerminalSize(8, 1)) return 2;
+        narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "small-grid") == 0) {
+        if (!SetTerminalSize(3, 20)) return 2;
+        narrow_mode = 1;
     } else if (argc > 1 && strcmp(argv[1], "resize") == 0) {
         resize_child = fork();
         if (resize_child == 0) {

@@ -13,8 +13,8 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
   unknown/duplicate options, empty records, CRLF, final records without newline, empty
   input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin
-  errors, stdout write errors, generated deterministic corpora, and differential matching
-  against grep's fixed-string oracle.
+  errors, stdout write errors, generated deterministic corpora, a seeded 5,000-record fuzz-style corpus with sampled
+  queries, and differential matching against grep's fixed-string oracle.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; pseudo-terminal tests cover NULL prompts and SIGWINCH resize events.
 - Allocation-failure injection sweeps every wrapped CLI allocation reached by small input,
@@ -56,12 +56,12 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 
 The suite covers CLI batch filtering, a deterministic generated differential corpus,
 ncurses interaction through a pseudo-terminal (including navigation bounds, cancellation,
-repeated query edits, Backspace, Unicode input, resize-triggered redraws, 2x8 clipping, and
-a 1x1 terminal), compiler/runtime health, and memory checks
+repeated query edits, Backspace, Unicode input, resize-triggered redraws, and 1x1, 1x40,
+2x8, 3x20, 8x1, and 24x80 terminal geometries), compiler/runtime health, and memory checks
 for batch and interactive paths. Allocation fault injection sweeps all wrapped allocation
 calls reached by the representative CLI and C API scenarios; it does not intercept
-allocations internal to ncurses or the C library. More exhaustive terminal-width/redraw-geometry assertions across additional terminal types
-and broader fuzzing beyond the deterministic property corpus remain open. Comparative ranking metrics are now recorded against a fixed
+allocations internal to ncurses or the C library. The test corpus is deterministic and reproducible; coverage-guided fuzzing and exhaustive
+terminal-emulator compatibility testing are outside the current CI contract. Comparative ranking metrics are now recorded against a fixed
 judged corpus; ranking improvements still require explicit relevance judgments and review.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current

@@ -135,6 +135,10 @@ CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize redraws after query edits' 0 'x\177\n' resize 'alpha'
 CheckSelection 'narrow terminal clips long options and preserves scrolling' 1 "$(TERM=xterm tput kcud1)\n" narrow 'xxxxxxxx' 'xxxxxxxxx'
 CheckSelection 'one-cell terminal does not crash on selection' 0 '\n' tiny
+CheckSelection 'wide terminal preserves selection' 1 "$(TERM=xterm tput kcud1)\n" wide
+CheckSelection 'single-row terminal preserves selection' 1 "$(TERM=xterm tput kcud1)\n" one-row
+CheckSelection 'single-column terminal preserves selection' 1 "$(TERM=xterm tput kcud1)\n" one-column
+CheckSelection 'small-grid terminal preserves selection' 1 "$(TERM=xterm tput kcud1)\n" small-grid
 
 CheckRepeatedCalls() {
     Name=$1

@@ -95,6 +95,36 @@ for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value
     CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
 done
 
+# Seeded fuzz-style corpus: randomized record lengths and punctuation, plus queries
+# sampled from the generated data. Every result is compared byte-for-byte with grep.
+awk 'BEGIN {
+    srand(20261010);
+    chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:-[]*? ";
+    for (i = 0; i < 5000; i++) {
+        n = 8 + int(rand() * 96);
+        line = sprintf("fuzz-%05d|", i);
+        for (j = 0; j < n; j++) line = line substr(chars, 1 + int(rand() * length(chars)), 1);
+        if (i % 19 == 0) line = line "Needle";
+        print line;
+    }
+}' > "$TmpDir/input"
+awk 'BEGIN { srand(20261011) }
+     NR % 43 == 0 {
+         n = 1 + int(rand() * 9);
+         start = 1 + int(rand() * (length($0) - n + 1));
+         print substr($0, start, n);
+     }' "$TmpDir/input" > "$TmpDir/queries"
+while IFS= read -r Query; do
+    if LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected"; then
+        :
+    else
+        Status=$?
+        [ "$Status" -eq 1 ] || Fail "grep oracle failed for seeded query: $Query"
+    fi
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "seeded fuzz corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done < "$TmpDir/queries"
+
 for Flag in --filter -f; do
     if "$Bin" "$Flag" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "missing query after $Flag must be rejected"

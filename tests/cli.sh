@@ -78,6 +78,33 @@ for Query in alpha-3 needle 'punctuation.[x]' Z9 missing; do
     CheckEqual "differential matching oracle for query: $Query" "$TmpDir/expected" "$TmpDir/actual"
 done
 
+# Deterministic property-style corpus with varied lengths, delimiters, and overlaps.
+awk 'BEGIN {
+    for (i = 0; i < 2500; i++) {
+        a = (i * 37 + 11) % 101;
+        b = (i * 17 + 3) % 47;
+        marker = (i % 13 == 0) ? "needle" : "other";
+        printf "Case-%04d|group-%02d|token-%02d|literal.[*]?|%s\\n", i, a, b, marker;
+    }
+    print "café-日本語";
+    print "CAFÉ-日本語";
+}' > "$TmpDir/input"
+for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value 'café-日本語'; do
+    grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done
+
+for Flag in --filter -f; do
+    if "$Bin" "$Flag" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "missing query after $Flag must be rejected"
+    elif ! grep -qi 'filter.*query\\|query.*filter' "$TmpDir/stderr"; then
+        Fail "missing query after $Flag must explain the argument error"
+    else
+        Pass "missing query after $Flag is rejected"
+    fi
+done
+
 if "$Bin" --filter < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing --filter query must be rejected with nonzero status'
 elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then

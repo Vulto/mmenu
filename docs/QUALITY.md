@@ -24,6 +24,8 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   conversion, and incremental-filter allocation. Fatal allocation failures must return
   `-1`, emit a diagnostic, and clean up ncurses rather than terminating the host process;
   failure to allocate the incremental filter must safely fall back to a full filter.
+- Repeated C API calls are tested after normal selection, cancellation, and an injected
+  allocation failure to verify terminal/resource cleanup and state reset.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
 - Valgrind checks the batch path for invalid accesses and leaks.
 - Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,

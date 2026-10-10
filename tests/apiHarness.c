@@ -84,6 +84,16 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "repeat") == 0) {
+        int first = mmenu(options, count, prompt);
+        printf("\nMMENU_FIRST=%d\n", first);
+        fflush(stdout);
+        int second = mmenu(options, count, prompt);
+        printf("\nMMENU_SECOND=%d\n", second);
+        fflush(stdout);
+        return 0;
+    }
+
     int result;
     if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
     else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) result = mmenu(NULL, 0, prompt);

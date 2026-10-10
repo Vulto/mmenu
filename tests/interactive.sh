@@ -134,6 +134,44 @@ CheckSelection 'SIGWINCH resize redraws after query edits' 0 'x\177\n' resize 'a
 CheckSelection 'narrow terminal clips long options and preserves scrolling' 1 "$(TERM=xterm tput kcud1)\n" narrow 'xxxxxxxx' 'xxxxxxxxx'
 CheckSelection 'one-cell terminal does not crash on selection' 0 '\n' tiny
 
+CheckRepeatedCalls() {
+    Name=$1
+    Keys=$2
+    First=$3
+    Second=$4
+    Mode=$5
+    if [ "$Mode" = allocfail ]; then
+        if ! { sleep 0.2; printf '%b' "$Keys"; } |
+             MMENU_FAIL_ALLOC_AT=1 TERM=xterm timeout 5s script -q -e -c "$AllocBin repeat" /dev/null > "$TmpDir/repeat-output" 2> "$TmpDir/repeat-error"; then
+            printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
+            cat "$TmpDir/repeat-error" >&2
+            Failures=$((Failures + 1))
+            return
+        fi
+    else
+        if ! { sleep 0.2; printf '%b' "$Keys"; } |
+             TERM=xterm timeout 5s script -q -e -c "$Bin repeat" /dev/null > "$TmpDir/repeat-output" 2> "$TmpDir/repeat-error"; then
+            printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
+            cat "$TmpDir/repeat-error" >&2
+            Failures=$((Failures + 1))
+            return
+        fi
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/repeat-output" > "$TmpDir/repeat-plain"
+    if ! grep -aFq "MMENU_FIRST=$First" "$TmpDir/repeat-plain" ||
+       ! grep -aFq "MMENU_SECOND=$Second" "$TmpDir/repeat-plain"; then
+        printf 'FAIL: %s (expected first=%s second=%s)\n' "$Name" "$First" "$Second" >&2
+        tail -c 2000 "$TmpDir/repeat-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: %s\n' "$Name"
+    fi
+}
+
+CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n\033[B\n' 0 1 normal
+CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003\033[B\n' -1 1 normal
+CheckRepeatedCalls 'API allocation failure cleans up before the next call' '\n' -1 0 allocfail
+
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2
     exit 1

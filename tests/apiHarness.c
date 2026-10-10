@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define MMENU_IMPLEMENTATION
 #include "../mmenu.h"
@@ -13,9 +17,18 @@ int main(int argc, char **argv)
     const char *null_entry_options[] = {"alpha", NULL, "needle"};
     int count = 3;
     const char *prompt = "test> ";
+    pid_t resize_child = -1;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
+    } else if (argc > 1 && strcmp(argv[1], "resize") == 0) {
+        resize_child = fork();
+        if (resize_child == 0) {
+            usleep(80000);
+            kill(getppid(), SIGWINCH);
+            _exit(0);
+        }
+        if (resize_child < 0) return 2;
     } else if (argc > 1 && strcmp(argv[1], "null-prompt") == 0) {
         prompt = NULL;
     } else if (argc > 1 && strcmp(argv[1], "invalid-null-options") == 0) {

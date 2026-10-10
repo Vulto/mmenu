@@ -61,7 +61,7 @@ find / -type f 2>/dev/null | mmenu "open: " | xargs -d'\n' -n1 less
 locate -r '\.c$' | mmenu --filter "mmenu" 
 ```
 
-The C implementation + these changes now handily outperforms the equivalent fzf usage patterns on the same hardware for both interactive first paint and batch filtering.
+Performance is measured by the repeatable harnesses in `tests/benchmark.sh` and `tests/performance-regression.sh`. Ranking quality is measured separately by MRR, NDCG@5, and Recall@5 against a deterministic judged corpus, with `fzf`, `skim`, and `fzy` recorded as fuzzy-matching references. These tools use different matching semantics, so the reports explicitly separate throughput from relevance quality. See [the benchmark methodology](docs/BENCHMARKS.md) for the contract and interpretation.
 
 The original simple substring (now case-insensitive) behavior is preserved for backward compatibility. No fuzzy scoring was added in this round (kept minimal); the focus was raw speed for the existing filter model.
 

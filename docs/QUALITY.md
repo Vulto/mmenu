@@ -23,8 +23,10 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   failure to allocate the incremental filter must safely fall back to a full filter.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
 - Valgrind checks the batch path for invalid accesses and leaks.
-- A deterministic benchmark records input bytes, item count, match count, and elapsed
-  time at 1k, 10k, 100k, and 1m records. It validates match counts and retains its CSV.
+- Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,
+  retain min/median/max latency and peak RSS, and validate match counts.
+- Ranking baseline records MRR, NDCG@5, Recall@5, match counts, tool versions, latency, and RSS
+  for mmenu, fzf, skim, and fzy on a deterministic judged corpus.
 
 ## Non-negotiable test policy
 
@@ -47,10 +49,9 @@ ncurses interaction through a pseudo-terminal (including navigation bounds, canc
 backspace, Unicode input, and resize signals), compiler/runtime health, and memory checks
 for batch and interactive paths. Allocation fault injection covers each explicit allocation
 path in the C API, including its incremental-filter fallback; it does not intercept
-allocations internal to ncurses or the C library. Terminal-width and redraw-geometry
-assertions, broader fuzzing beyond the deterministic property corpus, and comparative
-fuzzy-ranking quality remain open. Do not claim complete coverage until those areas have
-explicit tests.
+allocations internal to ncurses or the C library. Terminal-width and redraw-geometry assertions and broader fuzzing beyond the deterministic
+property corpus remain open. Comparative ranking metrics are now recorded against a fixed
+judged corpus; ranking improvements still require explicit relevance judgments and review.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current
 implementation, preserve the failure as evidence and fix the input reader; do not change

@@ -65,6 +65,19 @@ awk 'BEGIN { for (i = 0; i < 120000; i++) printf "item-%06d needle\n", i }' > "$
 awk 'BEGIN { for (i = 0; i < 120000; i++) printf "%d\n", i }' > "$TmpDir/expected"
 CheckEqual 'large input returns all matching indexes in stable order' "$TmpDir/expected" "$TmpDir/actual"
 
+# Differential checks against grep's fixed-string, case-insensitive matcher.
+# The generated corpus and query set are deterministic for reproducible failures.
+awk 'BEGIN {
+    for (i = 0; i < 5000; i++) {
+        printf "row-%05d alpha-%d Needle-%d punctuation.[x] Z9\\n", i, i % 17, i % 31;
+    }
+}' > "$TmpDir/input"
+for Query in alpha-3 needle 'punctuation.[x]' Z9 missing; do
+    grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = missing ]
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "differential matching oracle for query: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done
+
 if "$Bin" --filter < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing --filter query must be rejected with nonzero status'
 elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then

@@ -11,7 +11,7 @@ ls -1 --color=never | mmenu "select file: " | xargs less -R
 
 ## For C programs
 The main (mmenu) function takes 3 inputs, the options, (similar to argv), the length of the options (similar to argc),
-and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none.
+and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
 The -lncurses flag is required at compilation. An example may look like:
 
 ```c

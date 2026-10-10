@@ -3,15 +3,43 @@
 Small ncurses menu for c programs and shell scripts, similar to suckless' dmenu. 
 
 ## For shell scripts
-It reads the contents of stdin and changes them to stdout. It takes the second argument as the prompt, and if the third one is set to "t" or "true", it will write the index of the line instead of the line itself.
-An example might look like: 
+
+Interactive mode reads one option per line from stdin:
+
+```text
+mmenu [PROMPT] [t|true] [-t]
+```
+
+The selected line is printed by default. For compatibility, a second positional argument
+of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead.
+
+Batch filtering does not open ncurses:
+
+```text
+mmenu --filter QUERY [-t]
+mmenu --filter=QUERY [-t]
+mmenu -f QUERY [-t]
+```
+
+Batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. An empty
+query matches every input record; an empty input is valid. Batch mode is byte-oriented and
+preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
+requires valid multibyte options and prompt text in the active locale; matching folds ASCII
+case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
+Unknown options, duplicate filter options, and unexpected positional arguments exit with
+status 2. Embedded NUL bytes and stdin/stdout I/O errors exit with status 1.
+
+Example:
+
 ```bash
-ls -1 --color=never | mmenu "select file: " | xargs less -R 
+ls -1 --color=never | mmenu "select file: " | xargs less -R
+find . -type f | mmenu --filter=.c
+find . -type f | mmenu -f .c -t
 ```
 
 ## For C programs
 The main (mmenu) function takes 3 inputs, the options, (similar to argv), the length of the options (similar to argc),
-and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none.
+and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
 The -lncurses flag is required at compilation. An example may look like:
 
 ```c
@@ -37,18 +65,20 @@ gcc -o c nobuild.c
 ## Once compiled you will can just run ./c everytime you need a rebuild
 ### ./c to run the build system
 
-## Performance (vs fzf and previous versions)
+## Performance and ranking baselines
 
 mmenu is now optimized for large piped inputs (hundreds of thousands to millions of lines):
 
 - Chunked arena loader in the CLI (one or two large allocations instead of millions of tiny `malloc`s per line).
 - Byte-oriented `strcasestr` matching (case-insensitive) on the original UTF-8 strings — no more per-candidate `mbstowcs` + `wcsstr` + malloc/free in the hot path.
 - Incremental refinement: typing more characters only scans the shrinking set of previous matches (O(M) instead of O(N) per keystroke).
-- First-paint times on 100k–1M item lists are now typically < 100 ms in a real terminal (measurement harnesses with `script` add overhead).
+- Batch latency and peak RSS are measured by CI. Interactive first-paint latency is not yet included in the automated timing gate.
 
-New flags (in addition to the old positional prompt and trailing `t` for index output):
+Options (in addition to the legacy positional prompt and `t`/`true` index argument):
 
-- `--filter QUERY` (or `-f QUERY`): non-interactive batch mode. Outputs matching lines (or indices with `-t`). Extremely fast, zero ncurses. Ideal for scripting and for direct matcher benchmarks.
+- `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching lines (or indices with `-t`), without initializing ncurses.
+- `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
+- `-h`/`--help`: print usage.
   ```bash
   cat huge-list.txt | mmenu --filter "foo" | head
   mmenu -f "bar" -t < million-lines.txt
@@ -61,7 +91,7 @@ find / -type f 2>/dev/null | mmenu "open: " | xargs -d'\n' -n1 less
 locate -r '\.c$' | mmenu --filter "mmenu" 
 ```
 
-The C implementation + these changes now handily outperforms the equivalent fzf usage patterns on the same hardware for both interactive first paint and batch filtering.
+Performance is measured by the repeatable harnesses in `tests/benchmark.sh` and `tests/performance-regression.sh`. Ranking quality is measured separately by MRR, NDCG@5, and Recall@5 against a deterministic judged corpus, with `fzf`, `skim`, and `fzy` recorded as fuzzy-matching references. These tools use different matching semantics, so the reports explicitly separate throughput from relevance quality. See [the benchmark methodology](docs/BENCHMARKS.md) for the contract and interpretation.
 
 The original simple substring (now case-insensitive) behavior is preserved for backward compatibility. No fuzzy scoring was added in this round (kept minimal); the focus was raw speed for the existing filter model.
 

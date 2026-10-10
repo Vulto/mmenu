@@ -143,6 +143,12 @@ CheckRejectedArgs() {
         fi
     fi
 }
+"$Bin" --help > "$TmpDir/actual"
+if grep -qi '^Usage:' "$TmpDir/actual"; then
+    Pass 'help option prints usage'
+else
+    Fail 'help option must print usage'
+fi
 CheckRejectedArgs 'unknown option is rejected' --bogus
 CheckRejectedArgs 'duplicate filter options are rejected' --filter needle -f other
 CheckRejectedArgs 'positional prompt is rejected in batch mode' --filter needle prompt

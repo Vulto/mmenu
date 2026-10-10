@@ -43,6 +43,31 @@ CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
 CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
+
+CheckFuzzyHighlight() {
+    if ! { sleep 0.2; printf 'ndl\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin fuzzy" /dev/null > "$TmpDir/highlight-output" 2> "$TmpDir/highlight-error"; then
+        printf 'FAIL: fuzzy highlighting test did not exit cleanly\n' >&2
+        cat "$TmpDir/highlight-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/highlight-output" > "$TmpDir/highlight-plain"
+    if ! grep -aFq 'MMENU_RESULT=2' "$TmpDir/highlight-plain"; then
+        printf 'FAIL: fuzzy highlighting changed the selected result\n' >&2
+        Failures=$((Failures + 1))
+    else
+        Escape=$(printf '\033')
+        if grep -aEq "${Escape}\[[0-9;]*4[0-9;]*m" "$TmpDir/highlight-output"; then
+            printf 'PASS: fuzzy matched characters are underlined\n'
+        else
+            printf 'FAIL: fuzzy matches were not underlined in terminal output\n' >&2
+            tail -c 2000 "$TmpDir/highlight-output" | od -An -tx1c >&2
+            Failures=$((Failures + 1))
+        fi
+    fi
+}
+CheckFuzzyHighlight
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
 CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'

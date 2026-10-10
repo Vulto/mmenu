@@ -29,7 +29,8 @@ preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
 case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
 The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
-results by early, adjacent, and word-boundary matches; ties retain input order. In fuzzy
+results by early, adjacent, and word-boundary matches; ties retain input order. In the
+interactive menu, matched fuzzy characters are bolded and underlined. In fuzzy
 batch mode, use `--fuzzy --filter QUERY` (or `-f QUERY`); `-t` emits original input
 indexes in ranked order. Fuzzy mode requires valid multibyte query text; invalid multibyte
 candidate records are ignored. Without `--fuzzy`, the original substring behavior is

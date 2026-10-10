@@ -115,13 +115,14 @@ static void print_usage(FILE *out) {
     fprintf(out,
         "Usage: mmenu [PROMPT] [t|true] [-t]\n"
         "       mmenu [--fuzzy | --exact] [PROMPT] [-t]\n"
-        "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t]\n"
-        "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t]\n"
+        "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
+        "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
         "second positional argument t or true, and the -t flag, print the selected\n"
         "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
+        "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--invert-match or -v emits records that do not match the batch query.\n");
 }
@@ -130,6 +131,22 @@ static int argument_error(const char *message) {
     fprintf(stderr, "mmenu: %s\n", message);
     fprintf(stderr, "Try 'mmenu --help' for usage.\n");
     return 2;
+}
+
+static void print_record(const char *record, int nul_delimiter) {
+    if (record) fwrite(record, 1, strlen(record), stdout);
+    fputc(nul_delimiter ? '\0' : '\n', stdout);
+}
+
+static void print_match(const char *record, int index, int output_index,
+                        int nul_delimiter) {
+    if (output_index) {
+        char index_text[32];
+        snprintf(index_text, sizeof(index_text), "%d", index);
+        print_record(index_text, nul_delimiter);
+    } else {
+        print_record(record, nul_delimiter);
+    }
 }
 
 static int flush_stdout(void) {
@@ -153,6 +170,8 @@ int main(int argc, char **argv) {
     int exact_mode = 0;
     int invert_mode = 0;
     int no_sort = 0;
+    int input_nul = 0;
+    int output_nul = 0;
     int output_index = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -177,6 +196,14 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--no-sort")) {
             no_sort = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--read0")) {
+            input_nul = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--print0")) {
+            output_nul = 1;
             continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
@@ -236,16 +263,17 @@ int main(int argc, char **argv) {
     size_t buf_cap = 0;
     ssize_t read_len;
 
-    /* getline preserves arbitrarily long records and the final unterminated record. */
-    while ((read_len = getline(&buf, &buf_cap, stdin)) != -1) {
+    /* getdelim preserves arbitrarily long records and final unterminated records. */
+    int input_delimiter = input_nul ? '\0' : '\n';
+    while ((read_len = getdelim(&buf, &buf_cap, input_delimiter, stdin)) != -1) {
         size_t len = (size_t)read_len;
-        if (memchr(buf, '\0', len) != NULL) {
+        if (!input_nul && memchr(buf, '\0', len) != NULL) {
             fprintf(stderr, "mmenu: input record contains an embedded NUL byte\n");
             free(buf);
             lines_free(&opts);
             return EXIT_FAILURE;
         }
-        if (len > 0 && buf[len - 1] == '\n') len--;
+        if (len > 0 && buf[len - 1] == input_delimiter) len--;
         char *stored = lines_arena_dup(&opts, buf, len);
         lines_push(&opts, stored);
     }
@@ -282,16 +310,14 @@ int main(int argc, char **argv) {
                     matched = strcasestr(opts.lines[i], filter_query) != NULL;
                 }
                 if (!matched) {
-                    if (output_index) printf("%d\n", i);
-                    else printf("%s\n", opts.lines[i]);
+                    print_match(opts.lines[i], i, output_index, output_nul);
                 }
             }
             free(wide_query);
         } else if (exact_mode) {
             for (int i = 0; i < opts.count; i++) {
                 if (strcmp(opts.lines[i], filter_query) == 0) {
-                    if (output_index) printf("%d\n", i);
-                    else printf("%s\n", opts.lines[i]);
+                    print_match(opts.lines[i], i, output_index, output_nul);
                 }
             }
         } else if (fuzzy_mode && no_sort) {
@@ -307,8 +333,7 @@ int main(int argc, char **argv) {
             for (int i = 0; i < opts.count; i++) {
                 long long score;
                 if (FuzzyScore(opts.lines[i], query, &score)) {
-                    if (output_index) printf("%d\n", i);
-                    else printf("%s\n", opts.lines[i]);
+                    print_match(opts.lines[i], i, output_index, output_nul);
                 }
             }
             free(query);
@@ -332,16 +357,14 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < match_count; i++) {
                 int index = matches[i].index;
-                if (output_index) printf("%d\n", index);
-                else printf("%s\n", opts.lines[index]);
+                print_match(opts.lines[index], index, output_index, output_nul);
             }
             free(matches);
             free(query);
         } else {
             for (int i = 0; i < opts.count; i++) {
                 if (strcasestr(opts.lines[i], filter_query)) {
-                    if (output_index) printf("%d\n", i);
-                    else printf("%s\n", opts.lines[i]);
+                    print_match(opts.lines[i], i, output_index, output_nul);
                 }
             }
         }
@@ -354,11 +377,9 @@ int main(int argc, char **argv) {
                          exact_mode ? MMENU_EXACT : 0);
 
     if (chosen == -1) {
-        printf("\n");
-    } else if (output_index) {
-        printf("%d\n", chosen);
+        print_record("", output_nul);
     } else {
-        printf("%s\n", opts.lines[chosen]);
+        print_match(opts.lines[chosen], chosen, output_index, output_nul);
     }
 
     lines_free(&opts);

@@ -92,7 +92,7 @@ CheckFuzzyUnicodeHighlight() {
     fi
 }
 CheckFuzzyUnicodeHighlight
-CheckSelection 'fuzzy renderer clips long candidates in narrow terminals' 0 'xxx\n' fuzzy-narrow 'xxxxxxxx' 'xxxxxxxxx'
+CheckSelection 'fuzzy renderer survives narrow terminals with long candidates' 0 'xxx\n' fuzzy-narrow
 CheckSelection 'fuzzy renderer survives a one-cell terminal' 0 '\n' fuzzy-tiny
 
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'

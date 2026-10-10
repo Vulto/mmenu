@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     const char invalid_prompt[] = "\xff" "prompt";
     const char *invalid_utf8_options[] = {invalid_option, "alpha"};
     const char *ascii_options[] = {"alpha", "beta", "needle"};
-    const char *many_options[140];
+    const char *many_options[600];
     for (size_t i = 0; i < sizeof(many_options) / sizeof(many_options[0]); i++) {
         many_options[i] = options[i % (sizeof(options) / sizeof(options[0]))];
     }
@@ -90,9 +90,12 @@ int main(int argc, char **argv)
             _exit(0);
         }
         if (resize_child < 0) return 2;
-    } else if (argc > 1 && strcmp(argv[1], "many") == 0) {
+    } else if (argc > 1 &&
+               (strcmp(argv[1], "many") == 0 ||
+                strcmp(argv[1], "many-edit") == 0 ||
+                strcmp(argv[1], "fuzzy-many") == 0)) {
         count = (int)(sizeof(many_options) / sizeof(many_options[0]));
-        if (!getenv("MMENU_SWEEP_API")) {
+        if (strcmp(argv[1], "many") == 0 && !getenv("MMENU_SWEEP_API")) {
             if (mmenu(many_options, count, prompt) != -1) return 1;
             puts("MMENU_RESULT=-1");
             return 0;
@@ -129,7 +132,9 @@ int main(int argc, char **argv)
     }
 
     int result;
-    if (many_mode) result = mmenu(many_options, count, prompt);
+    if (many_mode && fuzzy_mode)
+        result = mmenuEx(many_options, count, prompt, MMENU_FUZZY);
+    else if (many_mode) result = mmenu(many_options, count, prompt);
     else if (narrow_mode && fuzzy_mode)
         result = mmenuEx(narrow_options, 3, prompt, MMENU_FUZZY);
     else if (narrow_mode) result = mmenu(narrow_options, 3, prompt);

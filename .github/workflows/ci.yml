@@ -31,6 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ncurses-dev valgrind
       - name: Compile with strict diagnostics
+        id: compile
         env:
           CC: ${{ matrix.compiler }}
         run: |
@@ -41,17 +42,15 @@ jobs:
             CFLAGS="-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror"
           fi
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c -lncursesw
       - name: CLI regression suite
         run: sh tests/cli.sh build/mmenu
+      - name: Interactive C API regression suite
+        if: always() && steps.compile.outcome == 'success'
+        run: sh tests/interactive.sh build/api-test
       - name: Valgrind memory checks
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: valgrind --quiet --error-exitcode=99 --leak-check=full --show-leak-kinds=all build/mmenu --filter needle < tests/fixtures/basic.txt > /dev/null
-      - name: Sanitizer regression suite
-        if: matrix.mode == 'sanitizers'
-        env:
-          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
-          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: sh tests/cli.sh build/mmenu
       - name: Performance measurements
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/benchmark.sh build/mmenu build/performance.csv

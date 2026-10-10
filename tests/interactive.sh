@@ -85,6 +85,34 @@ CheckApiAllocationFailure() {
 CheckApiAllocationFailure 1
 CheckApiAllocationFailure 2
 CheckApiAllocationFailure 3
+
+CheckApiFilterAllocationFailure() {
+    At=$1
+    Keys=$2
+    Expected=$3
+    Diagnostic=$4
+    if ! { sleep 0.2; printf '%b' "$Keys" 2>/dev/null || :; } |
+         env MMENU_FAIL_ALLOC_AT="$At" TERM=xterm timeout 5s script -q -e -c "$AllocBin" /dev/null > "$TmpDir/filter-alloc-output" 2> "$TmpDir/filter-alloc-error"; then
+        printf 'FAIL: API filter allocation failure %s did not exit cleanly\n' "$At" >&2
+        cat "$TmpDir/filter-alloc-error" >&2
+        tail -c 2000 "$TmpDir/filter-alloc-output" >&2
+        Failures=$((Failures + 1))
+    elif ! grep -aFq "MMENU_RESULT=$Expected" "$TmpDir/filter-alloc-output"; then
+        printf 'FAIL: API filter allocation failure %s expected result %s\n' "$At" "$Expected" >&2
+        tail -c 2000 "$TmpDir/filter-alloc-output" >&2
+        Failures=$((Failures + 1))
+    elif [ -n "$Diagnostic" ] && ! grep -aFq "$Diagnostic" "$TmpDir/filter-alloc-output"; then
+        printf 'FAIL: API filter allocation failure %s omitted diagnostic %s\n' "$At" "$Diagnostic" >&2
+        tail -c 2000 "$TmpDir/filter-alloc-output" >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: API filter allocation failure %s handled with result %s\n' "$At" "$Expected"
+    fi
+}
+
+CheckApiFilterAllocationFailure 6 'n\\n' -1 'converting filter'
+CheckApiFilterAllocationFailure 7 'needle\\n' 2 ''
+CheckApiFilterAllocationFailure 8 'ne\\n' -1 'rendering option'
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\n' resize
 

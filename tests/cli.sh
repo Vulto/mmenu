@@ -23,6 +23,28 @@ CheckEqual() {
     fi
 }
 
+# Inverse filtering preserves original input order and supports all matcher modes.
+printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/input"
+printf 'beta\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse substring filter excludes matching records' "$TmpDir/expected" "$TmpDir/actual"
+printf '1\n3\n' > "$TmpDir/expected"
+"$Bin" -v -f alpha -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse substring filter emits original indexes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'beta\nAlpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --exact --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse exact filter uses whole-record equality' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nAlpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --invert-match --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse fuzzy filter preserves records unmatched by subsequence' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --invert-match < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'inverse filter without a query must fail'
+elif ! grep -Fq 'requires --filter' "$TmpDir/stderr"; then
+    Fail 'inverse filter without a query must explain the error'
+else
+    Pass 'inverse filter requires a batch query'
+fi
+
 # Exact mode uses byte-exact whole-record equality and preserves duplicate order.
 printf 'alpha\nAlpha\nalpha beta\nalpha\n\n' > "$TmpDir/input"
 printf 'alpha\nalpha\n' > "$TmpDir/expected"

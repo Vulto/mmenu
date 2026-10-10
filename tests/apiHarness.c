@@ -5,6 +5,8 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -25,6 +27,11 @@ int main(int argc, char **argv)
         resize_child = fork();
         if (resize_child == 0) {
             usleep(80000);
+            int tty_fd = open("/dev/tty", O_RDWR);
+            if (tty_fd < 0) _exit(3);
+            struct winsize Size = {.ws_row = 10, .ws_col = 40};
+            if (ioctl(tty_fd, TIOCSWINSZ, &Size) < 0) _exit(4);
+            close(tty_fd);
             kill(getppid(), SIGWINCH);
             _exit(0);
         }

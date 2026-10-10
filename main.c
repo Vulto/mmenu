@@ -20,11 +20,19 @@ typedef struct {
     size_t slab_used; /* used bytes in the current (last) slab */
 } lines_t;
 
+static void lines_free(lines_t *l);
+
 static void lines_push(lines_t *l, char *s) {
     if (l->count == l->cap) {
-        l->cap = l->cap ? l->cap * 2 : INITIAL_CAP;
-        l->lines = realloc(l->lines, (size_t)l->cap * sizeof(char *));
-        if (!l->lines) { perror("realloc"); exit(EXIT_FAILURE); }
+        int new_cap = l->cap ? l->cap * 2 : INITIAL_CAP;
+        char **new_lines = realloc(l->lines, (size_t)new_cap * sizeof(char *));
+        if (!new_lines) {
+            perror("realloc lines");
+            lines_free(l);
+            exit(EXIT_FAILURE);
+        }
+        l->lines = new_lines;
+        l->cap = new_cap;
     }
     l->lines[l->count++] = s;
 }
@@ -32,12 +40,22 @@ static void lines_push(lines_t *l, char *s) {
 /* Allocate a new 1MB slab and make it current. */
 static void lines_new_slab(lines_t *l) {
     if (l->slabs_count == l->slabs_cap) {
-        l->slabs_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
-        l->slabs = realloc(l->slabs, (size_t)l->slabs_cap * sizeof(char *));
-        if (!l->slabs) { perror("realloc slabs"); exit(EXIT_FAILURE); }
+        int new_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
+        char **new_slabs = realloc(l->slabs, (size_t)new_cap * sizeof(char *));
+        if (!new_slabs) {
+            perror("realloc slabs");
+            lines_free(l);
+            exit(EXIT_FAILURE);
+        }
+        l->slabs = new_slabs;
+        l->slabs_cap = new_cap;
     }
     char *slab = malloc(CHUNK_CAP);
-    if (!slab) { perror("malloc slab"); exit(EXIT_FAILURE); }
+    if (!slab) {
+        perror("malloc slab");
+        lines_free(l);
+        exit(EXIT_FAILURE);
+    }
     l->slabs[l->slabs_count++] = slab;
     l->slab_used = 0;
 }
@@ -52,12 +70,22 @@ static char *lines_arena_dup(lines_t *l, const char *src, size_t len) {
     if (len + 1 > CHUNK_CAP) {
         /* Rare: huge single line >1MB. Give it its own slab. */
         if (l->slabs_count == l->slabs_cap) {
-            l->slabs_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
-            l->slabs = realloc(l->slabs, (size_t)l->slabs_cap * sizeof(char *));
-            if (!l->slabs) { perror("realloc slabs"); exit(EXIT_FAILURE); }
+            int new_cap = l->slabs_cap ? l->slabs_cap * 2 : 4;
+            char **new_slabs = realloc(l->slabs, (size_t)new_cap * sizeof(char *));
+            if (!new_slabs) {
+                perror("realloc slabs");
+                lines_free(l);
+                exit(EXIT_FAILURE);
+            }
+            l->slabs = new_slabs;
+            l->slabs_cap = new_cap;
         }
         char *big = malloc(len + 1);
-        if (!big) { perror("malloc bigline"); exit(EXIT_FAILURE); }
+        if (!big) {
+            perror("malloc bigline");
+            lines_free(l);
+            exit(EXIT_FAILURE);
+        }
         memcpy(big, src, len);
         big[len] = '\0';
         l->slabs[l->slabs_count++] = big;

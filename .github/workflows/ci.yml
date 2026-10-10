@@ -44,7 +44,7 @@ jobs:
       - name: CLI regression suite
         run: sh tests/cli.sh build/mmenu
       - name: Valgrind memory checks
-        if: matrix.compiler == 'gcc' && matrix.mode == 'release'
+        if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: valgrind --quiet --error-exitcode=99 --leak-check=full --show-leak-kinds=all build/mmenu --filter needle < tests/fixtures/basic.txt > /dev/null
       - name: Sanitizer regression suite
         if: matrix.mode == 'sanitizers'
@@ -53,7 +53,7 @@ jobs:
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: sh tests/cli.sh build/mmenu
       - name: Performance measurements
-        if: matrix.compiler == 'gcc' && matrix.mode == 'release'
+        if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/benchmark.sh build/mmenu build/performance.csv
       - name: Upload performance results
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'

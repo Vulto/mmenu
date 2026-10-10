@@ -27,12 +27,13 @@
 #include <stdint.h>
 
 /* MMENU_FUZZY enables subsequence matching and score-ranked results. */
-enum { MMENU_FUZZY = 1u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
    Default matching is ASCII-case-insensitive substring matching; non-ASCII
    characters are matched exactly. MMENU_FUZZY enables ranked subsequence
-   matching. Invalid multibyte strings return -1 before terminal initialization. */
+   matching and MMENU_EXACT enables byte-exact equality matching. These modes
+   are mutually exclusive. Invalid multibyte strings return -1 before terminal initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags);
@@ -292,8 +293,8 @@ static void filt_clear(filt *f) { f->count = 0; }
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags) {
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if (flags & ~MMENU_FUZZY) {
-        fprintf(stderr, "mmenu: unsupported API flags\\n");
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||\n        ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
+        fprintf(stderr, "mmenu: unsupported or conflicting API flags\\n");
         return -1;
     }
     if (n_options < 0) {
@@ -378,7 +379,7 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
         }
         if (q) {
             for (int i = 0; i < n_options; i++) {
-                if (strcasestr(options[i], q) && !filt_push(&filtered, i)) {
+                if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :\n                     strcasestr(options[i], q) != NULL) &&\n                    !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
                 }
@@ -478,7 +479,7 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
                     newf.count = 0;
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
-                        if (strcasestr(options[oidx], q)) {
+                        if ((flags & MMENU_EXACT) ? strcmp(options[oidx], q) == 0 :\n                            strcasestr(options[oidx], q) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap = newf.cap <= 0 ? INITIAL_CAP : newf.cap * 2;
                                 int *new_indices = realloc(newf.indices, (size_t)new_cap * sizeof(int));
@@ -512,7 +513,7 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
                     }
                 } else {
                     for (int i = 0; i < n_options; i++) {
-                        if (strcasestr(options[i], q) && !filt_push(&filtered, i)) {
+                        if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :\n                         strcasestr(options[i], q) != NULL) &&\n                        !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
                         }

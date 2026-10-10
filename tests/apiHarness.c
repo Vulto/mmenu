@@ -17,6 +17,10 @@ int main(int argc, char **argv)
 {
     const char *options[] = {"alpha", "beta", "needle", "café-日本語"};
     const char *null_entry_options[] = {"alpha", NULL, "needle"};
+    const char *many_options[140];
+    for (size_t i = 0; i < sizeof(many_options) / sizeof(many_options[0]); i++) {
+        many_options[i] = options[i % (sizeof(options) / sizeof(options[0]))];
+    }
     int count = 4;
     const char *prompt = "test> ";
     pid_t resize_child = -1;
@@ -38,6 +42,11 @@ int main(int argc, char **argv)
             _exit(0);
         }
         if (resize_child < 0) return 2;
+    } else if (argc > 1 && strcmp(argv[1], "many") == 0) {
+        count = (int)(sizeof(many_options) / sizeof(many_options[0]));
+        if (mmenu(many_options, count, prompt) != -1) return 1;
+        puts("MMENU_RESULT=-1");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "null-prompt") == 0) {
         prompt = NULL;
     } else if (argc > 1 && strcmp(argv[1], "invalid-null-options") == 0) {

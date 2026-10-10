@@ -8,10 +8,12 @@ score/rank candidates. The C API uses the same matcher while narrowing the visib
 These are compatibility semantics, not a claim that input order is a relevance ranking.
 
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
-human-judged corpus. Each row records a query ID, query string, relevance grade (0–3), and
-candidate. Query groups deliberately include exact-substring cases and fuzzy-subsequence
-cases that the current matcher is expected not to find. This makes the semantic difference
-observable rather than conflating missing matches with poor ordering.
+synthetic path-like corpus with manually assigned relevance grades. It is an initial
+regression fixture, not a representative user study. Each row records a query ID, query
+string, relevance grade (0–3), and candidate. Query groups deliberately include
+exact-substring cases and fuzzy-subsequence cases that the current matcher is expected not
+to find. This makes the semantic difference observable rather than conflating missing
+matches with poor ordering.
 
 ## Ranking metrics
 
@@ -47,6 +49,23 @@ This small, deliberately diagnostic corpus includes queries such as `mmh` and `t
 that require subsequence matching. Their zero scores for mmenu are expected under its
 documented contiguous-substring contract; the table is evidence of a semantic difference,
 not a claim that these four queries represent all user searches.
+
+| Query group | Tool | MRR | NDCG@5 | Recall@5 |
+|---|---|---:|---:|---:|
+| menu | mmenu | 1.0000 | 0.6084 | 0.8333 |
+| menu | fzf / skim / fzy | 1.0000 | 0.8273 | 0.8333 |
+| mmh | mmenu | 0.0000 | 0.0000 | 0.0000 |
+| mmh | fzf / skim / fzy | 1.0000 | 0.8839 | 0.6667 |
+| tst | mmenu | 0.0000 | 0.0000 | 0.0000 |
+| tst | fzf / skim | 1.0000 | 0.9896 | 1.0000 |
+| tst | fzy | 1.0000 | 0.8502 | 1.0000 |
+| cfg | mmenu | 1.0000 | 0.2248 | 0.2500 |
+| cfg | fzf / skim / fzy | 1.0000 | 0.8502 | 1.0000 |
+
+The reference versions in that run were fzf 0.44.1, skim 5.7.4, and fzy 1.0. The tiny
+ranking benchmark also records elapsed time and RSS per invocation, but those measurements
+are dominated by process startup; use the large-corpus throughput harness for performance
+comparisons.
 
 In CI run [38059037822](https://github.com/Vulto/mmenu/actions/runs/38059037822), the
 base-versus-candidate median latency ratios were 0.832x at 100k records and 0.812x at 1m

@@ -169,8 +169,8 @@ CheckRepeatedCalls() {
     fi
 }
 
-CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n' '\033[B\n' 0 1 normal
-CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003' '\033[B\n' -1 1 normal
+CheckRepeatedCalls 'repeated API calls retain selection and clean up terminal state' '\n' "$(TERM=xterm tput kcud1)\n" 0 1 normal
+CheckRepeatedCalls 'API cancellation cleans up before the next call' '\003' "$(TERM=xterm tput kcud1)\n" -1 1 normal
 CheckRepeatedCalls 'API allocation failure cleans up before the next call' '' '\n' -1 0 allocfail
 
 if [ "$Failures" -ne 0 ]; then

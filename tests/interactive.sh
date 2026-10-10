@@ -31,6 +31,14 @@ CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
 CheckSelection 'Ctrl-C cancels selection' -1 '\003'
 
+CheckSelection 'Escape cancels selection' -1 '\033'
+CheckSelection 'Ctrl-D cancels selection' -1 '\004'
+CheckSelection 'NULL empty options list returns -1' -1 '\n' null-empty
+CheckSelection 'UTF-8 query selects matching option' 3 'café-日本語\n'
+CheckSelection 'Up at first option remains bounded' 0 "$(TERM=xterm tput kcuu1)\n"
+DownKey=$(TERM=xterm tput kcud1)
+CheckSelection 'Down beyond last option remains bounded' 3 "${DownKey}${DownKey}${DownKey}${DownKey}\n"
+
 
 CheckApiContract() {
     Mode=$1

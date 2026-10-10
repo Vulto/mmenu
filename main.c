@@ -300,15 +300,15 @@ int main(int argc, char **argv) {
             wchar_t *query = mb_to_wc(filter_query);
             if (!query) {
                 if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
-                else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\\n");
+                else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
                 lines_free(&opts);
                 return EXIT_FAILURE;
             }
             for (int i = 0; i < opts.count; i++) {
                 long long score;
                 if (FuzzyScore(opts.lines[i], query, &score)) {
-                    if (output_index) printf("%d\\n", i);
-                    else printf("%s\\n", opts.lines[i]);
+                    if (output_index) printf("%d\n", i);
+                    else printf("%s\n", opts.lines[i]);
                 }
             }
             free(query);

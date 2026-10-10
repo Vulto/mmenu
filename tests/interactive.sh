@@ -28,6 +28,7 @@ CheckSelection() {
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
+CheckSelection 'Backspace clears an unmatched query' 0 'x\177\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
 CheckSelection 'Ctrl-C cancels selection' -1 '\003'
@@ -113,6 +114,7 @@ CheckApiFilterAllocationFailure() {
 CheckApiFilterAllocationFailure 6 'n\n' -1 'converting filter'
 CheckApiFilterAllocationFailure 7 'needle\n' 2 ''
 CheckApiFilterAllocationFailure 8 'ne\n' -1 'rendering option'
+CheckApiFilterAllocationFailure 9 'n\177\n' -1 'converting filter'
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\n' resize
 

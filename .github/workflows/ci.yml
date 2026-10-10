@@ -54,12 +54,12 @@ jobs:
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/interactive.sh build/api-test
       - name: Valgrind memory checks
-        if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: |
           valgrind --quiet --error-exitcode=99 --leak-check=full --show-leak-kinds=all build/mmenu --filter needle < tests/fixtures/basic.txt > /dev/null
           printf '\n' | TERM=xterm script -q -e -c 'valgrind --quiet --error-exitcode=99 --leak-check=full --show-leak-kinds=all build/api-test' /dev/null > /dev/null
       - name: Performance measurements
-        if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/benchmark.sh build/mmenu build/performance.csv
       - name: Upload performance results
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'

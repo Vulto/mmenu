@@ -16,15 +16,20 @@ CheckSelection() {
         printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
         cat "$TmpDir/error" >&2
         Failures=$((Failures + 1))
-    elif ! grep -aFq "MMENU_RESULT=$Expected" "$TmpDir/output"; then
+        return
+    fi
+
+    # Strip terminal control sequences before asserting visible clipping/text.
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/output" > "$TmpDir/plain-output"
+    if ! grep -aFq "MMENU_RESULT=$Expected" "$TmpDir/plain-output"; then
         printf 'FAIL: %s (expected selection %s)\n' "$Name" "$Expected" >&2
         tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
         Failures=$((Failures + 1))
-    elif [ -n "${5:-}" ] && ! grep -aFq "$5" "$TmpDir/output"; then
+    elif [ -n "${5:-}" ] && ! grep -aFq "$5" "$TmpDir/plain-output"; then
         printf 'FAIL: %s (expected terminal text %s)\n' "$Name" "$5" >&2
         tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
         Failures=$((Failures + 1))
-    elif [ -n "${6:-}" ] && grep -aFq "$6" "$TmpDir/output"; then
+    elif [ -n "${6:-}" ] && grep -aFq "$6" "$TmpDir/plain-output"; then
         printf 'FAIL: %s (unexpected terminal text %s)\n' "$Name" "$6" >&2
         tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
         Failures=$((Failures + 1))

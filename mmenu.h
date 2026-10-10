@@ -163,6 +163,7 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
         if (resize_flag) {
             resize_flag = 0;
             endwin();
+            resizeterm(0, 0);
             refresh();
             getmaxyx(stdscr, rows, cols);
             visible = rows - 1;

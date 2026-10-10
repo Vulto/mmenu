@@ -61,6 +61,22 @@ else
     Pass 'no-sort requires fuzzy batch mode'
 fi
 
+# NUL-delimited records support both terminated and final unterminated input.
+printf 'alpha\000beta\000alpha beta' > "$TmpDir/input0"
+printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"
+"$Bin" --read0 --print0 --filter alpha < "$TmpDir/input0" > "$TmpDir/actual0"
+CheckEqual 'read0 and print0 preserve NUL-delimited records including final unterminated record' "$TmpDir/expected0" "$TmpDir/actual0"
+printf 'alpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --read0 --filter alpha < "$TmpDir/input0" > "$TmpDir/actual"
+CheckEqual 'read0 accepts NUL-delimited input with newline output' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nbeta\nalpha beta\n' > "$TmpDir/input"
+printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"
+"$Bin" --print0 --filter alpha < "$TmpDir/input" > "$TmpDir/actual0"
+CheckEqual 'print0 emits NUL-delimited output for line-delimited input' "$TmpDir/expected0" "$TmpDir/actual0"
+printf '0\0002\000' > "$TmpDir/expected0"
+"$Bin" --read0 --print0 --filter alpha -t < "$TmpDir/input0" > "$TmpDir/actual0"
+CheckEqual 'print0 also terminates index records with NUL' "$TmpDir/expected0" "$TmpDir/actual0"
+
 # Exact mode uses byte-exact whole-record equality and preserves duplicate order.
 printf 'alpha\nAlpha\nalpha beta\nalpha\n\n' > "$TmpDir/input"
 printf 'alpha\nalpha\n' > "$TmpDir/expected"

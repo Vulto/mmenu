@@ -37,13 +37,18 @@ printf 'alpha\nbeta\n' > "$TmpDir/expected"
 CheckEqual 'empty fuzzy query preserves input order' "$TmpDir/expected" "$TmpDir/actual"
 "$Bin" --fuzzy --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'unmatched fuzzy query emits no records' /dev/null "$TmpDir/actual"
-if printf '\377bad\n' | "$Bin" --fuzzy --filter a > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+InvalidQuery=$(printf '\377bad')
+if "$Bin" --fuzzy --filter "$InvalidQuery" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'invalid multibyte fuzzy query must be rejected'
 elif ! grep -qi 'fuzzy query is not valid' "$TmpDir/stderr"; then
     Fail 'invalid multibyte fuzzy query must explain the error'
 else
     Pass 'invalid multibyte fuzzy query is rejected'
 fi
+printf '\377bad\nalpha\n' > "$TmpDir/input"
+printf 'alpha\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter a < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'invalid multibyte candidates are ignored in fuzzy mode' "$TmpDir/expected" "$TmpDir/actual"
 
 printf 'alpha needle omega\nNeedle uppercase\nnothing here\nneedle\nneedle\n\nfinal needle' > "$TmpDir/input"
 printf 'alpha needle omega\nNeedle uppercase\nneedle\nneedle\nfinal needle\n' > "$TmpDir/expected"

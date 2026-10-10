@@ -5,8 +5,12 @@
 #define MMENU_H
 
 /* Enable wide-character functions in ncurses */
-#define _XOPEN_SOURCE_EXTENDED
+#ifndef _XOPEN_SOURCE_EXTENDED
+#define _XOPEN_SOURCE_EXTENDED 1
+#endif
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE   /* for strcasestr on glibc */
+#endif
 
 #include <ncurses.h>
 #include <locale.h>

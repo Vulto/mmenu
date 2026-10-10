@@ -49,11 +49,12 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 
 The suite covers CLI batch filtering, a deterministic generated differential corpus,
 ncurses interaction through a pseudo-terminal (including navigation bounds, cancellation,
-backspace, Unicode input, and resize signals), compiler/runtime health, and memory checks
+repeated query edits, Backspace, Unicode input, resize-triggered redraws, 2x8 clipping, and
+a 1x1 terminal), compiler/runtime health, and memory checks
 for batch and interactive paths. Allocation fault injection covers each explicit allocation
 path in the C API, including its incremental-filter fallback; it does not intercept
-allocations internal to ncurses or the C library. Terminal-width and redraw-geometry assertions and broader fuzzing beyond the deterministic
-property corpus remain open. Comparative ranking metrics are now recorded against a fixed
+allocations internal to ncurses or the C library. More exhaustive terminal-width/redraw-geometry assertions across additional terminal types
+and broader fuzzing beyond the deterministic property corpus remain open. Comparative ranking metrics are now recorded against a fixed
 judged corpus; ranking improvements still require explicit relevance judgments and review.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current

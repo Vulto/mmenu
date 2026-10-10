@@ -13,10 +13,24 @@
 #define MMENU_IMPLEMENTATION
 #include "../mmenu.h"
 
+static int SetTerminalSize(unsigned short rows, unsigned short cols)
+{
+    int tty_fd = open("/dev/tty", O_RDWR);
+    if (tty_fd < 0) return 0;
+    struct winsize Size = {.ws_row = rows, .ws_col = cols};
+    int result = ioctl(tty_fd, TIOCSWINSZ, &Size);
+    close(tty_fd);
+    return result == 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *options[] = {"alpha", "beta", "needle", "café-日本語"};
     const char *null_entry_options[] = {"alpha", NULL, "needle"};
+    char long_option[512];
+    memset(long_option, 'x', sizeof(long_option) - 1);
+    long_option[sizeof(long_option) - 1] = '\0';
+    const char *narrow_options[] = {long_option, "beta", "needle"};
     const char *many_options[140];
     for (size_t i = 0; i < sizeof(many_options) / sizeof(many_options[0]); i++) {
         many_options[i] = options[i % (sizeof(options) / sizeof(options[0]))];
@@ -24,11 +38,18 @@ int main(int argc, char **argv)
     int count = 4;
     const char *prompt = "test> ";
     pid_t resize_child = -1;
+    int narrow_mode = 0;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
     } else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) {
         count = 0;
+    } else if (argc > 1 && strcmp(argv[1], "narrow") == 0) {
+        if (!SetTerminalSize(2, 8)) return 2;
+        narrow_mode = 1;
+    } else if (argc > 1 && strcmp(argv[1], "tiny") == 0) {
+        if (!SetTerminalSize(1, 1)) return 2;
+        narrow_mode = 1;
     } else if (argc > 1 && strcmp(argv[1], "resize") == 0) {
         resize_child = fork();
         if (resize_child == 0) {
@@ -63,7 +84,10 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    int result = (argc > 1 && strcmp(argv[1], "null-empty") == 0) ? mmenu(NULL, 0, prompt) : mmenu(options, count, prompt);
+    int result;
+    if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
+    else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) result = mmenu(NULL, 0, prompt);
+    else result = mmenu(options, count, prompt);
     printf("\nMMENU_RESULT=%d\n", result);
     return 0;
 }

@@ -20,6 +20,14 @@ CheckSelection() {
         printf 'FAIL: %s (expected selection %s)\n' "$Name" "$Expected" >&2
         tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
         Failures=$((Failures + 1))
+    elif [ -n "${5:-}" ] && ! grep -aFq "$5" "$TmpDir/output"; then
+        printf 'FAIL: %s (expected terminal text %s)\n' "$Name" "$5" >&2
+        tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    elif [ -n "${6:-}" ] && grep -aFq "$6" "$TmpDir/output"; then
+        printf 'FAIL: %s (unexpected terminal text %s)\n' "$Name" "$6" >&2
+        tail -c 2000 "$TmpDir/output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
     else
         printf 'PASS: %s\n' "$Name"
     fi
@@ -28,6 +36,7 @@ CheckSelection() {
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
+CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'Backspace clears an unmatched query' 0 'x\177\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
@@ -116,7 +125,9 @@ CheckApiFilterAllocationFailure 7 'needle\n' 2 ''
 CheckApiFilterAllocationFailure 8 'ne\n' -1 'rendering option'
 CheckApiFilterAllocationFailure 9 'n\177\n' -1 'converting filter'
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
-CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\n' resize
+CheckSelection 'SIGWINCH resize redraws after query edits' 0 'x\177\n' resize 'alpha'
+CheckSelection 'narrow terminal clips long options and preserves scrolling' 1 "$(TERM=xterm tput kcud1)\n" narrow 'xxxxxxxx' 'xxxxxxxxx'
+CheckSelection 'one-cell terminal does not crash on selection' 0 '\n' tiny
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

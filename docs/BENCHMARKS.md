@@ -44,6 +44,7 @@ skim 5.7.4, and fzy 1.0. Mean metrics across the four fixed query groups were:
 | Tool | Mean MRR | Mean NDCG@5 | Mean Recall@5 |
 |---|---:|---:|---:|
 | mmenu (substring, input order) | 0.5000 | 0.2083 | 0.2708 |
+| mmenu (fuzzy, stable ties) | 1.0000 | 0.8878 | 0.8750 |
 | fzf 0.44.1 | 1.0000 | 0.8878 | 0.8750 |
 | skim 5.7.4 | 1.0000 | 0.8878 | 0.8750 |
 | fzy 1.0 | 1.0000 | 0.8529 | 0.8750 |
@@ -56,14 +57,15 @@ not a claim that these four queries represent all user searches.
 | Query group | Tool | MRR | NDCG@5 | Recall@5 |
 |---|---|---:|---:|---:|
 | menu | mmenu | 1.0000 | 0.6084 | 0.8333 |
-| menu | fzf / skim / fzy | 1.0000 | 0.8273 | 0.8333 |
+| menu | mmenu-fuzzy / fzf / skim | 1.0000 | 0.8273 | 0.8333 |
+| menu | fzy | 1.0000 | 0.8273 | 0.8333 |
 | mmh | mmenu | 0.0000 | 0.0000 | 0.0000 |
-| mmh | fzf / skim / fzy | 1.0000 | 0.8839 | 0.6667 |
+| mmh | mmenu-fuzzy / fzf / skim / fzy | 1.0000 | 0.8839 | 0.6667 |
 | tst | mmenu | 0.0000 | 0.0000 | 0.0000 |
-| tst | fzf / skim | 1.0000 | 0.9896 | 1.0000 |
+| tst | mmenu-fuzzy / fzf / skim | 1.0000 | 0.9896 | 1.0000 |
 | tst | fzy | 1.0000 | 0.8502 | 1.0000 |
 | cfg | mmenu | 1.0000 | 0.2248 | 0.2500 |
-| cfg | fzf / skim / fzy | 1.0000 | 0.8502 | 1.0000 |
+| cfg | mmenu-fuzzy / fzf / skim / fzy | 1.0000 | 0.8502 | 1.0000 |
 
 The reference versions in that run were fzf 0.44.1, skim 5.7.4, and fzy 1.0. The tiny
 ranking benchmark also records elapsed time and RSS per invocation, but those measurements

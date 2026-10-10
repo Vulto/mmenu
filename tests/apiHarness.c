@@ -47,6 +47,7 @@ int main(int argc, char **argv)
     int ascii_mode = argc > 1 && strcmp(argv[1], "ascii") == 0;
     int invalid_utf8_mode = argc > 1 && strcmp(argv[1], "invalid-utf8") == 0;
     int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
+    int fuzzy_mode = argc > 1 && strcmp(argv[1], "fuzzy") == 0;
 
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
@@ -124,6 +125,7 @@ int main(int argc, char **argv)
     else if (invalid_prompt_mode) result = mmenu(ascii_options, 3, invalid_prompt);
     else if (ascii_mode) result = mmenu(ascii_options, 3, prompt);
     else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) result = mmenu(NULL, 0, prompt);
+    else if (fuzzy_mode) result = mmenuEx(options, count, prompt, MMENU_FUZZY);
     else result = mmenu(options, count, prompt);
     printf("\nMMENU_RESULT=%d\n", result);
     return 0;

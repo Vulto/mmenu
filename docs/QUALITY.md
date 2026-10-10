@@ -33,6 +33,10 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   API options/prompts under both locales. Batch mode remains byte-oriented, preserves invalid
   UTF-8 bytes, and rejects embedded NUL records.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
+- Clang libFuzzer runs a 15-second coverage-guided campaign against the fuzzy matcher
+  with checked-in seeds for subsequences, repeated characters, empty queries, and Unicode.
+  The harness verifies result membership, score consistency, unique indexes, descending
+  scores, and stable input-order ties for equal scores.
 - Valgrind checks the batch path for invalid accesses and leaks.
 - Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,
   retain min/median/max latency and peak RSS, and validate match counts.
@@ -62,9 +66,12 @@ redraws, and 1x1, 1x40,
 2x8, 3x20, 8x1, and 24x80 terminal geometries), compiler/runtime health, and memory checks
 for batch and interactive paths. Allocation fault injection sweeps all wrapped allocation
 calls reached by the representative CLI and C API scenarios; it does not intercept
-allocations internal to ncurses or the C library. The test corpus is deterministic and reproducible; coverage-guided fuzzing and exhaustive
-terminal-emulator compatibility testing are outside the current CI contract. Comparative ranking metrics are recorded for both default and fuzzy mmenu against a fixed
+allocations internal to ncurses or the C library. The deterministic regression corpus is reproducible, and a bounded coverage-guided matcher
+fuzzing campaign runs in CI. Exhaustive terminal-emulator compatibility testing remains
+outside the current CI contract. Comparative ranking metrics are recorded for both default and fuzzy mmenu against a fixed
 judged corpus; ranking changes still require explicit relevance judgments and review.
+The fuzzer is bounded to keep CI predictable; it supplements but does not replace the
+deterministic regression tests or allocation-failure sweeps.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current
 implementation, preserve the failure as evidence and fix the input reader; do not change

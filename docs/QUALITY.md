@@ -22,9 +22,10 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   failure must produce a diagnostic and a non-crashing nonzero exit.
 - The public C API allocation sweep first counts allocations in representative scenarios,
   then fails each allocation index in turn under ASan/UBSan. It covers filter-list growth,
-  rendering, ASCII/Unicode query conversion, and incremental-filter fallback. Fatal failures
-  must return `-1`, emit diagnostics, and clean up ncurses rather than terminating the host
-  process; incremental-filter allocation failure must safely fall back to a full filter.
+  rendering, ASCII/Unicode substring conversion, fuzzy result allocation, and incremental-filter
+  fallback. Fatal failures must return `-1`, emit diagnostics, and clean up ncurses rather than
+  terminating the host process; incremental-filter allocation failure must safely fall back to
+  a full filter.
 - Repeated C API calls are tested after normal selection, cancellation, and an injected
   allocation failure to verify terminal/resource cleanup and state reset.
 - Locale tests cover ASCII case-insensitive matching under `C` and `C.UTF-8`, exact-byte

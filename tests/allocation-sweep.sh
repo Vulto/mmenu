@@ -103,7 +103,7 @@ SweepCli small "$TmpDir/small.input"
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 
-SweepApi many many '\n'
+SweepApi many many 'zzzz\n'
 SweepApi query-edit '' 'needle\n'
 SweepApi incremental-fallback '' 'n\177\n'
 SweepApi unicode-query '' 'café\n'

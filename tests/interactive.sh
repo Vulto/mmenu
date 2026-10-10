@@ -110,9 +110,9 @@ CheckApiFilterAllocationFailure() {
     fi
 }
 
-CheckApiFilterAllocationFailure 6 'n\\n' -1 'converting filter'
-CheckApiFilterAllocationFailure 7 'needle\\n' 2 ''
-CheckApiFilterAllocationFailure 8 'ne\\n' -1 'rendering option'
+CheckApiFilterAllocationFailure 6 'n\n' -1 'converting filter'
+CheckApiFilterAllocationFailure 7 'needle\n' 2 ''
+CheckApiFilterAllocationFailure 8 'ne\n' -1 'rendering option'
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize does not corrupt selection' 0 '\n' resize
 

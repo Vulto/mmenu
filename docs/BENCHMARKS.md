@@ -7,7 +7,8 @@ emits matches in original input order. The default C API behaves the same. Opt-i
 `--fuzzy --filter QUERY` and `mmenuEx(..., MMENU_FUZZY)` use ASCII-case-insensitive
 subsequence matching, rewarding early, adjacent, and word-boundary matches and sorting by
 score with stable input-order ties. The fuzzy score is a practical heuristic, not a learned
-relevance model.
+relevance model. Interactive fuzzy mode underlines and bolds the greedily matched
+subsequence characters.
 
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
 synthetic path-like corpus with manually assigned relevance grades. It is an initial

@@ -106,6 +106,10 @@ int main(int argc, char **argv)
         if (mmenu(null_entry_options, 3, prompt) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-flags") == 0) {
+        if (mmenuEx(options, 4, prompt, 2u) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     }
 
     if (argc > 1 && strcmp(argv[1], "repeat") == 0) {

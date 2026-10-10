@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
     const char *filter_query = NULL;
     int filter_seen = 0;
     int fuzzy_mode = 0;
+    int exact_mode = 0;
     int output_index = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -161,6 +162,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--fuzzy")) {
             fuzzy_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--exact")) {
+            exact_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
@@ -202,6 +207,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (fuzzy_mode && exact_mode)
+        return argument_error("--fuzzy and --exact are mutually exclusive");
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
 
@@ -235,7 +242,14 @@ int main(int argc, char **argv) {
 
     /* Non-interactive fast path: outputs matching lines or original indexes. */
     if (filter_query != NULL) {
-        if (fuzzy_mode) {
+        if (exact_mode) {
+            for (int i = 0; i < opts.count; i++) {
+                if (strcmp(opts.lines[i], filter_query) == 0) {
+                    if (output_index) printf("%d\n", i);
+                    else printf("%s\n", opts.lines[i]);
+                }
+            }
+        } else if (fuzzy_mode) {
             setlocale(LC_ALL, "");
             errno = 0;
             wchar_t *query = mb_to_wc(filter_query);
@@ -273,7 +287,8 @@ int main(int argc, char **argv) {
     }
 
     int chosen = mmenuEx((const char *const *)opts.lines, opts.count, prompt,
-                         fuzzy_mode ? MMENU_FUZZY : 0);
+                         fuzzy_mode ? MMENU_FUZZY :
+                         exact_mode ? MMENU_EXACT : 0);
 
     if (chosen == -1) {
         printf("\n");

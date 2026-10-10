@@ -68,6 +68,33 @@ CheckFuzzyHighlight() {
     fi
 }
 CheckFuzzyHighlight
+
+CheckFuzzyUnicodeHighlight() {
+    if ! { sleep 0.2; printf '日語\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin fuzzy" /dev/null > "$TmpDir/unicode-highlight-output" 2> "$TmpDir/unicode-highlight-error"; then
+        printf 'FAIL: fuzzy Unicode highlighting test did not exit cleanly\n' >&2
+        cat "$TmpDir/unicode-highlight-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    if ! grep -aFq 'MMENU_RESULT=3' "$TmpDir/unicode-highlight-output"; then
+        printf 'FAIL: fuzzy Unicode subsequence selected the wrong option\n' >&2
+        Failures=$((Failures + 1))
+    else
+        Escape=$(printf '\033')
+        if grep -aEq "${Escape}\[[0-9;]*4[0-9;]*m" "$TmpDir/unicode-highlight-output"; then
+            printf 'PASS: fuzzy Unicode matched characters are underlined\n'
+        else
+            printf 'FAIL: fuzzy Unicode matches were not underlined\n' >&2
+            tail -c 2000 "$TmpDir/unicode-highlight-output" | od -An -tx1c >&2
+            Failures=$((Failures + 1))
+        fi
+    fi
+}
+CheckFuzzyUnicodeHighlight
+CheckSelection 'fuzzy renderer survives narrow terminals with long candidates' 0 'xxx\n' fuzzy-narrow
+CheckSelection 'fuzzy renderer survives a one-cell terminal' 0 '\n' fuzzy-tiny
+
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
 CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'

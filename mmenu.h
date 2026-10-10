@@ -78,6 +78,22 @@ static void filt_push(filt *f, int idx) {
 static void filt_clear(filt *f) { f->count = 0; }
 
 int mmenu(const char *const *options, int n_options, const char *prompt) {
+    /* Validate the public API before touching the terminal or initializing ncurses. */
+    if (n_options < 0) {
+        fprintf(stderr, "mmenu: option count must not be negative\\n");
+        return -1;
+    }
+    if (n_options > 0 && !options) {
+        fprintf(stderr, "mmenu: options must not be NULL when option count is positive\\n");
+        return -1;
+    }
+    for (int i = 0; i < n_options; i++) {
+        if (!options[i]) {
+            fprintf(stderr, "mmenu: option %d must not be NULL\\n", i);
+            return -1;
+        }
+    }
+
     setlocale(LC_ALL, "");
 
     FILE *tty = fopen("/dev/tty", "r+");

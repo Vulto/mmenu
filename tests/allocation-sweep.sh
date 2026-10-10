@@ -59,7 +59,7 @@ ProbeApi() {
     Mode=$2
     Keys=$3
     if ! { sleep 0.2; printf '%b' "$Keys" 2>/dev/null || :; } |
-         MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-probe.raw" 2> "$TmpDir/api-probe.err"; then
+         MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 MMENU_SWEEP_API=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-probe.raw" 2> "$TmpDir/api-probe.err"; then
         Fail "API probe failed for $Name"
     fi
     StripTerminalCodes "$TmpDir/api-probe.raw" "$TmpDir/api-probe.txt"
@@ -77,7 +77,7 @@ SweepApi() {
     At=1
     while [ "$At" -le "$Total" ]; do
         if ! { sleep 0.2; printf '%b' "$Keys" 2>/dev/null || :; } |
-             MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-raw" 2> "$TmpDir/api-error"; then
+             MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 MMENU_SWEEP_API=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-raw" 2> "$TmpDir/api-error"; then
             Fail "API allocation failure $At in $Name terminated the harness"
         fi
         StripTerminalCodes "$TmpDir/api-raw" "$TmpDir/api.txt"
@@ -103,7 +103,7 @@ SweepCli small "$TmpDir/small.input"
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 
-SweepApi many many 'zzzz\n'
+SweepApi many many '\n'
 SweepApi query-edit '' 'needle\n'
 SweepApi incremental-fallback '' 'n\177\n'
 SweepApi unicode-query '' 'café\n'

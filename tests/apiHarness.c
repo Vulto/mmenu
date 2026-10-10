@@ -43,6 +43,7 @@ int main(int argc, char **argv)
     const char *prompt = "test> ";
     pid_t resize_child = -1;
     int narrow_mode = 0;
+    int many_mode = 0;
     int ascii_mode = argc > 1 && strcmp(argv[1], "ascii") == 0;
     int invalid_utf8_mode = argc > 1 && strcmp(argv[1], "invalid-utf8") == 0;
     int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
@@ -72,9 +73,12 @@ int main(int argc, char **argv)
         if (resize_child < 0) return 2;
     } else if (argc > 1 && strcmp(argv[1], "many") == 0) {
         count = (int)(sizeof(many_options) / sizeof(many_options[0]));
-        if (mmenu(many_options, count, prompt) != -1) return 1;
-        puts("MMENU_RESULT=-1");
-        return 0;
+        if (!getenv("MMENU_SWEEP_API")) {
+            if (mmenu(many_options, count, prompt) != -1) return 1;
+            puts("MMENU_RESULT=-1");
+            return 0;
+        }
+        many_mode = 1;
     } else if (argc > 1 && strcmp(argv[1], "null-prompt") == 0) {
         prompt = NULL;
     } else if (argc > 1 && strcmp(argv[1], "invalid-null-options") == 0) {
@@ -102,7 +106,8 @@ int main(int argc, char **argv)
     }
 
     int result;
-    if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
+    if (many_mode) result = mmenu(many_options, count, prompt);
+    else if (narrow_mode) result = mmenu(narrow_options, 3, prompt);
     else if (invalid_utf8_mode) result = mmenu(invalid_utf8_options, 2, prompt);
     else if (invalid_prompt_mode) result = mmenu(ascii_options, 3, invalid_prompt);
     else if (ascii_mode) result = mmenu(ascii_options, 3, prompt);

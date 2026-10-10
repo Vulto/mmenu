@@ -61,9 +61,16 @@ static void filt_init(filt *f) {
 
 static void filt_push(filt *f, int idx) {
     if (f->count == f->cap) {
-        f->cap *= 2;
-        f->indices = realloc(f->indices, f->cap * sizeof(int));
-        if (!f->indices) { perror("realloc"); exit(EXIT_FAILURE); }
+        int new_cap = f->cap <= 0 ? INITIAL_CAP : f->cap * 2;
+        int *new_indices = realloc(f->indices, (size_t)new_cap * sizeof(int));
+        if (!new_indices) {
+            perror("realloc");
+            free(f->indices);
+            f->indices = NULL;
+            exit(EXIT_FAILURE);
+        }
+        f->indices = new_indices;
+        f->cap = new_cap;
     }
     f->indices[f->count++] = idx;
 }
@@ -184,17 +191,25 @@ int mmenu(const char *const *options, int n_options, const char *prompt) {
                         int oidx = filtered.indices[k];
                         if (strcasestr(options[oidx], q)) {
                             if (newf.count == newf.cap) {
-                                newf.cap *= 2;
-                                newf.indices = realloc(newf.indices, newf.cap * sizeof(int));
-                                if (!newf.indices) break;
+                                int new_cap = newf.cap <= 0 ? INITIAL_CAP : newf.cap * 2;
+                                int *new_indices = realloc(newf.indices, (size_t)new_cap * sizeof(int));
+                                if (!new_indices) {
+                                    free(newf.indices);
+                                    newf.indices = NULL;
+                                    break;
+                                }
+                                newf.indices = new_indices;
+                                newf.cap = new_cap;
                             }
                             newf.indices[newf.count++] = oidx;
                         }
                     }
-                    /* Swap in the smaller refined list */
-                    free(filtered.indices);
-                    filtered = newf;
-                    do_full = 0;
+                    if (newf.indices) {
+                        /* Swap in the smaller refined list only after successful allocation. */
+                        free(filtered.indices);
+                        filtered = newf;
+                        do_full = 0;
+                    }
                 }
             }
             if (do_full) {

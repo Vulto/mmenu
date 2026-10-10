@@ -30,6 +30,30 @@ update the golden file merely to make a failing test pass. `fzf`, `skim` (`sk`),
 scoring semantics differ, so their metrics are a comparative reference, not an assertion
 that the tools implement the same contract.
 
+
+## Initial CI snapshot
+
+The first successful reference run used `mmenu` from the PR build, fzf 0.44.1,
+skim 5.7.4, and fzy 1.0. Mean metrics across the four fixed query groups were:
+
+| Tool | Mean MRR | Mean NDCG@5 | Mean Recall@5 |
+|---|---:|---:|---:|
+| mmenu (substring, input order) | 0.5000 | 0.2083 | 0.2708 |
+| fzf 0.44.1 | 1.0000 | 0.8878 | 0.8750 |
+| skim 5.7.4 | 1.0000 | 0.8878 | 0.8750 |
+| fzy 1.0 | 1.0000 | 0.8529 | 0.8750 |
+
+This small, deliberately diagnostic corpus includes queries such as `mmh` and `tst`
+that require subsequence matching. Their zero scores for mmenu are expected under its
+documented contiguous-substring contract; the table is evidence of a semantic difference,
+not a claim that these four queries represent all user searches.
+
+In CI run [38059037822](https://github.com/Vulto/mmenu/actions/runs/38059037822), the
+base-versus-candidate median latency ratios were 0.832x at 100k records and 0.812x at 1m
+records. Peak RSS ratios rounded to 1.000x at both sizes. The detailed run artifact retains
+the actual per-sample times, memory values, tool versions, and host metadata. These timing
+numbers describe that runner only and are not portable performance guarantees.
+
 ## Throughput and memory
 
 `tests/benchmark.sh` measures 1k, 10k, 100k, and 1m records with five samples per size.

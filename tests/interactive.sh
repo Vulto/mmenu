@@ -41,8 +41,8 @@ CheckSelection() {
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
-CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'nld\n'
-CheckSelection 'fuzzy API matches a subsequence' 2 'nld\n' fuzzy
+CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
+CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
 CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'
@@ -82,6 +82,7 @@ CheckApiContract() {
 CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
+CheckApiContract invalid-flags 'unsupported API flags'
 
 CheckApiAllocationFailure() {
     At=$1

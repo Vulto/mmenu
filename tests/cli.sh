@@ -34,7 +34,7 @@ CheckEqual 'inverse substring filter emits original indexes' "$TmpDir/expected" 
 printf 'beta\nAlpha\nalpha beta\n' > "$TmpDir/expected"
 "$Bin" --exact --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'inverse exact filter uses whole-record equality' "$TmpDir/expected" "$TmpDir/actual"
-printf 'alpha\nAlpha\nalpha beta\n' > "$TmpDir/expected"
+printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --invert-match --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'inverse fuzzy filter preserves records unmatched by subsequence' "$TmpDir/expected" "$TmpDir/actual"
 if "$Bin" --invert-match < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then

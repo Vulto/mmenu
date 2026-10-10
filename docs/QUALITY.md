@@ -9,7 +9,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 ## Required CI gates
 
 - GCC and Clang compile with C11, -Wall, -Wextra, -Wpedantic, and -Werror.
-- CLI contract tests verify output bytes, status, ordering, case handling, indexes,
+- CLI contract tests verify output bytes, status, ordering, substring and fuzzy matching, case handling, indexes,
   legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
   unknown/duplicate options, empty records, CRLF, final records without newline, empty
   input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin
@@ -36,7 +36,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 - Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,
   retain min/median/max latency and peak RSS, and validate match counts.
 - Ranking baseline records MRR, NDCG@5, Recall@5, match counts, tool versions, latency, and RSS
-  for mmenu, fzf, skim, and fzy on a deterministic judged corpus.
+  for default mmenu, opt-in fuzzy mmenu, fzf, skim, and fzy on a deterministic judged corpus.
 
 ## Non-negotiable test policy
 
@@ -61,8 +61,8 @@ repeated query edits, Backspace, Unicode input, resize-triggered redraws, and 1x
 for batch and interactive paths. Allocation fault injection sweeps all wrapped allocation
 calls reached by the representative CLI and C API scenarios; it does not intercept
 allocations internal to ncurses or the C library. The test corpus is deterministic and reproducible; coverage-guided fuzzing and exhaustive
-terminal-emulator compatibility testing are outside the current CI contract. Comparative ranking metrics are now recorded against a fixed
-judged corpus; ranking improvements still require explicit relevance judgments and review.
+terminal-emulator compatibility testing are outside the current CI contract. Comparative ranking metrics are recorded for both default and fuzzy mmenu against a fixed
+judged corpus; ranking changes still require explicit relevance judgments and review.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current
 implementation, preserve the failure as evidence and fix the input reader; do not change

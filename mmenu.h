@@ -120,11 +120,6 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 static int FuzzyScore(const char *candidate, const wchar_t *query,
                       long long *result)
 {
-    if (!query[0]) {
-        *result = 0;
-        return 1;
-    }
-
     size_t query_len = wcslen(query);
     size_t query_pos = 0;
     size_t candidate_pos = 0;
@@ -140,7 +135,8 @@ static int FuzzyScore(const char *candidate, const wchar_t *query,
         if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)
             return 0;
 
-        if (FoldAscii(current) == FoldAscii(query[query_pos])) {
+        if (query_pos < query_len &&
+            FoldAscii(current) == FoldAscii(query[query_pos])) {
             score += 10;
             if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
                 score += 8;

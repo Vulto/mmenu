@@ -43,6 +43,20 @@ The long-record test intentionally rejects silent truncation. If it fails on the
 implementation, preserve the failure as evidence and fix the input reader; do not change
 the test to fit the fixed-size input buffer.
 
+## Confirmed defects exposed by this baseline
+
+- Long input records are truncated at the fixed input-buffer boundary; the regression test
+  expects the full record to be preserved.
+- A missing argument after --filter does not produce a dedicated usage error and instead
+  falls through toward interactive initialization.
+- Ctrl-C is not reliably handled as a cancellation return by the interactive API because
+  the terminal's signal-generating behavior can terminate the process before wget_wch
+  receives the control character.
+
+These are implementation defects, not waived tests. Keep the gates failing until the code
+is fixed and the exact same regression tests pass. Add further defects here only when
+supported by a reproducible CI failure or another recorded reproduction.
+
 ## Performance interpretation
 
 The benchmark uses deterministic data and validates output counts. The CI comparison

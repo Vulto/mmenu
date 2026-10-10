@@ -14,8 +14,11 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   corpora, and differential matching against grep's fixed-string oracle.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; pseudo-terminal tests cover NULL prompts and SIGWINCH resize events.
-- Allocation-failure injection deterministically fails each of the first three CLI-owned
+- Allocation-failure injection deterministically fails the first three CLI-owned
   arena/list allocations and requires a diagnostic and a non-crashing nonzero exit.
+- The public C API is fault-injected at initial filter allocation, filter-list growth
+  beyond 128 options, and initial rendering. Each failure must return `-1`, emit a
+  diagnostic, and clean up the ncurses session rather than terminating the host process.
 - AddressSanitizer and UndefinedBehaviorSanitizer run the regression suite.
 - Valgrind checks the batch path for invalid accesses and leaks.
 - A deterministic benchmark records input bytes, item count, match count, and elapsed
@@ -41,8 +44,8 @@ The initial suite covers CLI batch filtering, deterministic differential matchin
 ncurses interaction through a pseudo-terminal, compiler/runtime health, and memory checks
 for both batch and interactive paths. Resize coverage currently verifies a real pseudo-terminal size-change signal without
 asserting pixel-perfect redraw geometry. Terminal-width boundaries, full keyboard-binding
-coverage, systematic allocation-failure coverage for every C API allocation, broader
-fuzz/property testing, and comparative fuzzy-ranking quality remain open. Do not claim
+coverage, allocation-failure injection for every individual C API allocation site,
+broader fuzz/property testing, and comparative fuzzy-ranking quality remain open. Do not claim
 complete coverage until those areas have explicit tests.
 
 The long-record test intentionally rejects silent truncation. If it fails on the current

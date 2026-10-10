@@ -3,9 +3,11 @@
 ## Matching contract
 
 `mmenu --filter QUERY` performs ASCII-case-insensitive **contiguous substring** matching and
-emits matches in original input order. It does not perform subsequence fuzzy matching or
-score/rank candidates. The C API uses the same matcher while narrowing the visible list.
-These are compatibility semantics, not a claim that input order is a relevance ranking.
+emits matches in original input order. The default C API behaves the same. Opt-in
+`--fuzzy --filter QUERY` and `mmenuEx(..., MMENU_FUZZY)` use ASCII-case-insensitive
+subsequence matching, rewarding early, adjacent, and word-boundary matches and sorting by
+score with stable input-order ties. The fuzzy score is a practical heuristic, not a learned
+relevance model.
 
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
 synthetic path-like corpus with manually assigned relevance grades. It is an initial
@@ -25,7 +27,8 @@ The ranking baseline records:
   relevant candidates in that query's judgments.
 - **Matched count**, candidate count, tool version, elapsed nanoseconds, and peak RSS in KiB.
 
-The golden file `tests/fixtures/ranking-mmenu.expected.csv` locks the current `mmenu`
+The golden files `tests/fixtures/ranking-mmenu.expected.csv` and
+`tests/fixtures/ranking-mmenu-fuzzy.expected.csv` lock the default and fuzzy `mmenu`
 metrics. Changes require reviewing the changed output and relevance judgments; never
 update the golden file merely to make a failing test pass. `fzf`, `skim` (`sk`), and
 `fzy` are evaluated on the same candidate order and judgments. Their fuzzy matching and

@@ -82,7 +82,7 @@ CheckFuzzyUnicodeHighlight() {
         Failures=$((Failures + 1))
     else
         Escape=$(printf '\033')
-        if grep -aEq "\${Escape}\[[0-9;]*4[0-9;]*m" "$TmpDir/unicode-highlight-output"; then
+        if grep -aEq "${Escape}\[[0-9;]*4[0-9;]*m" "$TmpDir/unicode-highlight-output"; then
             printf 'PASS: fuzzy Unicode matched characters are underlined\n'
         else
             printf 'FAIL: fuzzy Unicode matches were not underlined\n' >&2

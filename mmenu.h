@@ -293,8 +293,9 @@ static void filt_clear(filt *f) { f->count = 0; }
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags) {
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||\n        ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
-        fprintf(stderr, "mmenu: unsupported or conflicting API flags\\n");
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||
+        ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
+        fprintf(stderr, "mmenu: unsupported or conflicting API flags\n");
         return -1;
     }
     if (n_options < 0) {
@@ -379,7 +380,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
         }
         if (q) {
             for (int i = 0; i < n_options; i++) {
-                if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :\n                     strcasestr(options[i], q) != NULL) &&\n                    !filt_push(&filtered, i)) {
+                if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
+                     strcasestr(options[i], q) != NULL) &&\n                    !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
                 }
@@ -479,7 +481,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
                     newf.count = 0;
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
-                        if ((flags & MMENU_EXACT) ? strcmp(options[oidx], q) == 0 :\n                            strcasestr(options[oidx], q) != NULL) {
+                        if ((flags & MMENU_EXACT) ? strcmp(options[oidx], q) == 0 :
+                            strcasestr(options[oidx], q) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap = newf.cap <= 0 ? INITIAL_CAP : newf.cap * 2;
                                 int *new_indices = realloc(newf.indices, (size_t)new_cap * sizeof(int));
@@ -513,7 +516,8 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
                     }
                 } else {
                     for (int i = 0; i < n_options; i++) {
-                        if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :\n                         strcasestr(options[i], q) != NULL) &&\n                        !filt_push(&filtered, i)) {
+                        if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
+                         strcasestr(options[i], q) != NULL) &&\n                        !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
                         }

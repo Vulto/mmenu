@@ -115,14 +115,15 @@ static void print_usage(FILE *out) {
     fprintf(out,
         "Usage: mmenu [PROMPT] [t|true] [-t]\n"
         "       mmenu [--fuzzy | --exact] [PROMPT] [-t]\n"
-        "       mmenu [--fuzzy | --exact] --filter QUERY [-t]\n"
+        "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t]\n"
         "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
         "second positional argument t or true, and the -t flag, print the selected\n"
         "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
-        "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n");
+        "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--invert-match or -v emits records that do not match the batch query.\n");
 }
 
 static int argument_error(const char *message) {
@@ -150,6 +151,7 @@ int main(int argc, char **argv) {
     int filter_seen = 0;
     int fuzzy_mode = 0;
     int exact_mode = 0;
+    int invert_mode = 0;
     int output_index = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -166,6 +168,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--exact")) {
             exact_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--invert-match") || !strcmp(arg, "-v")) {
+            invert_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
@@ -209,6 +215,9 @@ int main(int argc, char **argv) {
 
     if (fuzzy_mode && exact_mode)
         return argument_error("--fuzzy and --exact are mutually exclusive");
+    if (invert_mode && !filter_seen)
+        return argument_error("--invert-match requires --filter");
+
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
 
@@ -242,7 +251,36 @@ int main(int argc, char **argv) {
 
     /* Non-interactive fast path: outputs matching lines or original indexes. */
     if (filter_query != NULL) {
-        if (exact_mode) {
+        if (invert_mode) {
+            wchar_t *wide_query = NULL;
+            if (fuzzy_mode) {
+                setlocale(LC_ALL, "");
+                errno = 0;
+                wide_query = mb_to_wc(filter_query);
+                if (!wide_query) {
+                    if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
+                    else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
+                    lines_free(&opts);
+                    return EXIT_FAILURE;
+                }
+            }
+            for (int i = 0; i < opts.count; i++) {
+                int matched;
+                if (fuzzy_mode) {
+                    long long score;
+                    matched = FuzzyScore(opts.lines[i], wide_query, &score);
+                } else if (exact_mode) {
+                    matched = strcmp(opts.lines[i], filter_query) == 0;
+                } else {
+                    matched = strcasestr(opts.lines[i], filter_query) != NULL;
+                }
+                if (!matched) {
+                    if (output_index) printf("%d\n", i);
+                    else printf("%s\n", opts.lines[i]);
+                }
+            }
+            free(wide_query);
+        } else if (exact_mode) {
             for (int i = 0; i < opts.count; i++) {
                 if (strcmp(opts.lines[i], filter_query) == 0) {
                     if (output_index) printf("%d\n", i);

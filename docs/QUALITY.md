@@ -9,7 +9,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 ## Required CI gates
 
 - GCC and Clang compile with C11, -Wall, -Wextra, -Wpedantic, and -Werror.
-- CLI contract tests verify output bytes, status, ordering, substring, exact and fuzzy matching, case handling, indexes,
+- CLI contract tests verify output bytes, status, ordering, substring, exact, fuzzy and inverse matching, case handling, indexes,
   legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
   unknown/duplicate options, empty records, CRLF, final records without newline, empty
   input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin

@@ -40,6 +40,7 @@ CheckSelection() {
 
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'
+CheckSelection 'C API preview callback receives selected option, index, and query' 2 '\n' preview-callback 'api-preview:needle:2:needle'
 CheckSelection 'backspacing an initial query broadens the match set' 1 "\177$(TERM=xterm tput kcud1)\n" configured-query-edit
 CheckSelection 'custom navigation and accept keys work as aliases' 1 'jx' configured-keys
 CheckSelection 'exact matching remains correct while typing a multi-character query' 0 'alpha\n' exact-typing

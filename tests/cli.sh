@@ -401,6 +401,61 @@ else
     Pass 'toggle binding requires multi-selection'
 fi
 
+# Preview commands receive safely quoted record/index/query placeholders and refresh on navigation.
+printf 'alpha\nbeta\n' > "$TmpDir/options"
+printf 'beta\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '%s\n' "$(TERM=xterm tput kcud1)"; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --preview 'printf \"preview:%s:%s:%s\" {} {index} {query}' --query a < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'preview CLI should exit cleanly'
+else
+    CheckEqual 'preview mode preserves selected-record output' "$TmpDir/expected" "$TmpDir/selected"
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/terminal" > "$TmpDir/terminal-plain"
+    if ! grep -aFq 'preview:beta:1:a' "$TmpDir/terminal-plain"; then
+        Fail 'preview should show the selected record, original index, and query'
+    else
+        Pass 'preview refreshes on navigation and expands all placeholders'
+    fi
+fi
+# Data placeholders must be shell-quoted, not evaluated as shell syntax.
+InjectionOption=$(printf "quote'\$(touch %s/pwned)" "$TmpDir")
+printf '%s\n' "$InjectionOption" > "$TmpDir/options"
+if ! { sleep 0.2; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --preview 'printf \"record:%s\" {}' < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'preview placeholder quoting test should exit cleanly'
+elif [ -e "$TmpDir/pwned" ]; then
+    Fail 'preview record placeholder must not execute shell syntax'
+else
+    Pass 'preview record placeholder is shell-quoted'
+fi
+if "$Bin" --preview 'printf test' --filter test < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'preview must be rejected with batch filtering'
+elif ! grep -Fq 'cannot be used with --filter' "$TmpDir/stderr"; then
+    Fail 'preview/batch conflict must explain the error'
+else
+    Pass 'preview is restricted to interactive mode'
+fi
+if "$Bin" --preview one --preview two < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate preview commands must fail'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate preview command must explain the error'
+else
+    Pass 'duplicate preview command is rejected'
+fi
+if "$Bin" --preview '' < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'empty preview command must fail'
+elif ! grep -Fq 'must not be empty' "$TmpDir/stderr"; then
+    Fail 'empty preview command must explain the error'
+else
+    Pass 'empty preview command is rejected'
+fi
+if "$Bin" --preview < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing preview command must fail'
+elif ! grep -Fq 'requires a command argument' "$TmpDir/stderr"; then
+    Fail 'missing preview command must explain the error'
+else
+    Pass 'missing preview command is rejected'
+fi
+
 # Legacy interactive positional index mode remains supported by the documented CLI.
 CheckInteractiveIndexMode() {
     Name=$1

@@ -42,7 +42,15 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
 int mmenuMulti(const char *const *options, int n_options, const char *prompt,
                unsigned int flags, int **selected_indices, int *selected_count);
 
-/* Optional interactive query and key overrides. A zero key keeps its default. */
+/* Preview callbacks fill a text buffer and return 0 on success. Shell execution,
+   if desired, belongs in the caller's callback rather than the menu/matcher. */
+#define MMENU_PREVIEW_BUFFER_SIZE 8192
+typedef int (*mmenu_preview_callback)(const char *option, int index,
+                                      const wchar_t *query, char *output,
+                                      size_t output_size, void *userdata);
+
+/* Optional interactive query, key aliases, and preview callback.
+   A zero key keeps its default. */
 typedef struct {
     const char *initial_query;
     wint_t key_up;
@@ -51,6 +59,8 @@ typedef struct {
     wint_t key_cancel;
     wint_t key_toggle;
     wint_t key_backspace;
+    mmenu_preview_callback preview;
+    void *preview_userdata;
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -311,6 +321,74 @@ static int filt_push(filt *f, int idx) {
 
 static void filt_clear(filt *f) { f->count = 0; }
 
+static void mmenu_draw_preview(const char *text, int rows, int cols, int menu_cols) {
+    int start = menu_cols + 1;
+    int width = cols - start;
+    if (width <= 0) return;
+    for (int row = 0; row < rows; row++)
+        mvaddch(row, menu_cols, ACS_VLINE);
+    move(0, start);
+    attron(A_BOLD);
+    addnstr("Preview", width);
+    attroff(A_BOLD);
+    clrtoeol();
+
+    const char *line = text ? text : "";
+    int row = 1;
+    while (row < rows && *line) {
+        const char *end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+        char safe_line[MMENU_PREVIEW_BUFFER_SIZE];
+        if (len >= sizeof(safe_line)) len = sizeof(safe_line) - 1;
+        for (size_t i = 0; i < len; i++) {
+            unsigned char c = (unsigned char)line[i];
+            safe_line[i] = (c < 0x20 && c != '\t') || c == 0x7f ? '?' :
+                           c == '\t' ? ' ' : (char)c;
+        }
+        safe_line[len] = '\0';
+        move(row++, start);
+        addnstr(safe_line, (int)len);
+        clrtoeol();
+        if (!end) break;
+        line = end + 1;
+    }
+    while (row < rows) {
+        move(row++, start);
+        clrtoeol();
+    }
+}
+
+static void mmenu_position_query_cursor(size_t prompt_len, int input_len, int menu_cols) {
+    int cursor = (int)prompt_len + input_len;
+    if (menu_cols > 0 && cursor >= menu_cols) cursor = menu_cols - 1;
+    if (cursor < 0) cursor = 0;
+    move(0, cursor);
+}
+
+
+
+static void mmenu_update_preview(const mmenu_config *config,
+                                 const char *const *options, int n_options,
+                                 const filt *filtered, int selection,
+                                 const wchar_t *query, char *output,
+                                 size_t output_size) {
+    if (!output || output_size == 0) return;
+    output[0] = '\0';
+    if (!config || !config->preview) return;
+    if (selection < 0 || selection >= filtered->count ||
+        filtered->count <= 0 || filtered->indices[selection] < 0 ||
+        filtered->indices[selection] >= n_options) {
+        snprintf(output, output_size, "No matching option");
+        return;
+    }
+    int index = filtered->indices[selection];
+    int status = config->preview(options[index], index, query, output,
+                                 output_size, config->preview_userdata);
+    output[output_size - 1] = '\0';
+    if (status != 0 && output[0] == '\0')
+        snprintf(output, output_size, "Preview command failed");
+}
+
 static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,
                           const mmenu_config *config,
@@ -399,6 +477,9 @@ static int mmenu_internal(const char *const *options, int n_options,
     signal(SIGWINCH, handle_resize);
 
     int rows, cols; getmaxyx(stdscr, rows, cols);
+    int has_preview = config && config->preview;
+    int preview_visible = has_preview && cols >= 40 && rows >= 4;
+    int menu_cols = preview_visible ? cols / 2 : cols;
 
     int ret = -1;
     unsigned char *selected_options = NULL;
@@ -435,6 +516,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     int selection = 0;
     int top = 0;
     int need_filter = 0;
+    int preview_dirty = 1;
+    char preview_output[MMENU_PREVIEW_BUFFER_SIZE] = {0};
     int prev_input_len = input_len;   /* for incremental filter optimization */
 
     const char *prompt_str = prompt ? prompt : "> ";
@@ -477,11 +560,16 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
     }
     if (filtered.count > 0) selection = 0;
+    if (preview_visible) {
+        mmenu_update_preview(config, options, n_options, &filtered, selection,
+                             input, preview_output, sizeof(preview_output));
+        preview_dirty = 0;
+    }
 
     /* Initial draw */
     clear();
     printw("%s%ls", prompt_str, input); clrtoeol();
-    move(0, (int)(prompt_len + input_len));
+    mmenu_position_query_cursor(prompt_len, input_len, menu_cols);
     int visible = rows - 1;
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
@@ -495,10 +583,10 @@ static int mmenu_internal(const char *const *options, int n_options,
         if (w) {
             move(v + 1, 0);
             if (fidx == selection) attron(A_STANDOUT);
-            int option_cols = cols;
-            if (multi && cols >= 4) {
+            int option_cols = menu_cols;
+            if (multi && menu_cols >= 4) {
                 printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
-                option_cols = cols - 4;
+                option_cols = menu_cols - 4;
             }
             if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
             else printw("%.*ls", option_cols, w);
@@ -507,6 +595,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             free(w);
         }
     }
+    if (preview_visible) mmenu_draw_preview(preview_output, rows, cols, menu_cols);
     refresh();
 
     while (1) {
@@ -514,6 +603,10 @@ static int mmenu_internal(const char *const *options, int n_options,
             resize_flag = 0;
             endwin();
             mmenu_refresh_dimensions(tty, &rows, &cols);
+            int was_preview_visible = preview_visible;
+            preview_visible = has_preview && cols >= 40 && rows >= 4;
+            menu_cols = preview_visible ? cols / 2 : cols;
+            if (preview_visible != was_preview_visible) preview_dirty = 1;
             visible = rows - 1;
         }
 
@@ -538,9 +631,9 @@ static int mmenu_internal(const char *const *options, int n_options,
                            (key_backspace && ch == key_backspace);
         if (is_cancel) { ret = -1; goto cleanup; }
         if (is_up) {
-            if (selection > 0) selection--;
+            if (selection > 0) { selection--; preview_dirty = 1; }
         } else if (is_down) {
-            if (selection < filtered.count - 1) selection++;
+            if (selection < filtered.count - 1) { selection++; preview_dirty = 1; }
         } else if (is_backspace) {
             if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; }
         } else if (is_toggle) {
@@ -663,6 +756,13 @@ static int mmenu_internal(const char *const *options, int n_options,
             prev_input_len = input_len;
             selection = 0;
             top = 0;
+            preview_dirty = 1;
+        }
+
+        if (preview_visible && preview_dirty) {
+            mmenu_update_preview(config, options, n_options, &filtered, selection,
+                                 input, preview_output, sizeof(preview_output));
+            preview_dirty = 0;
         }
 
         /* Scroll */
@@ -681,7 +781,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         /* Redraw */
         clear();
         printw("%s%ls", prompt_str, input); clrtoeol();
-        move(0, (int)(prompt_len + input_len));
+        mmenu_position_query_cursor(prompt_len, input_len, menu_cols);
         for (int v = 0; v < visible && top + v < filtered.count; v++) {
             int fidx = top + v;
             int oidx = filtered.indices[fidx];
@@ -694,10 +794,10 @@ static int mmenu_internal(const char *const *options, int n_options,
             if (w) {
                 move(v + 1, 0);
                 if (fidx == selection) attron(A_STANDOUT);
-                int option_cols = cols;
-                if (multi && cols >= 4) {
+                int option_cols = menu_cols;
+                if (multi && menu_cols >= 4) {
                     printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
-                    option_cols = cols - 4;
+                    option_cols = menu_cols - 4;
                 }
                 if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
                 else printw("%.*ls", option_cols, w);
@@ -706,6 +806,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 free(w);
             }
         }
+        if (preview_visible) mmenu_draw_preview(preview_output, rows, cols, menu_cols);
         refresh();
     }
 

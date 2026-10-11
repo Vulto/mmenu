@@ -13,6 +13,15 @@
 #define MMENU_IMPLEMENTATION
 #include "../mmenu.h"
 
+static int test_preview_callback(const char *option, int index,
+                                const wchar_t *query, char *output,
+                                size_t output_size, void *userdata) {
+    (void)userdata;
+    int result = snprintf(output, output_size, "api-preview:%s:%d:%ls",
+                          option, index, query);
+    return result < 0 ? -1 : 0;
+}
+
 static int SetTerminalSize(unsigned short rows, unsigned short cols)
 {
     int tty_fd = open("/dev/tty", O_RDWR);
@@ -141,6 +150,15 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "preview-callback") == 0) {
+        mmenu_config config = {
+            .initial_query = "needle",
+            .preview = test_preview_callback
+        };
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "configured-query") == 0) {
         mmenu_config config = {.initial_query = "needle"};
         int result = mmenuConfigured(options, count, prompt, 0, &config);

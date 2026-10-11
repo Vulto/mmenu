@@ -346,6 +346,24 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     setlocale(LC_ALL, "");
 
+    if (config) {
+        const wint_t keys[] = {config->key_up, config->key_down,
+                               config->key_accept, config->key_cancel,
+                               config->key_toggle, config->key_backspace};
+        for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
+            if (keys[i] && (keys[i] > (wint_t)WCHAR_MAX || !iswprint(keys[i]))) {
+                fprintf(stderr, "mmenu: custom keys must be printable characters\n");
+                return -1;
+            }
+            for (size_t j = 0; keys[i] && j < i; j++) {
+                if (keys[i] == keys[j]) {
+                    fprintf(stderr, "mmenu: a custom key cannot be assigned to multiple actions\n");
+                    return -1;
+                }
+            }
+        }
+    }
+
     for (int i = 0; i < n_options; i++) {
         if (mbstowcs(NULL, options[i], 0) == (size_t)-1) {
             fprintf(stderr, "mmenu: option %d is not valid in the current locale\n", i);
@@ -508,15 +526,16 @@ static int mmenu_internal(const char *const *options, int n_options,
         int is_key_code = kc == KEY_CODE_YES;
         int is_up = ch == key_up;
         int is_down = ch == key_down;
-        int is_accept = key_accept ? ch == key_accept :
-                        (ch == '\n' || ch == '\r' || ch == KEY_ENTER);
-        int is_cancel = key_cancel ? ch == key_cancel :
-                        (!is_key_code && (ch == 27 || ch == 3 || ch == 4));
-        int is_toggle = multi && (key_toggle ? ch == key_toggle :
-                                   (!is_key_code && ch == '\t'));
-        int is_backspace = key_backspace ? ch == key_backspace :
-                           (ch == KEY_BACKSPACE || (!is_key_code &&
-                            (ch == 127 || ch == 8)));
+        int is_accept = (!is_key_code &&
+                         (ch == '\n' || ch == '\r' || ch == KEY_ENTER)) ||
+                        (key_accept && ch == key_accept);
+        int is_cancel = (!is_key_code && (ch == 27 || ch == 3 || ch == 4)) ||
+                        (key_cancel && ch == key_cancel);
+        int is_toggle = multi && ((!is_key_code && ch == '\t') ||
+                                  (key_toggle && ch == key_toggle));
+        int is_backspace = (ch == KEY_BACKSPACE || (!is_key_code &&
+                             (ch == 127 || ch == 8))) ||
+                           (key_backspace && ch == key_backspace);
         if (is_cancel) { ret = -1; goto cleanup; }
         if (is_up) {
             if (selection > 0) selection--;

@@ -50,7 +50,7 @@ CheckMultiSelection() {
         Failures=$((Failures + 1))
         return
     fi
-    sed -E 's/\x1B\\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/multi-output" > "$TmpDir/multi-plain"
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/multi-output" > "$TmpDir/multi-plain"
     if ! grep -aFq "MMENU_MULTI_RESULT=$Expected" "$TmpDir/multi-plain"; then
         printf 'FAIL: %s (expected multi selection %s)\n' "$Name" "$Expected" >&2
         tail -c 2000 "$TmpDir/multi-output" | od -An -tx1c >&2

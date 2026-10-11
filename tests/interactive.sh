@@ -138,19 +138,19 @@ CheckApiContract invalid-flags 'unsupported API flags'
 
 # A library call without a controlling terminal must return -1, not exit its host process.
 if ! setsid "$Bin" no-tty > "$TmpDir/no-tty-output" 2> "$TmpDir/no-tty-error"; then
-    printf 'FAIL: unavailable controlling terminal terminated the API harness\\n' >&2
+    printf 'FAIL: unavailable controlling terminal terminated the API harness\n' >&2
     cat "$TmpDir/no-tty-error" >&2
     Failures=$((Failures + 1))
 elif ! grep -Fq 'MMENU_API_RESULT=terminal-unavailable' "$TmpDir/no-tty-output"; then
-    printf 'FAIL: unavailable controlling terminal did not return -1 cleanly\\n' >&2
+    printf 'FAIL: unavailable controlling terminal did not return -1 cleanly\n' >&2
     cat "$TmpDir/no-tty-output" >&2
     Failures=$((Failures + 1))
 elif ! grep -Fq 'mmenu: opening /dev/tty' "$TmpDir/no-tty-error"; then
-    printf 'FAIL: unavailable controlling terminal omitted its diagnostic\\n' >&2
+    printf 'FAIL: unavailable controlling terminal omitted its diagnostic\n' >&2
     cat "$TmpDir/no-tty-error" >&2
     Failures=$((Failures + 1))
 else
-    printf 'PASS: unavailable controlling terminal returns -1 without exiting host process\\n'
+    printf 'PASS: unavailable controlling terminal returns -1 without exiting host process\n'
 fi
 
 CheckApiAllocationFailure() {

@@ -146,5 +146,4 @@ The original substring behavior remains the default for backward compatibility. 
 
 ## Notes
 - Requires ncursesw (`-lncursesw` when linking the C API).
-- The `c` build tool (from nobuild.h) or direct `gcc -o mmenu main.c -lncursesw` both work.
 - For best results with truly enormous inputs, ensure you have enough RAM (the tool buffers everything, as it must present a live menu).

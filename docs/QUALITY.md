@@ -16,7 +16,9 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   errors, stdout write errors, generated deterministic corpora, a seeded 5,000-record fuzz-style corpus with sampled
   queries, and differential matching against grep's fixed-string oracle.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
-  opening a terminal; pseudo-terminal tests cover NULL prompts and SIGWINCH resize events.
+  opening a terminal; a detached-session regression verifies that a missing controlling terminal
+  returns `-1` with a diagnostic instead of terminating the host process. Pseudo-terminal tests
+  cover NULL prompts and SIGWINCH resize events.
 - Allocation-failure injection sweeps every wrapped CLI allocation reached by small input,
   a >1 MiB record, and a multi-megabyte corpus that forces arena/list growth. Each injected
   failure must produce a diagnostic and a non-crashing nonzero exit.

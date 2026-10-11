@@ -49,6 +49,12 @@ int main(int argc, char **argv)
     int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
     int fuzzy_mode = argc > 1 && strncmp(argv[1], "fuzzy", 5) == 0;
 
+    if (argc > 1 && strcmp(argv[1], "no-tty") == 0) {
+        if (mmenu(options, count, prompt) != -1) return 1;
+        puts("MMENU_API_RESULT=terminal-unavailable");
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
     } else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) {

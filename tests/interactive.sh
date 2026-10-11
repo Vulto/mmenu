@@ -165,6 +165,8 @@ CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 CheckApiContract invalid-flags 'unsupported API flags'
+CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
+CheckApiContract invalid-config-query 'initial query exceeds'
 
 # A library call without a controlling terminal must return -1, not exit its host process.
 if ! setsid "$Bin" no-tty > "$TmpDir/no-tty-output" 2> "$TmpDir/no-tty-error"; then

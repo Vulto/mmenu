@@ -580,6 +580,8 @@ int main(int argc, char **argv) {
         for (size_t key_j = 0; custom_keys[key_i] && key_j < key_i; key_j++)
             if (custom_keys[key_i] == custom_keys[key_j])
                 return argument_error("a custom key cannot be assigned to multiple actions");
+    if (preview_seen && (!preview_command || !*preview_command))
+        return argument_error("--preview command must not be empty");
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;

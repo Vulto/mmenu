@@ -124,7 +124,8 @@ static void print_usage(FILE *out) {
         "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
-        "--invert-match or -v emits records that do not match the batch query.\n"\n        "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
+        "--invert-match or -v emits records that do not match the batch query.\n"
+        "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
 }
 
 static int argument_error(const char *message) {

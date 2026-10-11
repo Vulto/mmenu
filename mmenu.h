@@ -299,7 +299,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                           int **selected_indices, int *selected_count) {
     if (multi) {
         if (!selected_indices || !selected_count) {
-            fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\\n");
+            fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
             return -1;
         }
         *selected_indices = NULL;
@@ -360,6 +360,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     filt filtered = {0};
     if (!filt_init(&filtered)) goto cleanup;
     if (multi && n_options > 0) {
+        errno = 0;
         selected_options = malloc((size_t)n_options * sizeof(*selected_options));
         if (selected_options) memset(selected_options, 0, (size_t)n_options * sizeof(*selected_options));
         if (!selected_options) {
@@ -478,6 +479,11 @@ static int mmenu_internal(const char *const *options, int n_options,
                     for (int i = 0; i < n_options; i++)
                         if (selected_options[i]) count++;
                     if (count == 0 && filtered.count > 0) count = 1;
+                    if ((size_t)count > SIZE_MAX / sizeof(int)) {
+                        errno = ENOMEM;
+                        perror("mmenu: multi-select result is too large");
+                        goto cleanup;
+                    }
                     int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
                     if (count && !indices) {
                         if (errno == 0) errno = ENOMEM;
@@ -650,7 +656,7 @@ int mmenuMulti(const char *const *options, int n_options, const char *prompt,
                unsigned int flags, int **selected_indices, int *selected_count)
 {
     if (!selected_indices || !selected_count) {
-        fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\\n");
+        fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
         return -1;
     }
     *selected_indices = NULL;

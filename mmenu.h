@@ -416,11 +416,21 @@ static void mmenu_draw_preview(const char *text, int rows, int cols, int menu_co
     }
 }
 
+static int mmenu_query_cursor_column(size_t prompt_len, int input_len,
+                                       int menu_cols) {
+    if (menu_cols <= 0) return 0;
+    if (input_len < 0) input_len = 0;
+
+    size_t max_column = (size_t)(menu_cols - 1);
+    if (prompt_len > max_column ||
+        (size_t)input_len > max_column - prompt_len)
+        return menu_cols - 1;
+
+    return (int)(prompt_len + (size_t)input_len);
+}
+
 static void mmenu_position_query_cursor(size_t prompt_len, int input_len, int menu_cols) {
-    int cursor = (int)prompt_len + input_len;
-    if (menu_cols > 0 && cursor >= menu_cols) cursor = menu_cols - 1;
-    if (cursor < 0) cursor = 0;
-    move(0, cursor);
+    move(0, mmenu_query_cursor_column(prompt_len, input_len, menu_cols));
 }
 
 

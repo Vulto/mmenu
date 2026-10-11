@@ -147,6 +147,13 @@ int main(int argc, char **argv)
         printf("MMENU_RESULT=%d\n", result);
         return 0;
     }
+    if (argc > 1 && strcmp(argv[1], "configured-query-edit") == 0) {
+        const char *query_options[] = {"needle", "needling", "alpha"};
+        mmenu_config config = {.initial_query = "needle"};
+        int result = mmenuConfigured(query_options, 3, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "configured-keys") == 0) {
         mmenu_config config = {.key_down = L'j', .key_accept = L'x'};
         int result = mmenuConfigured(options, count, prompt, 0, &config);

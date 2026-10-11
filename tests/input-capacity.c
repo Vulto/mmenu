@@ -53,5 +53,12 @@ int main(void) {
     CHECK(!mmenu_size_mul(1, 1, NULL));
     CHECK(errno == ENOMEM);
 
+    CHECK(mmenu_query_cursor_column(2, 3, 80) == 5);
+    CHECK(mmenu_query_cursor_column(79, 0, 80) == 79);
+    CHECK(mmenu_query_cursor_column(79, 1, 80) == 79);
+    CHECK(mmenu_query_cursor_column(SIZE_MAX, 128, 80) == 79);
+    CHECK(mmenu_query_cursor_column(0, 128, 80) == 79);
+    CHECK(mmenu_query_cursor_column(SIZE_MAX, 128, 0) == 0);
+
     return EXIT_SUCCESS;
 }

@@ -125,6 +125,32 @@ static char *wc_to_mb(const wchar_t *w) {
     return m;
 }
 
+/* Shared overflow-safe capacity growth for every dynamic index/result list. */
+static int mmenu_next_capacity(int current, int initial, size_t element_size,
+                               int *next_capacity) {
+    if (!next_capacity || current < 0 || initial <= 0 || element_size == 0) {
+        errno = EINVAL;
+        return 0;
+    }
+
+    int capacity;
+    if (current == 0) {
+        capacity = initial;
+    } else {
+        if (current > INT_MAX / 2) {
+            errno = ENOMEM;
+            return 0;
+        }
+        capacity = current * 2;
+    }
+    if ((size_t)capacity > SIZE_MAX / element_size) {
+        errno = ENOMEM;
+        return 0;
+    }
+    *next_capacity = capacity;
+    return 1;
+}
+
 typedef struct { int *indices; int cap; int count; } filt;
 
 typedef struct {
@@ -253,16 +279,10 @@ static int FuzzyCollect(const char *const *options, int n_options,
         if (!FuzzyScore(options[i], query, &score)) continue;
 
         if (count == capacity) {
-            if (capacity > INT_MAX / 2) {
+            int new_capacity;
+            if (!mmenu_next_capacity(capacity, INITIAL_CAP, sizeof(*matches),
+                                     &new_capacity)) {
                 free(matches);
-                errno = ENOMEM;
-                perror("mmenu: fuzzy result capacity");
-                return 0;
-            }
-            int new_capacity = capacity ? capacity * 2 : INITIAL_CAP;
-            if ((size_t)new_capacity > SIZE_MAX / sizeof(*matches)) {
-                free(matches);
-                errno = ENOMEM;
                 perror("mmenu: fuzzy result capacity");
                 return 0;
             }
@@ -301,12 +321,12 @@ static int filt_init(filt *f) {
 
 static int filt_push(filt *f, int idx) {
     if (f->count == f->cap) {
-        if (f->cap > 0 && f->cap > INT_MAX / 2) {
-            errno = ENOMEM;
+        int new_cap;
+        if (!mmenu_next_capacity(f->cap, INITIAL_CAP, sizeof(*f->indices),
+                                 &new_cap)) {
             perror("mmenu: filter capacity");
             return 0;
         }
-        int new_cap = f->cap <= 0 ? INITIAL_CAP : f->cap * 2;
         int *new_indices = realloc(f->indices, (size_t)new_cap * sizeof(int));
         if (!new_indices) {
             perror("mmenu: growing filter");
@@ -732,7 +752,13 @@ static int mmenu_internal(const char *const *options, int n_options,
                 /* Common case: user typed another char. Refine only the previous matches. */
                 filt newf;
                 newf.cap = filtered.count < INITIAL_CAP ? INITIAL_CAP : filtered.count;
-                newf.indices = malloc(newf.cap * sizeof(int));
+                int checked_cap;
+                if (mmenu_next_capacity(0, newf.cap, sizeof(*newf.indices), &checked_cap)) {
+                    newf.cap = checked_cap;
+                    newf.indices = malloc((size_t)newf.cap * sizeof(*newf.indices));
+                } else {
+                    newf.indices = NULL;
+                }
                 if (newf.indices) {
                     newf.count = 0;
                     for (int k = 0; k < filtered.count; k++) {
@@ -740,8 +766,15 @@ static int mmenu_internal(const char *const *options, int n_options,
                         if ((flags & MMENU_EXACT) ? strcmp(options[oidx], q) == 0 :
                             strcasestr(options[oidx], q) != NULL) {
                             if (newf.count == newf.cap) {
-                                int new_cap = newf.cap <= 0 ? INITIAL_CAP : newf.cap * 2;
-                                int *new_indices = realloc(newf.indices, (size_t)new_cap * sizeof(int));
+                                int new_cap;
+                                if (!mmenu_next_capacity(newf.cap, INITIAL_CAP,
+                                                         sizeof(*newf.indices), &new_cap)) {
+                                    free(newf.indices);
+                                    newf.indices = NULL;
+                                    break;
+                                }
+                                int *new_indices = realloc(newf.indices,
+                                                           (size_t)new_cap * sizeof(*newf.indices));
                                 if (!new_indices) {
                                     free(newf.indices);
                                     newf.indices = NULL;

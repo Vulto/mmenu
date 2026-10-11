@@ -85,7 +85,7 @@ judged corpus; ranking changes still require explicit relevance judgments and re
 The fuzzer is bounded to keep CI predictable; it supplements but does not replace the
 deterministic regression tests or allocation-failure sweeps.
 
-Input-record and arena-slab capacity growth checks signed-integer doubling and allocation-size overflow; a dedicated regression test exercises both overflow boundaries without requiring enormous allocations.
+Input-record, arena-slab, fuzzy-result, and interactive filter capacity growth share overflow-safe signed-doubling and allocation-size checks. Dedicated regression tests exercise the boundaries without requiring enormous allocations.
 
 The long-record regression test intentionally rejects silent truncation. Any future failure
 must be preserved as evidence and fixed in the input reader; do not change the test to fit a

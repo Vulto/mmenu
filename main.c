@@ -24,36 +24,10 @@ typedef struct {
 
 static void lines_free(lines_t *l);
 
-/* Calculate a safe capacity before doubling signed counters or sizing an allocation. */
-static int lines_next_capacity(int current, int initial, size_t element_size,
-                               int *next_capacity) {
-    if (!next_capacity || current < 0 || initial <= 0 || element_size == 0) {
-        errno = EINVAL;
-        return 0;
-    }
-
-    int capacity;
-    if (current == 0) {
-        capacity = initial;
-    } else {
-        if (current > INT_MAX / 2) {
-            errno = ENOMEM;
-            return 0;
-        }
-        capacity = current * 2;
-    }
-    if ((size_t)capacity > SIZE_MAX / element_size) {
-        errno = ENOMEM;
-        return 0;
-    }
-    *next_capacity = capacity;
-    return 1;
-}
-
 static void lines_push(lines_t *l, char *s) {
     if (l->count == l->cap) {
         int new_cap;
-        if (!lines_next_capacity(l->cap, INITIAL_CAP, sizeof(*l->lines), &new_cap)) {
+        if (!mmenu_next_capacity(l->cap, INITIAL_CAP, sizeof(*l->lines), &new_cap)) {
             perror("mmenu: input line capacity");
             lines_free(l);
             exit(EXIT_FAILURE);
@@ -74,7 +48,7 @@ static void lines_push(lines_t *l, char *s) {
 static void lines_new_slab(lines_t *l) {
     if (l->slabs_count == l->slabs_cap) {
         int new_cap;
-        if (!lines_next_capacity(l->slabs_cap, 4, sizeof(*l->slabs), &new_cap)) {
+        if (!mmenu_next_capacity(l->slabs_cap, 4, sizeof(*l->slabs), &new_cap)) {
             perror("mmenu: input slab capacity");
             lines_free(l);
             exit(EXIT_FAILURE);
@@ -109,7 +83,7 @@ static char *lines_arena_dup(lines_t *l, const char *src, size_t len) {
         /* Rare: huge single line >1MB. Give it its own slab. */
         if (l->slabs_count == l->slabs_cap) {
             int new_cap;
-            if (!lines_next_capacity(l->slabs_cap, 4, sizeof(*l->slabs), &new_cap)) {
+            if (!mmenu_next_capacity(l->slabs_cap, 4, sizeof(*l->slabs), &new_cap)) {
                 perror("mmenu: input slab capacity");
                 lines_free(l);
                 exit(EXIT_FAILURE);

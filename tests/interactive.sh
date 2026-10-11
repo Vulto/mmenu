@@ -47,7 +47,7 @@ CheckPreviewClipping() {
         return
     fi
     sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/preview-long-output" > "$TmpDir/preview-long-plain"
-    if grep -aEq 'x{20}' "$TmpDir/preview-long-plain"; then
+    if grep -aEq 'x{20}' "$TmpDir/preview-long-output"; then
         printf 'FAIL: preview text overflowed its pane width\n' >&2
         Failures=$((Failures + 1))
     elif ! grep -aFq 'MMENU_RESULT=0' "$TmpDir/preview-long-plain"; then

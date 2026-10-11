@@ -356,6 +356,22 @@ if ! { sleep 0.2; printf 'v\n'; } |
 else
     CheckEqual 'custom toggle alias works with multi-selection' "$TmpDir/expected" "$TmpDir/selected"
 fi
+# Prefilled queries also work in multi-selection mode.
+printf 'needle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\t\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi --query needle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'initial-query multi-select CLI should exit cleanly'
+else
+    CheckEqual 'initial query filters multi-select options' "$TmpDir/expected" "$TmpDir/selected"
+fi
+LongQuery=$(awk 'BEGIN { for (i = 0; i < 129; i++) printf "x" }')
+if "$Bin" --query "$LongQuery" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'oversized initial query must fail'
+elif ! grep -Fq 'exceeds 128 characters' "$TmpDir/stderr"; then
+    Fail 'oversized initial query must explain the error'
+else
+    Pass 'oversized initial query is rejected before input reading'
+fi
 if "$Bin" --query needle --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'initial query must be rejected with batch filtering'
 elif ! grep -Fq 'cannot be used with --filter' "$TmpDir/stderr"; then

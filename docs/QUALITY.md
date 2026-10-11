@@ -18,6 +18,8 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   queries, and differential matching against grep's fixed-string oracle.
 - Interactive multi-selection tests verify Tab toggling, original-input ordering, Enter fallback to the current option, cancellation, and CLI record output.
 - Interactive query/key tests verify prefilled query filtering, printable key aliases for navigation/accept/toggle, invalid or conflicting bindings, query argument validation, and exact-mode multi-character typing.
+- Preview CLI tests verify placeholder expansion for record/index/query, preview refresh on selection changes, shell-quoting of untrusted record text, and rejection of duplicate/missing preview options and batch-mode use.
+- The generic preview callback runs outside the matcher; only the CLI callback evaluates shell commands, with all record/index/query placeholders shell-quoted.
 - Configurable C API entry points support an initial query and key aliases while the original `mmenu`/`mmenuEx`/`mmenuMulti` signatures preserve default behavior.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; a detached-session regression verifies that a missing controlling terminal

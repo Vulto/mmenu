@@ -113,15 +113,16 @@ static void lines_free(lines_t *l) {
 
 static void print_usage(FILE *out) {
     fprintf(out,
-        "Usage: mmenu [PROMPT] [t|true] [-t] [--read0] [--print0]\n"
-        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--read0] [--print0]\n"
+        "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--read0] [--print0]\n"
+        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--read0] [--print0]\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t | --format FORMAT] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"
         "\n"
-        "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
-        "second positional argument t or true, and the -t flag, print the selected\n"
-        "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
+        "Interactive mode reads one option per line. PROMPT is optional. --multi enables\n"
+        "Tab toggles options and Enter emits selected records (or indexes with -t).\n"
+        "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
+        "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--invert-match or -v emits records that do not match the batch query.\n"
@@ -213,6 +214,7 @@ int main(int argc, char **argv) {
     int input_nul = 0;
     int output_nul = 0;
     int output_index = 0;
+    int multi_mode = 0;
     const char *output_format = NULL;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -245,6 +247,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--print0")) {
             output_nul = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--multi")) {
+            multi_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--format")) {
@@ -309,6 +315,8 @@ int main(int argc, char **argv) {
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
+    if (multi_mode && filter_seen)
+        return argument_error("--multi is only available in interactive mode");
     if (output_format && !filter_seen)
         return argument_error("--format requires --filter");
     if (output_format && output_index)
@@ -431,14 +439,29 @@ int main(int argc, char **argv) {
         return flush_stdout();
     }
 
-    int chosen = mmenuEx((const char *const *)opts.lines, opts.count, prompt,
-                         fuzzy_mode ? MMENU_FUZZY :
-                         exact_mode ? MMENU_EXACT : 0);
-
-    if (chosen == -1) {
-        print_record("", output_nul);
+    if (multi_mode) {
+        int *selected = NULL;
+        int selected_count = 0;
+        int status = mmenuMulti((const char *const *)opts.lines, opts.count, prompt,
+                                fuzzy_mode ? MMENU_FUZZY :
+                                exact_mode ? MMENU_EXACT : 0,
+                                &selected, &selected_count);
+        if (status != 0) {
+            print_record("", output_nul);
+        } else {
+            for (int i = 0; i < selected_count; i++)
+                print_match(opts.lines[selected[i]], selected[i], output_index, output_nul);
+        }
+        free(selected);
     } else {
-        print_match(opts.lines[chosen], chosen, output_index, output_nul);
+        int chosen = mmenuEx((const char *const *)opts.lines, opts.count, prompt,
+                             fuzzy_mode ? MMENU_FUZZY :
+                             exact_mode ? MMENU_EXACT : 0);
+        if (chosen == -1) {
+            print_record("", output_nul);
+        } else {
+            print_match(opts.lines[chosen], chosen, output_index, output_nul);
+        }
     }
 
     lines_free(&opts);

@@ -63,6 +63,41 @@ CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' confi
 CheckSelection 'C API preview callback receives selected option, index, and query' 2 '\n' preview-callback 'api-preview:needle:2:needle'
 CheckPreviewClipping
 
+
+CheckResizeRedrawWithoutInput() {
+    rm -f "$TmpDir/preview-marker" "$TmpDir/resize-keys"
+    mkfifo "$TmpDir/resize-keys"
+    exec 3<> "$TmpDir/resize-keys"
+    MMENU_PREVIEW_MARKER="$TmpDir/preview-marker" LC_ALL=C.UTF-8 TERM=xterm \
+        timeout 5s script -q -e -c "$Bin resize-preview" /dev/null \
+        < "$TmpDir/resize-keys" > "$TmpDir/resize-preview-output" 2> "$TmpDir/resize-preview-error" &
+    ResizePid=$!
+    Attempts=0
+    while [ "$Attempts" -lt 20 ] && [ ! -s "$TmpDir/preview-marker" ]; do
+        sleep 0.05
+        Attempts=$((Attempts + 1))
+    done
+    if [ -s "$TmpDir/preview-marker" ]; then
+        printf 'PASS: terminal resize redraws without waiting for user input\n'
+    else
+        printf 'FAIL: terminal resize did not redraw before the next key\n' >&2
+        Failures=$((Failures + 1))
+    fi
+    printf '\n' >&3
+    if wait "$ResizePid"; then
+        sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/resize-preview-output" > "$TmpDir/resize-preview-plain"
+        if ! grep -aFq 'MMENU_RESULT=0' "$TmpDir/resize-preview-plain"; then
+            printf 'FAIL: resize preview menu did not accept the current option\n' >&2
+            Failures=$((Failures + 1))
+        fi
+    else
+        printf 'FAIL: resize preview menu did not exit cleanly\n' >&2
+        cat "$TmpDir/resize-preview-error" >&2
+        Failures=$((Failures + 1))
+    fi
+    exec 3>&-
+}
+
 CheckUnicodePreviewClipping() {
     if ! { sleep 0.2; printf '\n'; } |
          LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin preview-unicode" /dev/null > "$TmpDir/preview-unicode-output" 2> "$TmpDir/preview-unicode-error"; then
@@ -281,6 +316,7 @@ CheckApiFilterAllocationFailure 8 'ne\n' -1 'rendering option'
 CheckApiFilterAllocationFailure 9 'n\177\n' -1 'converting filter'
 CheckSelection 'NULL prompt uses the default prompt' 0 '\n' null-prompt
 CheckSelection 'SIGWINCH resize redraws after query edits' 0 'x\177\n' resize 'alpha'
+CheckResizeRedrawWithoutInput
 CheckSelection 'narrow terminal clips long options and preserves scrolling' 1 "$(TERM=xterm tput kcud1)\n" narrow 'xxxxxxxx' 'xxxxxxxxx'
 CheckSelection 'one-cell terminal does not crash on selection' 0 '\n' tiny
 CheckSelection 'wide terminal preserves selection' 1 "$(TERM=xterm tput kcud1)\n" wide

@@ -56,6 +56,25 @@ static int test_wide_preview_callback(const char *option, int index,
     return 0;
 }
 
+static int test_resize_preview_callback(const char *option, int index,
+                                        const wchar_t *query, char *output,
+                                        size_t output_size, void *userdata) {
+    (void)option;
+    (void)index;
+    (void)query;
+    (void)userdata;
+    const char *marker = getenv("MMENU_PREVIEW_MARKER");
+    if (marker) {
+        FILE *file = fopen(marker, "a");
+        if (!file) return -1;
+        int failed = fputc('x', file) == EOF;
+        if (fclose(file) != 0) failed = 1;
+        if (failed) return -1;
+    }
+    int result = snprintf(output, output_size, "resize-preview");
+    return result < 0 ? -1 : 0;
+}
+
 static int SetTerminalSize(unsigned short rows, unsigned short cols)
 {
     int tty_fd = open("/dev/tty", O_RDWR);
@@ -127,7 +146,11 @@ int main(int argc, char **argv)
     } else if (argc > 1 && strcmp(argv[1], "small-grid") == 0) {
         if (!SetTerminalSize(3, 20)) return 2;
         narrow_mode = 1;
-    } else if (argc > 1 && strcmp(argv[1], "resize") == 0) {
+    } else if (argc > 1 &&
+               (strcmp(argv[1], "resize") == 0 ||
+                strcmp(argv[1], "resize-preview") == 0)) {
+        if (strcmp(argv[1], "resize-preview") == 0 &&
+            !SetTerminalSize(8, 39)) return 2;
         resize_child = fork();
         if (resize_child == 0) {
             usleep(80000);
@@ -184,6 +207,14 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "resize-preview") == 0) {
+        mmenu_config config = {
+            .preview = test_resize_preview_callback
+        };
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "preview-long") == 0) {
         if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {

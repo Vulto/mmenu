@@ -487,7 +487,20 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     /* raw() disables terminal-generated SIGINT so Ctrl-C reaches wget_wch and can cancel cleanly. */
     raw(); noecho(); keypad(stdscr, TRUE);
-    signal(SIGWINCH, handle_resize);
+    struct sigaction resize_action = {0};
+    struct sigaction previous_resize_action;
+    resize_action.sa_handler = handle_resize;
+    resize_action.sa_flags = 0; /* Interrupt blocking input so the loop can redraw immediately. */
+    sigemptyset(&resize_action.sa_mask);
+    resize_flag = 0;
+    if (sigaction(SIGWINCH, &resize_action, &previous_resize_action) != 0) {
+        perror("mmenu: installing resize handler");
+        endwin();
+        delscreen(scr);
+        fclose(tty);
+        return -1;
+    }
+    int restore_resize_action = 1;
 
     int rows, cols; getmaxyx(stdscr, rows, cols);
     int has_preview = config && config->preview;
@@ -612,6 +625,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     refresh();
 
     while (1) {
+        int resized = 0;
         if (resize_flag) {
             resize_flag = 0;
             endwin();
@@ -621,11 +635,13 @@ static int mmenu_internal(const char *const *options, int n_options,
             menu_cols = preview_visible ? cols / 2 : cols;
             if (preview_visible != was_preview_visible) preview_dirty = 1;
             visible = rows - 1;
+            resized = 1;
         }
 
-        wint_t ch;
-        int kc = wget_wch(stdscr, &ch);
-        if (kc == ERR) continue;
+        wint_t ch = 0;
+        int kc = resized ? ERR : wget_wch(stdscr, &ch);
+        if (kc == ERR && !resized) continue;
+        if (resized) kc = OK;
 
         need_filter = 0;
 
@@ -826,6 +842,8 @@ static int mmenu_internal(const char *const *options, int n_options,
 cleanup:
     free(selected_options);
     free(filtered.indices);
+    if (restore_resize_action)
+        sigaction(SIGWINCH, &previous_resize_action, NULL);
     endwin();
     delscreen(scr);
     fclose(tty);

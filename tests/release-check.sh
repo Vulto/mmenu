@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-Root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+Root=$(git -C "$(dirname -- "$0")/.." rev-parse --show-toplevel)
 CC=${CC:-cc}
 TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM

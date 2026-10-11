@@ -410,8 +410,8 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
         input_len = (int)converted;
     }
-    wint_t key_up = config && config->key_up ? config->key_up : KEY_UP;
-    wint_t key_down = config && config->key_down ? config->key_down : KEY_DOWN;
+    wint_t key_up = KEY_UP;
+    wint_t key_down = KEY_DOWN;
     wint_t key_accept = config ? config->key_accept : 0;
     wint_t key_cancel = config ? config->key_cancel : 0;
     wint_t key_toggle = config ? config->key_toggle : 0;
@@ -524,8 +524,8 @@ static int mmenu_internal(const char *const *options, int n_options,
         need_filter = 0;
 
         int is_key_code = kc == KEY_CODE_YES;
-        int is_up = ch == key_up;
-        int is_down = ch == key_down;
+        int is_up = ch == key_up || (config && config->key_up && ch == config->key_up);
+        int is_down = ch == key_down || (config && config->key_down && ch == config->key_down);
         int is_accept = (!is_key_code &&
                          (ch == '\n' || ch == '\r' || ch == KEY_ENTER)) ||
                         (key_accept && ch == key_accept);

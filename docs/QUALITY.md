@@ -17,6 +17,8 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   errors, stdout write errors, generated deterministic corpora, a seeded 5,000-record fuzz-style corpus with sampled
   queries, and differential matching against grep's fixed-string oracle.
 - Interactive multi-selection tests verify Tab toggling, original-input ordering, Enter fallback to the current option, cancellation, and CLI record output.
+- Interactive query/key tests verify prefilled query filtering, printable key aliases for navigation/accept/toggle, invalid or conflicting bindings, query argument validation, and exact-mode multi-character typing.
+- Configurable C API entry points support an initial query and key aliases while the original `mmenu`/`mmenuEx`/`mmenuMulti` signatures preserve default behavior.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; a detached-session regression verifies that a missing controlling terminal
   returns `-1` with a diagnostic instead of terminating the host process. Pseudo-terminal tests
@@ -25,7 +27,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   a >1 MiB record, and a multi-megabyte corpus that forces arena/list growth. Each injected
   failure must produce a diagnostic and a non-crashing nonzero exit.
 - The public C API allocation sweep first counts allocations in representative scenarios,
-  then fails each allocation index in turn under ASan/UBSan. It covers a 600-option filter-list growth path, rendering, ASCII/Unicode substring conversion,
+  then fails each allocation index in turn under ASan/UBSan. It covers a 600-option filter-list growth path, rendering, multi-select state/result allocation, ASCII/Unicode substring conversion,
   fuzzy result-array growth past 128/256 entries, and incremental filtering that reallocates a
   large filtered index list before exercising fallback. Fatal failures must return `-1`, emit diagnostics, and clean up ncurses rather than
   terminating the host process; incremental-filter allocation failure must safely fall back to

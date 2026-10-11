@@ -126,6 +126,44 @@ int main(int argc, char **argv)
         if (mmenuEx(options, 4, prompt, 4u) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-keys") == 0) {
+        mmenu_config config = {.key_up = L'j', .key_down = L'j'};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-query") == 0) {
+        char long_query[130];
+        memset(long_query, 'x', sizeof(long_query) - 1);
+        long_query[sizeof(long_query) - 1] = '\0';
+        mmenu_config config = {.initial_query = long_query};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "configured-query") == 0) {
+        mmenu_config config = {.initial_query = "needle"};
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "configured-query-edit") == 0) {
+        const char *query_options[] = {"needle", "needling", "alpha"};
+        mmenu_config config = {.initial_query = "needle"};
+        int result = mmenuConfigured(query_options, 3, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "configured-keys") == 0) {
+        mmenu_config config = {.key_down = L'j', .key_accept = L'x'};
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "exact-typing") == 0) {
+        int result = mmenuEx(options, count, prompt, MMENU_EXACT);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
     }
 
     if (multi_mode) {

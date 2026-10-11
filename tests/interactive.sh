@@ -39,6 +39,10 @@ CheckSelection() {
 }
 
 CheckSelection 'Enter selects the first option' 0 '\n'
+CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'
+CheckSelection 'backspacing an initial query broadens the match set' 1 "\177$(TERM=xterm tput kcud1)\n" configured-query-edit
+CheckSelection 'custom navigation and accept keys work as aliases' 1 'jx' configured-keys
+CheckSelection 'exact matching remains correct while typing a multi-character query' 0 'alpha\n' exact-typing
 CheckMultiSelection() {
     Name=$1
     Expected=$2
@@ -162,6 +166,8 @@ CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 CheckApiContract invalid-flags 'unsupported API flags'
+CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
+CheckApiContract invalid-config-query 'initial query exceeds'
 
 # A library call without a controlling terminal must return -1, not exit its host process.
 if ! setsid "$Bin" no-tty > "$TmpDir/no-tty-output" 2> "$TmpDir/no-tty-error"; then

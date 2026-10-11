@@ -7,12 +7,15 @@ Small ncurses menu for c programs and shell scripts, similar to suckless' dmenu.
 Interactive mode reads one option per line from stdin:
 
 ```text
-mmenu [PROMPT] [t|true] [-t] [--multi]
+mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--bind-ACTION KEY]
 ```
 
-The selected line is printed by default. `--multi` enables multi-selection: Tab toggles
-an option and Enter emits all toggled records in original input order. If no options were
-toggled, Enter selects the current option. For compatibility, a second positional argument
+The selected line is printed by default. `--query QUERY` pre-fills and applies an initial
+interactive query. `--bind-up`, `--bind-down`, `--bind-accept`, `--bind-cancel`, and
+`--bind-backspace` each add a printable ASCII key alias; `--bind-toggle` adds an alias for
+Tab and requires `--multi`. Built-in keys remain active. Use `space` to bind the Space key.
+`--multi` enables multi-selection: Tab toggles an option and Enter emits all toggled records
+in original input order. If no options were toggled, Enter selects the current option. For compatibility, a second positional argument
 of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead; with
 `--multi -t`, all selected original indexes are printed.
 
@@ -54,7 +57,7 @@ find . -type f | mmenu -f .c -t
 
 ## For C programs
 The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
-and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. For multi-selection, `mmenuMulti` returns status 0 and fills an allocated array of selected zero-based indexes; the caller must `free` that array. It supports the same matching flags and returns indexes in original input order. If no options were toggled, Enter selects the current option. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. If no controlling terminal is available, the API reports the error and returns -1 rather than terminating the host process. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
+and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. For multi-selection, `mmenuMulti` returns status 0 and fills an allocated array of selected zero-based indexes; the caller must `free` that array. It supports the same matching flags and returns indexes in original input order. If no options were toggled, Enter selects the current option. `mmenuConfigured` and `mmenuMultiConfigured` additionally accept an `mmenu_config` structure for an initial query and printable key aliases; zero-valued key fields preserve built-in keys. Initial queries are limited to 128 wide characters, and conflicting custom aliases are rejected. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. If no controlling terminal is available, the API reports the error and returns -1 rather than terminating the host process. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
 For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. These flags are mutually exclusive; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
 
 ```c
@@ -100,6 +103,8 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--no-sort`: with `--fuzzy --filter`, keep matching records in original input order instead of ranking by score; requires both flags.
 - `--format FORMAT`: in batch mode, expand `{}` to the matched record, `{index}` to its original zero-based input index, and `{query}` to the query. It can be combined with `--print0`, but not `-t`; requires `--filter`.
 - `--multi`: interactive multi-selection; Tab toggles the highlighted option and Enter emits all selected records (or indexes with `-t`). It cannot be combined with `--filter`.
+- `--query QUERY`: prefill the interactive query; cannot be combined with `--filter`.
+- `--bind-up KEY`, `--bind-down KEY`, `--bind-accept KEY`, `--bind-cancel KEY`, `--bind-toggle KEY`, `--bind-backspace KEY`: add one printable ASCII key alias for the action. `space` denotes the Space key; built-in keys remain active, duplicate aliases are rejected, and `--bind-toggle` requires `--multi`.
 - `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
 - `-h`/`--help`: print usage.
   ```bash

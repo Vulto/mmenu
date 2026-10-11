@@ -333,6 +333,74 @@ elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
 else
     Pass 'multi-select is restricted to interactive mode'
 fi
+# Initial query is prefilled and custom key aliases can drive interactive selection.
+printf 'alpha\nbeta\nneedle\n' > "$TmpDir/options"
+printf 'needle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --query needle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'initial-query CLI should exit cleanly'
+else
+    CheckEqual 'initial query filters and selects the matching record' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'beta\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf 'jx'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --bind-down j --bind-accept x < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'custom-key CLI should exit cleanly'
+else
+    CheckEqual 'custom navigation and accept aliases select the second record' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf 'v\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi --bind-toggle v < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'custom multi-toggle CLI should exit cleanly'
+else
+    CheckEqual 'custom toggle alias works with multi-selection' "$TmpDir/expected" "$TmpDir/selected"
+fi
+# Prefilled queries also work in multi-selection mode.
+printf 'needle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\t\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi --query needle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'initial-query multi-select CLI should exit cleanly'
+else
+    CheckEqual 'initial query filters multi-select options' "$TmpDir/expected" "$TmpDir/selected"
+fi
+LongQuery=$(awk 'BEGIN { for (i = 0; i < 129; i++) printf "x" }')
+if "$Bin" --query "$LongQuery" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'oversized initial query must fail'
+elif ! grep -Fq 'exceeds 128 characters' "$TmpDir/stderr"; then
+    Fail 'oversized initial query must explain the error'
+else
+    Pass 'oversized initial query is rejected before input reading'
+fi
+if "$Bin" --query needle --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'initial query must be rejected with batch filtering'
+elif ! grep -Fq 'cannot be used with --filter' "$TmpDir/stderr"; then
+    Fail 'query/batch conflict must explain the error'
+else
+    Pass 'initial query is restricted to interactive mode'
+fi
+if "$Bin" --query a --query b < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate initial queries must fail'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate initial query must explain the error'
+else
+    Pass 'duplicate initial query is rejected'
+fi
+if "$Bin" --bind-up j --bind-down j < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'a key cannot be assigned to two actions'
+elif ! grep -Fq 'assigned to multiple actions' "$TmpDir/stderr"; then
+    Fail 'duplicate key assignment must explain the error'
+else
+    Pass 'conflicting key bindings are rejected'
+fi
+if "$Bin" --bind-toggle v < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'toggle binding must require multi-selection'
+elif ! grep -Fq 'requires --multi' "$TmpDir/stderr"; then
+    Fail 'toggle binding mode conflict must explain the error'
+else
+    Pass 'toggle binding requires multi-selection'
+fi
+
 # Legacy interactive positional index mode remains supported by the documented CLI.
 CheckInteractiveIndexMode() {
     Name=$1

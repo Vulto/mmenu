@@ -16,6 +16,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin
   errors, stdout write errors, generated deterministic corpora, a seeded 5,000-record fuzz-style corpus with sampled
   queries, and differential matching against grep's fixed-string oracle.
+- Interactive multi-selection tests verify Tab toggling, original-input ordering, Enter fallback to the current option, cancellation, and CLI record output.
 - Public C API tests reject invalid counts, NULL option arrays, and NULL entries before
   opening a terminal; a detached-session regression verifies that a missing controlling terminal
   returns `-1` with a diagnostic instead of terminating the host process. Pseudo-terminal tests

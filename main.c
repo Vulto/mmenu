@@ -405,6 +405,14 @@ int main(int argc, char **argv) {
             if (custom_keys[key_i] == custom_keys[key_j])
                 return argument_error("a custom key cannot be assigned to multiple actions");
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
+    if (initial_query_seen) {
+        setlocale(LC_ALL, "");
+        size_t query_len = mbstowcs(NULL, initial_query, 0);
+        if (query_len == (size_t)-1)
+            return argument_error("--query is not valid in the current locale");
+        if (query_len > 128)
+            return argument_error("--query exceeds 128 characters");
+    }
     if (multi_mode && filter_seen)
         return argument_error("--multi is only available in interactive mode");
     if (output_format && !filter_seen)
@@ -532,18 +540,6 @@ int main(int argc, char **argv) {
     if (multi_mode) {
         int *selected = NULL;
         int selected_count = 0;
-        setlocale(LC_ALL, "");
-        if (initial_query_seen) {
-            size_t query_len = mbstowcs(NULL, initial_query, 0);
-            if (query_len == (size_t)-1) {
-                lines_free(&opts);
-                return argument_error("--query is not valid in the current locale");
-            }
-            if (query_len > 128) {
-                lines_free(&opts);
-                return argument_error("--query exceeds 128 characters");
-            }
-        }
         int status = mmenuMultiConfigured((const char *const *)opts.lines, opts.count, prompt,
                                           fuzzy_mode ? MMENU_FUZZY :
                                           exact_mode ? MMENU_EXACT : 0,
@@ -556,18 +552,6 @@ int main(int argc, char **argv) {
         }
         free(selected);
     } else {
-        setlocale(LC_ALL, "");
-        if (initial_query_seen) {
-            size_t query_len = mbstowcs(NULL, initial_query, 0);
-            if (query_len == (size_t)-1) {
-                lines_free(&opts);
-                return argument_error("--query is not valid in the current locale");
-            }
-            if (query_len > 128) {
-                lines_free(&opts);
-                return argument_error("--query exceeds 128 characters");
-            }
-        }
         int chosen = mmenuConfigured((const char *const *)opts.lines, opts.count, prompt,
                                      fuzzy_mode ? MMENU_FUZZY :
                                      exact_mode ? MMENU_EXACT : 0,

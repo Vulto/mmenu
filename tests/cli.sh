@@ -417,7 +417,7 @@ else
     fi
 fi
 # Data placeholders must be shell-quoted, not evaluated as shell syntax.
-InjectionOption=$(printf '$(touch %s/pwned)' "$TmpDir")
+InjectionOption=$(printf "quote'\$(touch %s/pwned)" "$TmpDir")
 printf '%s\n' "$InjectionOption" > "$TmpDir/options"
 if ! { sleep 0.2; printf '\n'; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --preview 'printf \"record:%s\" {}' < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then

@@ -98,8 +98,10 @@ SweepApi() {
         Count=$(GetAllocationCount "$TmpDir/api.txt")
         [ -n "$Count" ] || Fail "API allocation count missing for $Name at $At"
         [ "$Count" -ge "$At" ] || Fail "API allocation $At was not reached in $Name"
-        grep -aFq 'MMENU_RESULT=' "$TmpDir/api.txt" || Fail "API allocation failure $At in $Name omitted a result"
-        if grep -aFq 'MMENU_RESULT=-1' "$TmpDir/api.txt" &&
+        if ! grep -aEq 'MMENU_(MULTI_)?RESULT=' "$TmpDir/api.txt"; then
+            Fail "API allocation failure $At in $Name omitted a result"
+        fi
+        if grep -aEq 'MMENU_(MULTI_)?RESULT=-1' "$TmpDir/api.txt" &&
            ! grep -qi 'mmenu:' "$TmpDir/api.txt" &&
            ! grep -qi 'mmenu:' "$TmpDir/api-error"; then
             Fail "API allocation failure $At in $Name returned -1 without a diagnostic"
@@ -119,6 +121,7 @@ SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 
 SweepApi many many '\n'
+SweepApi multi multi '\t\n'
 SweepApi query-edit '' 'needle\n'
 SweepApi incremental-fallback '' 'n\177\n'
 SweepApi incremental-realloc many-edit 'a\177\n'

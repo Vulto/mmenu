@@ -166,6 +166,7 @@ int main(int argc, char **argv)
     }
 
     if (argc > 1 && strcmp(argv[1], "preview-long") == 0) {
+        if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {
             .preview = test_long_preview_callback
         };

@@ -74,7 +74,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 The suite covers CLI batch filtering, a deterministic generated differential corpus,
 ncurses interaction through a pseudo-terminal (including navigation bounds, cancellation,
 repeated query edits, Backspace, Unicode input, fuzzy-match highlighting (including Unicode subsequences), fuzzy rendering at 1x1 and 2x8,
-resize-triggered redraws both after input and while idle, wide-Unicode preview clipping, and 1x1, 1x40,
+resize-triggered redraws both after input and while idle (including bounded idle input waits), wide-Unicode preview clipping, and 1x1, 1x40,
 2x8, 3x20, 8x1, and 24x80 terminal geometries), compiler/runtime health, and memory checks
 for batch and interactive paths. Allocation fault injection sweeps all wrapped allocation
 calls reached by the representative CLI and C API scenarios; it does not intercept

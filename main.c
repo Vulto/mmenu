@@ -298,13 +298,16 @@ static int run_preview_command(const char *record, int index,
 
 static void print_usage(FILE *out) {
     fprintf(out,
-        "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--bind-ACTION KEY]\n"
-        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--query QUERY] [--bind-ACTION KEY]\n"
+        "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--preview COMMAND]\n"
+        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--query QUERY] [--preview COMMAND]\n"
+        "       mmenu [--bind-ACTION KEY] ...\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t | --format FORMAT] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. --query pre-fills the query.\n"
+        "--preview COMMAND displays command output for the highlighted option; {}, {index},\n"
+        "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
@@ -403,6 +406,8 @@ int main(int argc, char **argv) {
     int multi_mode = 0;
     const char *initial_query = NULL;
     int initial_query_seen = 0;
+    const char *preview_command = NULL;
+    int preview_seen = 0;
     mmenu_config menu_config = {0};
     int bind_up_seen = 0, bind_down_seen = 0, bind_accept_seen = 0;
     int bind_cancel_seen = 0, bind_toggle_seen = 0, bind_backspace_seen = 0;
@@ -455,6 +460,19 @@ int main(int argc, char **argv) {
             if (initial_query_seen) return argument_error("--query may only be specified once");
             initial_query = arg + 8;
             initial_query_seen = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--preview")) {
+            if (preview_seen) return argument_error("--preview may only be specified once");
+            if (i + 1 >= argc) return argument_error("--preview requires a command argument");
+            preview_command = argv[++i];
+            preview_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--preview=", 10)) {
+            if (preview_seen) return argument_error("--preview may only be specified once");
+            preview_command = arg + 10;
+            preview_seen = 1;
             continue;
         }
         int binding_result;
@@ -550,9 +568,9 @@ int main(int argc, char **argv) {
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
-    if ((initial_query_seen || bind_up_seen || bind_down_seen || bind_accept_seen ||
+    if ((initial_query_seen || preview_seen || bind_up_seen || bind_down_seen || bind_accept_seen ||
          bind_cancel_seen || bind_toggle_seen || bind_backspace_seen) && filter_seen)
-        return argument_error("interactive query and key bindings cannot be used with --filter");
+        return argument_error("interactive query, preview, and key bindings cannot be used with --filter");
     if (bind_toggle_seen && !multi_mode)
         return argument_error("--bind-toggle requires --multi");
     wint_t custom_keys[] = {menu_config.key_up, menu_config.key_down,
@@ -563,6 +581,8 @@ int main(int argc, char **argv) {
             if (custom_keys[key_i] == custom_keys[key_j])
                 return argument_error("a custom key cannot be assigned to multiple actions");
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
+    menu_config.preview = preview_seen ? run_preview_command : NULL;
+    menu_config.preview_userdata = (void *)preview_command;
     if (initial_query_seen) {
         setlocale(LC_ALL, "");
         size_t query_len = mbstowcs(NULL, initial_query, 0);

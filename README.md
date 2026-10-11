@@ -137,6 +137,13 @@ Performance is measured by the repeatable harnesses in `tests/benchmark.sh` and 
 
 The original substring behavior remains the default for backward compatibility. Fuzzy matching is explicitly opt-in through `--fuzzy` or the `mmenuEx(..., MMENU_FUZZY)` C API.
 
+## Maintainer documentation
+
+- [Quality gates and test policy](docs/QUALITY.md)
+- [Release checklist](docs/RELEASE.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+
 ## Notes
 - Requires ncursesw (`-lncursesw` when linking the C API).
 - The `c` build tool (from nobuild.h) or direct `gcc -o mmenu main.c -lncursesw` both work.

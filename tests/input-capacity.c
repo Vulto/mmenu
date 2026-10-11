@@ -35,5 +35,23 @@ int main(void) {
     CHECK(errno == EINVAL);
     CHECK(capacity == 73);
 
+    size_t bytes = 0;
+    CHECK(mmenu_size_add(12, 1, &bytes));
+    CHECK(bytes == 13);
+    errno = 0;
+    CHECK(!mmenu_size_add(SIZE_MAX, 1, &bytes));
+    CHECK(errno == ENOMEM);
+    CHECK(bytes == 13);
+
+    CHECK(mmenu_size_mul(13, sizeof(wchar_t), &bytes));
+    CHECK(bytes == 13 * sizeof(wchar_t));
+    errno = 0;
+    CHECK(!mmenu_size_mul(SIZE_MAX / 2 + 1, 2, &bytes));
+    CHECK(errno == ENOMEM);
+    CHECK(bytes == 13 * sizeof(wchar_t));
+    errno = 0;
+    CHECK(!mmenu_size_mul(1, 1, NULL));
+    CHECK(errno == ENOMEM);
+
     return EXIT_SUCCESS;
 }

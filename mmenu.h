@@ -90,13 +90,36 @@ static void mmenu_refresh_dimensions(FILE *tty, int *rows, int *cols) {
     getmaxyx(stdscr, *rows, *cols);
 }
 
+/* Checked size arithmetic for conversion buffers and other byte counts. */
+static int mmenu_size_add(size_t left, size_t right, size_t *result) {
+    if (!result || left > SIZE_MAX - right) {
+        errno = ENOMEM;
+        return 0;
+    }
+    *result = left + right;
+    return 1;
+}
+
+static int mmenu_size_mul(size_t left, size_t right, size_t *result) {
+    if (!result || (right != 0 && left > SIZE_MAX / right)) {
+        errno = ENOMEM;
+        return 0;
+    }
+    *result = left * right;
+    return 1;
+}
+
 static wchar_t *mb_to_wc(const char *s) {
     if (!s) return NULL;
     size_t n = mbstowcs(NULL, s, 0);
     if (n == (size_t)-1) return NULL;
-    wchar_t *w = malloc((n + 1) * sizeof(wchar_t));
+    size_t count, bytes;
+    if (!mmenu_size_add(n, 1, &count) ||
+        !mmenu_size_mul(count, sizeof(wchar_t), &bytes))
+        return NULL;
+    wchar_t *w = malloc(bytes);
     if (!w && errno == 0) errno = ENOMEM;
-    if (w && mbstowcs(w, s, n + 1) == (size_t)-1) {
+    if (w && mbstowcs(w, s, count) == (size_t)-1) {
         free(w);
         errno = EILSEQ;
         return NULL;
@@ -115,9 +138,11 @@ static char *wc_to_mb(const wchar_t *w) {
     }
     size_t n = wcstombs(NULL, w, 0);
     if (n == (size_t)-1) return NULL;
-    char *m = malloc(n + 1);
+    size_t bytes;
+    if (!mmenu_size_add(n, 1, &bytes)) return NULL;
+    char *m = malloc(bytes);
     if (!m && errno == 0) errno = ENOMEM;
-    if (m && wcstombs(m, w, n + 1) == (size_t)-1) {
+    if (m && wcstombs(m, w, bytes) == (size_t)-1) {
         free(m);
         errno = EILSEQ;
         return NULL;

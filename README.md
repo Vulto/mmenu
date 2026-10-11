@@ -16,8 +16,10 @@ for the highlighted record whenever the selection or query changes. The command 
 clipped to the pane. `{}`, `{index}`, and `{query}` are replaced by shell-quoted values for
 the selected record, its original zero-based input index, and the current query. The command
 itself is evaluated by the shell only when `--preview` is explicitly supplied; placeholders
-are quoted to prevent record/query contents from becoming shell syntax. Preview is
-interactive-only and cannot be combined with `--filter`. `--bind-up`, `--bind-down`, `--bind-accept`, `--bind-cancel`, and
+are quoted to prevent record/query contents from becoming shell syntax. The pane is shown
+when the terminal is at least 40 columns by 4 rows; smaller terminals keep the menu full-width
+and do not run the preview command. Preview is interactive-only and cannot be combined with
+`--filter`. `--bind-up`, `--bind-down`, `--bind-accept`, `--bind-cancel`, and
 `--bind-backspace` each add a printable ASCII key alias; `--bind-toggle` adds an alias for
 Tab and requires `--multi`. Built-in keys remain active. Use `space` to bind the Space key.
 `--multi` enables multi-selection: Tab toggles an option and Enter emits all toggled records

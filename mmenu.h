@@ -42,6 +42,23 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
 int mmenuMulti(const char *const *options, int n_options, const char *prompt,
                unsigned int flags, int **selected_indices, int *selected_count);
 
+/* Optional interactive query and key overrides. A zero key keeps its default. */
+typedef struct {
+    const char *initial_query;
+    wint_t key_up;
+    wint_t key_down;
+    wint_t key_accept;
+    wint_t key_cancel;
+    wint_t key_toggle;
+    wint_t key_backspace;
+} mmenu_config;
+
+int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
+                    unsigned int flags, const mmenu_config *config);
+int mmenuMultiConfigured(const char *const *options, int n_options, const char *prompt,
+                         unsigned int flags, const mmenu_config *config,
+                         int **selected_indices, int *selected_count);
+
 #endif /* MMENU_H */
 
 #ifdef MMENU_IMPLEMENTATION
@@ -296,6 +313,7 @@ static void filt_clear(filt *f) { f->count = 0; }
 
 static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,
+                          const mmenu_config *config,
                           int **selected_indices, int *selected_count) {
     if (multi) {
         if (!selected_indices || !selected_count) {
@@ -334,6 +352,18 @@ static int mmenu_internal(const char *const *options, int n_options,
             return -1;
         }
     }
+    size_t initial_query_len = 0;
+    if (config && config->initial_query) {
+        initial_query_len = mbstowcs(NULL, config->initial_query, 0);
+        if (initial_query_len == (size_t)-1) {
+            fprintf(stderr, "mmenu: initial query is not valid in the current locale\n");
+            return -1;
+        }
+        if (initial_query_len > MAX_INPUT_LEN) {
+            fprintf(stderr, "mmenu: initial query exceeds %d characters\n", MAX_INPUT_LEN);
+            return -1;
+        }
+    }
     if (prompt && mbstowcs(NULL, prompt, 0) == (size_t)-1) {
         fprintf(stderr, "mmenu: prompt is not valid in the current locale\n");
         return -1;
@@ -354,6 +384,20 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     wchar_t input[MAX_INPUT_LEN + 1] = {0};
     int input_len = 0;
+    if (config && config->initial_query) {
+        size_t converted = mbstowcs(input, config->initial_query, MAX_INPUT_LEN + 1);
+        if (converted == (size_t)-1 || converted != initial_query_len) {
+            fprintf(stderr, "mmenu: converting initial query failed\n");
+            goto cleanup;
+        }
+        input_len = (int)converted;
+    }
+    wint_t key_up = config && config->key_up ? config->key_up : KEY_UP;
+    wint_t key_down = config && config->key_down ? config->key_down : KEY_DOWN;
+    wint_t key_accept = config ? config->key_accept : 0;
+    wint_t key_cancel = config ? config->key_cancel : 0;
+    wint_t key_toggle = config ? config->key_toggle : 0;
+    wint_t key_backspace = config ? config->key_backspace : 0;
 
     int ret = -1;
     unsigned char *selected_options = NULL;
@@ -461,53 +505,62 @@ static int mmenu_internal(const char *const *options, int n_options,
 
         need_filter = 0;
 
-        if (kc == KEY_CODE_YES) {
-            if (ch == KEY_UP && selection > 0) selection--;
-            else if (ch == KEY_DOWN && selection < filtered.count - 1) selection++;
-            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
-                if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; }
-            }
-        } else {
-            if (ch == 27 || ch == 3 || ch == 4) { ret = -1; goto cleanup; }
-            if (multi && ch == '\t') {
-                if (filtered.count > 0)
-                    selected_options[filtered.indices[selection]] =
-                        !selected_options[filtered.indices[selection]];
-            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
-                if (multi) {
-                    int count = 0;
-                    for (int i = 0; i < n_options; i++)
-                        if (selected_options[i]) count++;
-                    if (count == 0 && filtered.count > 0) count = 1;
-                    if ((size_t)count > SIZE_MAX / sizeof(int)) {
-                        errno = ENOMEM;
-                        perror("mmenu: multi-select result is too large");
-                        goto cleanup;
-                    }
-                    int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
-                    if (count && !indices) {
-                        if (errno == 0) errno = ENOMEM;
-                        perror("mmenu: allocating multi-select result");
-                        goto cleanup;
-                    }
-                    int out = 0;
-                    for (int i = 0; i < n_options; i++)
-                        if (selected_options[i]) indices[out++] = i;
-                    if (out == 0 && count == 1)
-                        indices[out++] = filtered.indices[selection];
-                    *selected_indices = indices;
-                    *selected_count = out;
-                    ret = 0;
-                } else if (filtered.count > 0) {
-                    ret = filtered.indices[selection];
+        int is_key_code = kc == KEY_CODE_YES;
+        int is_up = ch == key_up;
+        int is_down = ch == key_down;
+        int is_accept = key_accept ? ch == key_accept :
+                        (ch == '\n' || ch == '\r' || ch == KEY_ENTER);
+        int is_cancel = key_cancel ? ch == key_cancel :
+                        (!is_key_code && (ch == 27 || ch == 3 || ch == 4));
+        int is_toggle = multi && (key_toggle ? ch == key_toggle :
+                                   (!is_key_code && ch == '\t'));
+        int is_backspace = key_backspace ? ch == key_backspace :
+                           (ch == KEY_BACKSPACE || (!is_key_code &&
+                            (ch == 127 || ch == 8)));
+        if (is_cancel) { ret = -1; goto cleanup; }
+        if (is_up) {
+            if (selection > 0) selection--;
+        } else if (is_down) {
+            if (selection < filtered.count - 1) selection++;
+        } else if (is_backspace) {
+            if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; }
+        } else if (is_toggle) {
+            if (filtered.count > 0)
+                selected_options[filtered.indices[selection]] =
+                    !selected_options[filtered.indices[selection]];
+        } else if (is_accept) {
+            if (multi) {
+                int count = 0;
+                for (int i = 0; i < n_options; i++)
+                    if (selected_options[i]) count++;
+                if (count == 0 && filtered.count > 0) count = 1;
+                if ((size_t)count > SIZE_MAX / sizeof(int)) {
+                    errno = ENOMEM;
+                    perror("mmenu: multi-select result is too large");
+                    goto cleanup;
                 }
-                goto cleanup;
+                int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
+                if (count && !indices) {
+                    if (errno == 0) errno = ENOMEM;
+                    perror("mmenu: allocating multi-select result");
+                    goto cleanup;
+                }
+                int out = 0;
+                for (int i = 0; i < n_options; i++)
+                    if (selected_options[i]) indices[out++] = i;
+                if (out == 0 && count == 1)
+                    indices[out++] = filtered.indices[selection];
+                *selected_indices = indices;
+                *selected_count = out;
+                ret = 0;
+            } else if (filtered.count > 0) {
+                ret = filtered.indices[selection];
             }
-            if (iswprint(ch) && input_len < MAX_INPUT_LEN) {
-                input[input_len++] = ch;
-                input[input_len] = L'\0';
-                need_filter = 1;
-            }
+            goto cleanup;
+        } else if (!is_key_code && iswprint(ch) && input_len < MAX_INPUT_LEN) {
+            input[input_len++] = ch;
+            input[input_len] = L'\0';
+            need_filter = 1;
         }
 
         if (need_filter) {
@@ -532,7 +585,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 goto cleanup;
             }
             int do_full = 1;
-            if (q && input_len > prev_input_len && filtered.count > 0) {
+            if (q && !(flags & MMENU_EXACT) && input_len > prev_input_len && filtered.count > 0) {
                 /* Common case: user typed another char. Refine only the previous matches. */
                 filt newf;
                 newf.cap = filtered.count < INITIAL_CAP ? INITIAL_CAP : filtered.count;
@@ -646,14 +699,21 @@ cleanup:
     return ret;
 }
 
+int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
+                    unsigned int flags, const mmenu_config *config)
+{
+    return mmenu_internal(options, n_options, prompt, flags, 0, config, NULL, NULL);
+}
+
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags)
 {
-    return mmenu_internal(options, n_options, prompt, flags, 0, NULL, NULL);
+    return mmenuConfigured(options, n_options, prompt, flags, NULL);
 }
 
-int mmenuMulti(const char *const *options, int n_options, const char *prompt,
-               unsigned int flags, int **selected_indices, int *selected_count)
+int mmenuMultiConfigured(const char *const *options, int n_options, const char *prompt,
+                         unsigned int flags, const mmenu_config *config,
+                         int **selected_indices, int *selected_count)
 {
     if (!selected_indices || !selected_count) {
         fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
@@ -661,8 +721,15 @@ int mmenuMulti(const char *const *options, int n_options, const char *prompt,
     }
     *selected_indices = NULL;
     *selected_count = 0;
-    return mmenu_internal(options, n_options, prompt, flags, 1,
+    return mmenu_internal(options, n_options, prompt, flags, 1, config,
                           selected_indices, selected_count);
+}
+
+int mmenuMulti(const char *const *options, int n_options, const char *prompt,
+               unsigned int flags, int **selected_indices, int *selected_count)
+{
+    return mmenuMultiConfigured(options, n_options, prompt, flags, NULL,
+                                selected_indices, selected_count);
 }
 
 int mmenu(const char *const *options, int n_options, const char *prompt)

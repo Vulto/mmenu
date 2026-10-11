@@ -9,6 +9,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 ## Required CI gates
 
 - GCC and Clang compile with C11, -Wall, -Wextra, -Wpedantic, and -Werror.
+- The clean release check compiles an optimized CLI from source, builds a standalone public-header consumer, checks CLI help, and runs substring/exact/format/NUL-delimited smoke tests.
 - CLI contract tests verify output bytes, status, ordering, substring, exact, fuzzy, inverse, unsorted fuzzy, and NUL-delimited input/output matching, case handling, indexes,
   legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
   unknown/duplicate options, batch `{}`, `{index}`, and `{query}` output templates, invalid
@@ -47,6 +48,7 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   The harness verifies result membership, score consistency, unique indexes, descending
   scores, and stable input-order ties for equal scores.
 - Valgrind checks the batch path for invalid accesses and leaks.
+- Release policy, security boundaries, and user-visible changes are maintained in `docs/RELEASE.md`, `SECURITY.md`, and `CHANGELOG.md`.
 - Throughput/RSS benchmarks record five samples per size at 1k, 10k, 100k, and 1m records,
   retain min/median/max latency and peak RSS, and validate match counts.
 - Ranking baseline records MRR, NDCG@5, Recall@5, match counts, tool versions, latency, and RSS

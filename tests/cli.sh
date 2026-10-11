@@ -24,21 +24,21 @@ CheckEqual() {
 }
 
 # Batch output templates substitute records, original indexes, and the query.
-printf 'alpha needle\\nbeta needle\\nneedle\\n' > "$TmpDir/input"
-printf '0:alpha needle [needle]\\n1:beta needle [needle]\\n2:needle [needle]\\n' > "$TmpDir/expected"
+printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
+printf '0:alpha needle [needle]\n1:beta needle [needle]\n2:needle [needle]\n' > "$TmpDir/expected"
 "$Bin" --filter needle --format '{index}:{} [{query}]' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'format expands record, original index, and query placeholders' "$TmpDir/expected" "$TmpDir/actual"
-printf '1|beta needle\\n' > "$TmpDir/expected"
+printf '1|beta needle\n' > "$TmpDir/expected"
 "$Bin" --filter needle --format '{index}|{}' < "$TmpDir/input" | sed -n '2p' > "$TmpDir/actual"
 CheckEqual 'format indexes remain original input indexes after filtering' "$TmpDir/expected" "$TmpDir/actual"
-printf '0:alpha needle\\0001:beta needle\\0002:needle\\000' > "$TmpDir/expected0"
+printf '0:alpha needle\0001:beta needle\0002:needle\000' > "$TmpDir/expected0"
 "$Bin" --filter needle --format '{index}:{}' --print0 < "$TmpDir/input" > "$TmpDir/actual0"
 CheckEqual 'formatted records honor NUL output delimiters' "$TmpDir/expected0" "$TmpDir/actual0"
-printf 'beta needle\\nneedle\\n' > "$TmpDir/expected"
+printf 'beta needle\nneedle\n' > "$TmpDir/expected"
 "$Bin" --filter alpha --invert-match --format '{}' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'format works with inverse filtering' "$TmpDir/expected" "$TmpDir/actual"
-printf 'alpha needle\\nbeta needle\\nneedle\\n' > "$TmpDir/input"
-printf '1:beta needle\\n' > "$TmpDir/expected"
+printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
+printf '1:beta needle\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --filter bn --format '{index}:{}' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'format works with fuzzy output and original indexes' "$TmpDir/expected" "$TmpDir/actual"
 

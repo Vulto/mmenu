@@ -317,9 +317,9 @@ CheckRejectedArgs 'format cannot be combined with index output' --filter needle 
 CheckRejectedArgs 'duplicate format options are rejected' --filter needle --format '{}' --format '{}'
 
 # Interactive multi-select emits every selected record in original input order.
-printf 'alpha\\nbeta\\nneedle\\ncafé-日本語\\n' > "$TmpDir/options"
-printf 'alpha\\nneedle\\n' > "$TmpDir/expected"
-if ! { sleep 0.2; printf '\\t'; printf '%s' "$(TERM=xterm tput kcud1)"; printf '%s' "$(TERM=xterm tput kcud1)"; printf '\\t\\n'; } |
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+printf 'alpha\nneedle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\t'; printf '%s' "$(TERM=xterm tput kcud1)"; printf '%s' "$(TERM=xterm tput kcud1)"; printf '\t\n'; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --multi < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail 'multi-select CLI should exit cleanly'
     cat "$TmpDir/stderr" >&2
@@ -333,7 +333,6 @@ elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
 else
     Pass 'multi-select is restricted to interactive mode'
 fi
-
 # Legacy interactive positional index mode remains supported by the documented CLI.
 CheckInteractiveIndexMode() {
     Name=$1

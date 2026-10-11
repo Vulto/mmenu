@@ -26,8 +26,9 @@ measurement system, not a hurdle to be weakened when an implementation fails.
   returns `-1` with a diagnostic instead of terminating the host process. Pseudo-terminal tests
   cover NULL prompts and SIGWINCH resize events.
 - Allocation-failure injection sweeps every wrapped CLI allocation reached by small input,
-  a >1 MiB record, and a multi-megabyte corpus that forces arena/list growth. Each injected
-  failure must produce a diagnostic and a non-crashing nonzero exit.
+  a >1 MiB record, a multi-megabyte corpus that forces arena/list growth, and preview command
+  expansion/capture. Batch failures must produce a diagnostic and nonzero exit; preview callback
+  allocation failures must not crash or trigger sanitizer/runtime errors.
 - The public C API allocation sweep first counts allocations in representative scenarios,
   then fails each allocation index in turn under ASan/UBSan. It covers a 600-option filter-list growth path, rendering, multi-select state/result allocation, ASCII/Unicode substring conversion,
   fuzzy result-array growth past 128/256 entries, and incremental filtering that reallocates a

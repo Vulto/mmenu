@@ -85,7 +85,7 @@ judged corpus; ranking changes still require explicit relevance judgments and re
 The fuzzer is bounded to keep CI predictable; it supplements but does not replace the
 deterministic regression tests or allocation-failure sweeps.
 
-Input-record, arena-slab, fuzzy-result, and interactive filter capacity growth share overflow-safe signed-doubling and allocation-size checks. Dedicated regression tests exercise the boundaries without requiring enormous allocations. Multibyte/wide-character conversion buffers use checked addition and multiplication before allocation, with boundary tests for overflow.
+Input-record, arena-slab, fuzzy-result, and interactive filter capacity growth share overflow-safe signed-doubling and allocation-size checks. Dedicated regression tests exercise the boundaries without requiring enormous allocations. Multibyte/wide-character conversion buffers use checked addition and multiplication before allocation, with boundary tests for overflow. Interactive query-cursor positioning clamps before narrowing a prompt byte length to a terminal column, with a `SIZE_MAX` regression.
 
 The long-record regression test intentionally rejects silent truncation. Any future failure
 must be preserved as evidence and fixed in the input reader; do not change the test to fit a

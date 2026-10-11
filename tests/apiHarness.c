@@ -126,6 +126,19 @@ int main(int argc, char **argv)
         if (mmenuEx(options, 4, prompt, 4u) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-keys") == 0) {
+        mmenu_config config = {.key_up = L'j', .key_down = L'j'};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-query") == 0) {
+        char long_query[130];
+        memset(long_query, 'x', sizeof(long_query) - 1);
+        long_query[sizeof(long_query) - 1] = '\\0';
+        mmenu_config config = {.initial_query = long_query};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     }
 
     if (argc > 1 && strcmp(argv[1], "configured-query") == 0) {

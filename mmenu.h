@@ -42,7 +42,15 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
 int mmenuMulti(const char *const *options, int n_options, const char *prompt,
                unsigned int flags, int **selected_indices, int *selected_count);
 
-/* Optional interactive query and key overrides. A zero key keeps its default. */
+/* Preview callbacks fill a text buffer and return 0 on success. Shell execution,
+   if desired, belongs in the caller's callback rather than the menu/matcher. */
+#define MMENU_PREVIEW_BUFFER_SIZE 8192
+typedef int (*mmenu_preview_callback)(const char *option, int index,
+                                      const wchar_t *query, char *output,
+                                      size_t output_size, void *userdata);
+
+/* Optional interactive query, key aliases, and preview callback.
+   A zero key keeps its default. */
 typedef struct {
     const char *initial_query;
     wint_t key_up;
@@ -51,6 +59,8 @@ typedef struct {
     wint_t key_cancel;
     wint_t key_toggle;
     wint_t key_backspace;
+    mmenu_preview_callback preview;
+    void *preview_userdata;
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -310,6 +320,51 @@ static int filt_push(filt *f, int idx) {
 }
 
 static void filt_clear(filt *f) { f->count = 0; }
+
+static void mmenu_draw_preview(const char *text, int rows, int cols, int menu_cols) {
+    int start = menu_cols + 1;
+    int width = cols - start;
+    if (width <= 0) return;
+    for (int row = 0; row < rows; row++)
+        mvaddch(row, menu_cols, ACS_VLINE);
+    move(0, start);
+    attron(A_BOLD);
+    addnstr("Preview", width);
+    attroff(A_BOLD);
+    clrtoeol();
+
+    const char *line = text ? text : "";
+    int row = 1;
+    while (row < rows && *line) {
+        const char *end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+        char safe_line[MMENU_PREVIEW_BUFFER_SIZE];
+        if (len >= sizeof(safe_line)) len = sizeof(safe_line) - 1;
+        for (size_t i = 0; i < len; i++) {
+            unsigned char c = (unsigned char)line[i];
+            safe_line[i] = (c < 0x20 && c != '\t') || c == 0x7f ? '?' :
+                           c == '\t' ? ' ' : (char)c;
+        }
+        safe_line[len] = '\0';
+        move(row++, start);
+        addnstr(safe_line, (int)len);
+        clrtoeol();
+        if (!end) break;
+        line = end + 1;
+    }
+    while (row < rows) {
+        move(row++, start);
+        clrtoeol();
+    }
+}
+
+static void mmenu_position_query_cursor(size_t prompt_len, int input_len, int menu_cols) {
+    int cursor = (int)prompt_len + input_len;
+    if (menu_cols > 0 && cursor >= menu_cols) cursor = menu_cols - 1;
+    if (cursor < 0) cursor = 0;
+    move(0, cursor);
+}
+
 
 static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,

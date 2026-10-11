@@ -51,7 +51,7 @@ find . -type f | mmenu -f .c -t
 
 ## For C programs
 The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
-and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
+and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. If no controlling terminal is available, the API reports the error and returns -1 rather than terminating the host process. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
 For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. These flags are mutually exclusive; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
 
 ```c

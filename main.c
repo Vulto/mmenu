@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #define CHUNK_CAP (1024 * 1024)   /* 1 MiB slabs for string data - huge reduction in mallocs */
 
@@ -136,6 +137,163 @@ static int parse_binding_option(int argc, char **argv, int *arg_index,
     if (*seen || !parse_binding_key(value, key)) return -1;
     *seen = 1;
     return 1;
+}
+
+static size_t preview_quoted_length(const char *value) {
+    size_t length = 2;
+    for (const char *p = value; *p; p++) {
+        size_t extra = *p == '\'' ? 4u : 1u;
+        if (length > SIZE_MAX - extra) return SIZE_MAX;
+        length += extra;
+    }
+    return length;
+}
+
+static int preview_add_size(size_t *total, size_t amount) {
+    if (*total > SIZE_MAX - amount) return 0;
+    *total += amount;
+    return 1;
+}
+
+static int preview_template_size(const char *format, const char *record,
+                                 const char *index, const char *query,
+                                 size_t *required) {
+    size_t total = 0;
+    for (const char *p = format; *p;) {
+        const char *value = NULL;
+        size_t token_len = 0;
+        if (p[0] == '{' && p[1] == '}') {
+            value = record;
+            token_len = 2;
+        } else if (!strncmp(p, "{index}", 7)) {
+            value = index;
+            token_len = 7;
+        } else if (!strncmp(p, "{query}", 7)) {
+            value = query;
+            token_len = 7;
+        }
+        size_t amount = value ? preview_quoted_length(value) : 1;
+        if (amount == SIZE_MAX || !preview_add_size(&total, amount)) return 0;
+        p += value ? token_len : 1;
+    }
+    *required = total;
+    return 1;
+}
+
+/* Every data placeholder is shell-quoted; only the explicit command is shell code. */
+static char *preview_expand_template(const char *format, const char *record,
+                                     const char *index, const char *query) {
+    size_t required;
+    if (!preview_template_size(format, record, index, query, &required) ||
+        required == SIZE_MAX) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    char *expanded = malloc(required + 1);
+    if (!expanded) return NULL;
+    char *out = expanded;
+    for (const char *p = format; *p;) {
+        const char *value = NULL;
+        size_t token_len = 0;
+        if (p[0] == '{' && p[1] == '}') {
+            value = record;
+            token_len = 2;
+        } else if (!strncmp(p, "{index}", 7)) {
+            value = index;
+            token_len = 7;
+        } else if (!strncmp(p, "{query}", 7)) {
+            value = query;
+            token_len = 7;
+        }
+        if (!value) {
+            *out++ = *p++;
+            continue;
+        }
+        *out++ = '\'';
+        for (const char *v = value; *v; v++) {
+            if (*v == '\'') {
+                *out++ = '\'';
+                *out++ = '\\';
+                *out++ = '\'';
+                *out++ = '\'';
+            } else {
+                *out++ = *v;
+            }
+        }
+        *out++ = '\'';
+        p += token_len;
+    }
+    *out = '\0';
+    return expanded;
+}
+
+static int run_preview_command(const char *record, int index,
+                               const wchar_t *query, char *output,
+                               size_t output_size, void *userdata) {
+    const char *format = userdata;
+    if (!output || output_size == 0 || !format) return -1;
+    output[0] = '\0';
+
+    errno = 0;
+    char *query_mb = wc_to_mb(query ? query : L"");
+    if (!query_mb) {
+        snprintf(output, output_size, "Preview: could not convert query");
+        return -1;
+    }
+    char index_text[32];
+    snprintf(index_text, sizeof(index_text), "%d", index);
+    errno = 0;
+    char *expanded = preview_expand_template(format, record, index_text, query_mb);
+    free(query_mb);
+    if (!expanded) {
+        snprintf(output, output_size, "Preview: out of memory");
+        return -1;
+    }
+
+    size_t command_len = strlen(expanded);
+    if (command_len > SIZE_MAX - 8) {
+        free(expanded);
+        snprintf(output, output_size, "Preview: command is too large");
+        return -1;
+    }
+    char *shell_command = malloc(command_len + 8);
+    if (!shell_command) {
+        free(expanded);
+        snprintf(output, output_size, "Preview: out of memory");
+        return -1;
+    }
+    snprintf(shell_command, command_len + 8, "(%s) 2>&1", expanded);
+    free(expanded);
+
+    FILE *pipe = popen(shell_command, "r");
+    free(shell_command);
+    if (!pipe) {
+        snprintf(output, output_size, "Preview: could not start command: %s", strerror(errno));
+        return -1;
+    }
+
+    size_t used = 0;
+    char chunk[512];
+    size_t nread;
+    while ((nread = fread(chunk, 1, sizeof(chunk), pipe)) > 0) {
+        for (size_t i = 0; i < nread && used + 1 < output_size; i++)
+            output[used++] = chunk[i] == '\0' ? '?' : chunk[i];
+        /* Continue draining after the display buffer fills to avoid blocking the child. */
+    }
+    output[used] = '\0';
+    int status = pclose(pipe);
+    if (used == 0) {
+        if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            snprintf(output, output_size, "Preview command failed");
+        else
+            snprintf(output, output_size, "(no output)");
+    } else if ((status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) &&
+               used + 1 < output_size) {
+        const char *failure = "\n[preview command exited unsuccessfully]";
+        size_t remaining = output_size - used - 1;
+        strncat(output, failure, remaining);
+    }
+    return status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0 ? -1 : 0;
 }
 
 static void print_usage(FILE *out) {

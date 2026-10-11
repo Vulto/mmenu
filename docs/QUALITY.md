@@ -85,14 +85,14 @@ judged corpus; ranking changes still require explicit relevance judgments and re
 The fuzzer is bounded to keep CI predictable; it supplements but does not replace the
 deterministic regression tests or allocation-failure sweeps.
 
-The long-record test intentionally rejects silent truncation. If it fails on the current
-implementation, preserve the failure as evidence and fix the input reader; do not change
-the test to fit the fixed-size input buffer.
+The long-record regression test intentionally rejects silent truncation. Any future failure
+must be preserved as evidence and fixed in the input reader; do not change the test to fit a
+fixed-size input buffer.
 
 ## Defects exposed by the baseline
 
-The original regression run reproduced these defects; fixes are now present on the
-quality branch and are guarded by the original assertions:
+The original regression run reproduced these defects; the fixes are present on `master`
+and remain guarded by the original assertions:
 
 - Long records were truncated at the fixed input-buffer boundary. Input now uses getline
   and retains the complete record, including a final record without a newline.

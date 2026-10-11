@@ -128,6 +128,24 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "configured-query") == 0) {
+        mmenu_config config = {.initial_query = "needle"};
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "configured-keys") == 0) {
+        mmenu_config config = {.key_down = L'j', .key_accept = L'x'};
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "exact-typing") == 0) {
+        int result = mmenuEx(options, count, prompt, MMENU_EXACT);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (multi_mode) {
         int *selected = NULL;
         int selected_count = 0;

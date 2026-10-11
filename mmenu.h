@@ -435,7 +435,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     int selection = 0;
     int top = 0;
     int need_filter = 0;
-    int prev_input_len = 0;   /* for incremental filter optimization */
+    int prev_input_len = input_len;   /* for incremental filter optimization */
 
     const char *prompt_str = prompt ? prompt : "> ";
     size_t prompt_len = strlen(prompt_str);

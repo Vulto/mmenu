@@ -11,7 +11,8 @@ measurement system, not a hurdle to be weakened when an implementation fails.
 - GCC and Clang compile with C11, -Wall, -Wextra, -Wpedantic, and -Werror.
 - CLI contract tests verify output bytes, status, ordering, substring, exact, fuzzy, inverse, unsorted fuzzy, and NUL-delimited input/output matching, case handling, indexes,
   legacy positional arguments, `--filter`/`--filter=`/`-f` argument combinations,
-  unknown/duplicate options, empty records, CRLF, final records without newline, empty
+  unknown/duplicate options, batch `{}`, `{index}`, and `{query}` output templates, invalid
+  format combinations, empty records, CRLF, final records without newline, empty
   input, embedded-NUL rejection, records over 1 MiB followed by another record, closed-stdin
   errors, stdout write errors, generated deterministic corpora, a seeded 5,000-record fuzz-style corpus with sampled
   queries, and differential matching against grep's fixed-string oracle.

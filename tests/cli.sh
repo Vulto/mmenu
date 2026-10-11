@@ -23,6 +23,25 @@ CheckEqual() {
     fi
 }
 
+# Batch output templates substitute records, original indexes, and the query.
+printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
+printf '0:alpha needle [needle]\n1:beta needle [needle]\n2:needle [needle]\n' > "$TmpDir/expected"
+"$Bin" --filter needle --format '{index}:{} [{query}]' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'format expands record, original index, and query placeholders' "$TmpDir/expected" "$TmpDir/actual"
+printf '1|beta needle\n' > "$TmpDir/expected"
+"$Bin" --filter needle --format '{index}|{}' < "$TmpDir/input" | sed -n '2p' > "$TmpDir/actual"
+CheckEqual 'format indexes remain original input indexes after filtering' "$TmpDir/expected" "$TmpDir/actual"
+printf '0:alpha needle\0001:beta needle\0002:needle\000' > "$TmpDir/expected0"
+"$Bin" --filter needle --format '{index}:{}' --print0 < "$TmpDir/input" > "$TmpDir/actual0"
+CheckEqual 'formatted records honor NUL output delimiters' "$TmpDir/expected0" "$TmpDir/actual0"
+printf 'beta needle\nneedle\n' > "$TmpDir/expected"
+"$Bin" --filter alpha --invert-match --format '{}' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'format works with inverse filtering' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
+printf '1:beta needle\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter bn --format '{index}:{}' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'format works with fuzzy output and original indexes' "$TmpDir/expected" "$TmpDir/actual"
+
 # Inverse filtering preserves original input order and supports all matcher modes.
 printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/input"
 printf 'beta\n' > "$TmpDir/expected"
@@ -292,6 +311,10 @@ CheckRejectedArgs 'duplicate filter options are rejected' --filter needle -f oth
 CheckRejectedArgs 'positional prompt is rejected in batch mode' --filter needle prompt
 CheckRejectedArgs 'extra positional argument is rejected' prompt extra
 CheckRejectedArgs 'filter-like unknown option is rejected' --filterx needle
+CheckRejectedArgs 'format without batch filter is rejected' --format '{}'
+CheckRejectedArgs 'format without its argument is rejected' --filter needle --format
+CheckRejectedArgs 'format cannot be combined with index output' --filter needle --format '{}' -t
+CheckRejectedArgs 'duplicate format options are rejected' --filter needle --format '{}' --format '{}'
 
 # Legacy interactive positional index mode remains supported by the documented CLI.
 CheckInteractiveIndexMode() {

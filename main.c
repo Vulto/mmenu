@@ -116,7 +116,7 @@ static void print_usage(FILE *out) {
         "Usage: mmenu [PROMPT] [t|true] [-t] [--read0] [--print0]\n"
         "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--read0] [--print0]\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
-        "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t] [--read0] [--print0]\n"
+        "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t | --format FORMAT] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"
         "\n"
         "Interactive mode reads one option per line. PROMPT is optional. The legacy\n"
@@ -124,7 +124,8 @@ static void print_usage(FILE *out) {
         "zero-based index. Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
-        "--invert-match or -v emits records that do not match the batch query.\n");
+        "--invert-match or -v emits records that do not match the batch query.\n"
+        "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
 }
 
 static int argument_error(const char *message) {
@@ -147,6 +148,45 @@ static void print_match(const char *record, int index, int output_index,
     } else {
         print_record(record, nul_delimiter);
     }
+}
+
+/* Batch templates support {}, {index}, and {query}; unknown tokens stay literal. */
+static void print_formatted_match(const char *record, int index,
+                                 const char *format, const char *query,
+                                 int nul_delimiter) {
+    const char *p = format;
+    char index_text[32];
+    snprintf(index_text, sizeof(index_text), "%d", index);
+    while (*p) {
+        const char *value = NULL;
+        size_t token_len = 0;
+        if (p[0] == '{' && p[1] == '}') {
+            value = record;
+            token_len = 2;
+        } else if (!strncmp(p, "{index}", 7)) {
+            value = index_text;
+            token_len = 7;
+        } else if (!strncmp(p, "{query}", 7)) {
+            value = query;
+            token_len = 7;
+        }
+        if (value) {
+            size_t len = strlen(value);
+            if (fwrite(value, 1, len, stdout) != len) return;
+            p += token_len;
+        } else {
+            if (fputc((unsigned char)*p, stdout) == EOF) return;
+            p++;
+        }
+    }
+    fputc(nul_delimiter ? '\0' : '\n', stdout);
+}
+
+static void print_batch_match(const char *record, int index, int output_index,
+                              int nul_delimiter, const char *format,
+                              const char *query) {
+    if (format) print_formatted_match(record, index, format, query, nul_delimiter);
+    else print_match(record, index, output_index, nul_delimiter);
 }
 
 static int flush_stdout(void) {
@@ -173,6 +213,7 @@ int main(int argc, char **argv) {
     int input_nul = 0;
     int output_nul = 0;
     int output_index = 0;
+    const char *output_format = NULL;
     const char *prompt = "> ";
     int positional_count = 0;
 
@@ -204,6 +245,20 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--print0")) {
             output_nul = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--format")) {
+            if (output_format)
+                return argument_error("--format may only be specified once");
+            if (i + 1 >= argc)
+                return argument_error("--format requires a format argument");
+            output_format = argv[++i];
+            continue;
+        }
+        if (!strncmp(arg, "--format=", 9)) {
+            if (output_format)
+                return argument_error("--format may only be specified once");
+            output_format = arg + 9;
             continue;
         }
         if (!strcmp(arg, "--filter") || !strcmp(arg, "-f")) {
@@ -254,6 +309,10 @@ int main(int argc, char **argv) {
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
+    if (output_format && !filter_seen)
+        return argument_error("--format requires --filter");
+    if (output_format && output_index)
+        return argument_error("--format cannot be combined with -t");
 
     /* Faster buffered input for huge pipes. */
     setvbuf(stdin, NULL, _IOFBF, 64 * 1024);
@@ -310,14 +369,14 @@ int main(int argc, char **argv) {
                     matched = strcasestr(opts.lines[i], filter_query) != NULL;
                 }
                 if (!matched) {
-                    print_match(opts.lines[i], i, output_index, output_nul);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }
             free(wide_query);
         } else if (exact_mode) {
             for (int i = 0; i < opts.count; i++) {
                 if (strcmp(opts.lines[i], filter_query) == 0) {
-                    print_match(opts.lines[i], i, output_index, output_nul);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }
         } else if (fuzzy_mode && no_sort) {
@@ -333,7 +392,7 @@ int main(int argc, char **argv) {
             for (int i = 0; i < opts.count; i++) {
                 long long score;
                 if (FuzzyScore(opts.lines[i], query, &score)) {
-                    print_match(opts.lines[i], i, output_index, output_nul);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }
             free(query);
@@ -357,14 +416,14 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < match_count; i++) {
                 int index = matches[i].index;
-                print_match(opts.lines[index], index, output_index, output_nul);
+                print_batch_match(opts.lines[index], index, output_index, output_nul, output_format, filter_query);
             }
             free(matches);
             free(query);
         } else {
             for (int i = 0; i < opts.count; i++) {
                 if (strcasestr(opts.lines[i], filter_query)) {
-                    print_match(opts.lines[i], i, output_index, output_nul);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }
         }

@@ -338,16 +338,29 @@ static void mmenu_draw_preview(const char *text, int rows, int cols, int menu_co
     while (row < rows && *line) {
         const char *end = strchr(line, '\n');
         size_t len = end ? (size_t)(end - line) : strlen(line);
-        char safe_line[MMENU_PREVIEW_BUFFER_SIZE];
-        if (len >= sizeof(safe_line)) len = sizeof(safe_line) - 1;
-        for (size_t i = 0; i < len; i++) {
-            unsigned char c = (unsigned char)line[i];
-            safe_line[i] = (c < 0x20 && c != '\t') || c == 0x7f ? '?' :
-                           c == '\t' ? ' ' : (char)c;
-        }
-        safe_line[len] = '\0';
         move(row++, start);
-        addnstr(safe_line, (int)len);
+        mbstate_t state = {0};
+        size_t pos = 0;
+        int used_columns = 0;
+        while (pos < len && used_columns < width) {
+            wchar_t ch;
+            size_t bytes = mbrtowc(&ch, line + pos, len - pos, &state);
+            if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+                ch = L'?';
+                bytes = 1;
+                memset(&state, 0, sizeof(state));
+            }
+            pos += bytes;
+            if (ch == L'\t' || iswcntrl(ch)) ch = ch == L'\t' ? L' ' : L'?';
+            int char_width = wcwidth(ch);
+            if (char_width < 0) {
+                ch = L'?';
+                char_width = 1;
+            }
+            if (used_columns + char_width > width) break;
+            addnwstr(&ch, 1);
+            used_columns += char_width;
+        }
         clrtoeol();
         if (!end) break;
         line = end + 1;

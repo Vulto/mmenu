@@ -44,6 +44,7 @@ int main(int argc, char **argv)
     pid_t resize_child = -1;
     int narrow_mode = 0;
     int many_mode = 0;
+    int multi_mode = argc > 1 && strcmp(argv[1], "multi") == 0;
     int ascii_mode = argc > 1 && strcmp(argv[1], "ascii") == 0;
     int invalid_utf8_mode = argc > 1 && strcmp(argv[1], "invalid-utf8") == 0;
     int invalid_prompt_mode = argc > 1 && strcmp(argv[1], "invalid-prompt") == 0;
@@ -124,6 +125,22 @@ int main(int argc, char **argv)
     } else if (argc > 1 && strcmp(argv[1], "invalid-flags") == 0) {
         if (mmenuEx(options, 4, prompt, 4u) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    }
+
+    if (multi_mode) {
+        int *selected = NULL;
+        int selected_count = 0;
+        int status = mmenuMulti(options, count, prompt, 0, &selected, &selected_count);
+        if (status != 0) {
+            puts("MMENU_MULTI_RESULT=-1");
+        } else {
+            printf("MMENU_MULTI_RESULT=");
+            for (int i = 0; i < selected_count; i++)
+                printf("%s%d", i ? "," : "", selected[i]);
+            putchar('\n');
+        }
+        free(selected);
         return 0;
     }
 

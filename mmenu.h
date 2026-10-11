@@ -37,6 +37,10 @@ enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u };
 int mmenu(const char *const *options, int n_options, const char *prompt);
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags);
+/* Multi-select returns 0 and allocates selected_indices; caller frees it.
+   Enter selects the current option if none were toggled. Cancel/failure: -1. */
+int mmenuMulti(const char *const *options, int n_options, const char *prompt,
+               unsigned int flags, int **selected_indices, int *selected_count);
 
 #endif /* MMENU_H */
 
@@ -290,8 +294,17 @@ static int filt_push(filt *f, int idx) {
 
 static void filt_clear(filt *f) { f->count = 0; }
 
-int mmenuEx(const char *const *options, int n_options, const char *prompt,
-            unsigned int flags) {
+static int mmenu_internal(const char *const *options, int n_options,
+                          const char *prompt, unsigned int flags, int multi,
+                          int **selected_indices, int *selected_count) {
+    if (multi) {
+        if (!selected_indices || !selected_count) {
+            fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
+            return -1;
+        }
+        *selected_indices = NULL;
+        *selected_count = 0;
+    }
     /* Validate the public API before touching the terminal or initializing ncurses. */
     if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
@@ -343,8 +356,19 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
     int input_len = 0;
 
     int ret = -1;
+    unsigned char *selected_options = NULL;
     filt filtered = {0};
     if (!filt_init(&filtered)) goto cleanup;
+    if (multi && n_options > 0) {
+        errno = 0;
+        selected_options = malloc((size_t)n_options * sizeof(*selected_options));
+        if (selected_options) memset(selected_options, 0, (size_t)n_options * sizeof(*selected_options));
+        if (!selected_options) {
+            if (errno == 0) errno = ENOMEM;
+            perror("mmenu: allocating multi-select state");
+            goto cleanup;
+        }
+    }
 
     int selection = 0;
     int top = 0;
@@ -409,8 +433,13 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
         if (w) {
             move(v + 1, 0);
             if (fidx == selection) attron(A_STANDOUT);
-            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, cols, input);
-            else printw("%.*ls", cols, w);
+            int option_cols = cols;
+            if (multi && cols >= 4) {
+                printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
+                option_cols = cols - 4;
+            }
+            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
+            else printw("%.*ls", option_cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
             clrtoeol();
             free(w);
@@ -440,8 +469,38 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
             }
         } else {
             if (ch == 27 || ch == 3 || ch == 4) { ret = -1; goto cleanup; }
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
-                if (filtered.count > 0) ret = filtered.indices[selection];
+            if (multi && ch == '\t') {
+                if (filtered.count > 0)
+                    selected_options[filtered.indices[selection]] =
+                        !selected_options[filtered.indices[selection]];
+            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                if (multi) {
+                    int count = 0;
+                    for (int i = 0; i < n_options; i++)
+                        if (selected_options[i]) count++;
+                    if (count == 0 && filtered.count > 0) count = 1;
+                    if ((size_t)count > SIZE_MAX / sizeof(int)) {
+                        errno = ENOMEM;
+                        perror("mmenu: multi-select result is too large");
+                        goto cleanup;
+                    }
+                    int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
+                    if (count && !indices) {
+                        if (errno == 0) errno = ENOMEM;
+                        perror("mmenu: allocating multi-select result");
+                        goto cleanup;
+                    }
+                    int out = 0;
+                    for (int i = 0; i < n_options; i++)
+                        if (selected_options[i]) indices[out++] = i;
+                    if (out == 0 && count == 1)
+                        indices[out++] = filtered.indices[selection];
+                    *selected_indices = indices;
+                    *selected_count = out;
+                    ret = 0;
+                } else if (filtered.count > 0) {
+                    ret = filtered.indices[selection];
+                }
                 goto cleanup;
             }
             if (iswprint(ch) && input_len < MAX_INPUT_LEN) {
@@ -563,8 +622,13 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
             if (w) {
                 move(v + 1, 0);
                 if (fidx == selection) attron(A_STANDOUT);
-                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, cols, input);
-                else printw("%.*ls", cols, w);
+                int option_cols = cols;
+                if (multi && cols >= 4) {
+                    printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
+                    option_cols = cols - 4;
+                }
+                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
+                else printw("%.*ls", option_cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
                 clrtoeol();
                 free(w);
@@ -574,11 +638,31 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
     }
 
 cleanup:
+    free(selected_options);
     free(filtered.indices);
     endwin();
     delscreen(scr);
     fclose(tty);
     return ret;
+}
+
+int mmenuEx(const char *const *options, int n_options, const char *prompt,
+            unsigned int flags)
+{
+    return mmenu_internal(options, n_options, prompt, flags, 0, NULL, NULL);
+}
+
+int mmenuMulti(const char *const *options, int n_options, const char *prompt,
+               unsigned int flags, int **selected_indices, int *selected_count)
+{
+    if (!selected_indices || !selected_count) {
+        fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
+        return -1;
+    }
+    *selected_indices = NULL;
+    *selected_count = 0;
+    return mmenu_internal(options, n_options, prompt, flags, 1,
+                          selected_indices, selected_count);
 }
 
 int mmenu(const char *const *options, int n_options, const char *prompt)

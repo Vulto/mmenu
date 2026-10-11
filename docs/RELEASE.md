@@ -4,11 +4,11 @@ This project currently builds from source; do not announce a binary package or r
 
 ## Before tagging
 
-- [ ] Confirm the release candidate is merged to \`master\` and the working tree is clean.
-- [ ] Review \`CHANGELOG.md\` and replace the Unreleased section with the release version/date. Do not invent a version number; choose it deliberately and use the same value for the Git tag and release notes.
-- [ ] Review the public API in \`mmenu.h\`, including ownership of arrays returned by \`mmenuMulti\` and the behavior of configured callbacks.
+- [ ] Confirm the release candidate is merged to `master` and the working tree is clean.
+- [ ] Review `CHANGELOG.md` and replace the Unreleased section with the release version/date. Do not invent a version number; choose it deliberately and use the same value for the Git tag and release notes.
+- [ ] Review the public API in `mmenu.h`, including ownership of arrays returned by `mmenuMulti` and the behavior of configured callbacks.
 - [ ] Review CLI help and README examples against the actual parser. Confirm that batch-only and interactive-only options are clearly separated.
-- [ ] Review \`SECURITY.md\`, especially the explicit shell-execution boundary and quoting of preview placeholders.
+- [ ] Review `SECURITY.md`, especially the explicit shell-execution boundary and quoting of preview placeholders.
 
 ## Required verification
 
@@ -21,9 +21,9 @@ All four required CI jobs must pass on the exact commit to be tagged:
 
 Additionally:
 
-- [ ] Run \`sh tests/release-check.sh\` with both GCC and Clang.
+- [ ] Run `sh tests/release-check.sh` with both GCC and Clang.
 - [ ] Inspect the performance and ranking artifacts. Investigate any threshold failure or unexplained ranking change; do not dismiss a result without evidence.
-- [ ] Confirm that shell scripts pass ShellCheck and that \`git diff --check\` is clean.
+- [ ] Confirm that shell scripts pass ShellCheck and that `git diff --check` is clean.
 - [ ] Verify that the public header builds as a standalone implementation and that the standalone CLI builds from a clean temporary directory.
 - [ ] Check the release diff for generated files, secrets, local paths, temporary benchmarks, and unreviewed changes.
 - [ ] Confirm runtime dependency expectations: a C11 compiler and wide-character ncurses development/runtime libraries for builds and execution, respectively.

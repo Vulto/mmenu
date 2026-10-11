@@ -43,6 +43,7 @@ jobs:
             CFLAGS="-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror"
           fi
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/input-capacity-test tests/input-capacity.c -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c tests/apiHarness.c -o build/apiHarness-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail-api.o
@@ -75,6 +76,9 @@ jobs:
       - name: GCC static analyzer
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release' && steps.compile.outcome == 'success'
         run: gcc -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c -lncursesw
+      - name: Input capacity overflow regression
+        if: always() && steps.compile.outcome == 'success'
+        run: build/input-capacity-test
       - name: CLI regression suite
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/cli.sh build/mmenu

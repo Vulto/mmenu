@@ -327,7 +327,7 @@ int mmenuEx(const char *const *options, int n_options, const char *prompt,
     }
 
     FILE *tty = fopen("/dev/tty", "r+");
-    if (!tty) { perror("fopen /dev/tty"); exit(EXIT_FAILURE); }
+    if (!tty) { perror("mmenu: opening /dev/tty"); return -1; }
 
     SCREEN *scr = newterm(NULL, tty, tty);
     if (!scr) { fclose(tty); fprintf(stderr, "Failed to init ncurses\n"); return -1; }

@@ -251,18 +251,18 @@ static int run_preview_command(const char *record, int index,
     }
 
     size_t command_len = strlen(expanded);
-    if (command_len > SIZE_MAX - 8) {
+    if (command_len > SIZE_MAX - 11) {
         free(expanded);
         snprintf(output, output_size, "Preview: command is too large");
         return -1;
     }
-    char *shell_command = malloc(command_len + 8);
+    char *shell_command = malloc(command_len + 11);
     if (!shell_command) {
         free(expanded);
         snprintf(output, output_size, "Preview: out of memory");
         return -1;
     }
-    snprintf(shell_command, command_len + 8, "(%s) 2>&1", expanded);
+    snprintf(shell_command, command_len + 11, "exec 2>&1\n%s", expanded);
     free(expanded);
 
     FILE *pipe = popen(shell_command, "r");

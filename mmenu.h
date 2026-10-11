@@ -400,6 +400,9 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     int rows, cols; getmaxyx(stdscr, rows, cols);
 
+    int ret = -1;
+    unsigned char *selected_options = NULL;
+    filt filtered = {0};
     wchar_t input[MAX_INPUT_LEN + 1] = {0};
     int input_len = 0;
     if (config && config->initial_query) {
@@ -417,9 +420,6 @@ static int mmenu_internal(const char *const *options, int n_options,
     wint_t key_toggle = config ? config->key_toggle : 0;
     wint_t key_backspace = config ? config->key_backspace : 0;
 
-    int ret = -1;
-    unsigned char *selected_options = NULL;
-    filt filtered = {0};
     if (!filt_init(&filtered)) goto cleanup;
     if (multi && n_options > 0) {
         errno = 0;

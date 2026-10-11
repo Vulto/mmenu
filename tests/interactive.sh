@@ -40,7 +40,7 @@ CheckSelection() {
 
 CheckPreviewClipping() {
     if ! { sleep 0.2; printf '\n'; } |
-         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "stty cols 40 rows 8; $Bin preview-long" /dev/null > "$TmpDir/preview-long-output" 2> "$TmpDir/preview-long-error"; then
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin preview-long" /dev/null > "$TmpDir/preview-long-output" 2> "$TmpDir/preview-long-error"; then
         printf 'FAIL: long preview clipping test did not exit cleanly\n' >&2
         cat "$TmpDir/preview-long-error" >&2
         Failures=$((Failures + 1))

@@ -134,7 +134,7 @@ int main(int argc, char **argv)
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-query") == 0) {
         char long_query[130];
         memset(long_query, 'x', sizeof(long_query) - 1);
-        long_query[sizeof(long_query) - 1] = '\\0';
+        long_query[sizeof(long_query) - 1] = '\0';
         mmenu_config config = {.initial_query = long_query};
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");

@@ -82,6 +82,44 @@ ProbeApi() {
     printf '%s\n' "$Count"
 }
 
+ProbePreview() {
+    Input=$1
+    if ! { sleep 0.2; printf '\n'; } |
+         MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$CliBin --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-probe.raw" 2> "$TmpDir/preview-probe.err"; then
+        Fail "preview allocation probe failed"
+    fi
+    StripTerminalCodes "$TmpDir/preview-probe.raw" "$TmpDir/preview-probe.txt"
+    Count=$(GetAllocationCount "$TmpDir/preview-probe.txt")
+    [ -n "$Count" ] || Fail "preview allocation count missing"
+    printf '%s\n' "$Count"
+}
+
+SweepPreview() {
+    Input=$1
+    Total=$(ProbePreview "$Input")
+    [ "$Total" -gt 0 ] || Fail "preview scenario did not allocate"
+    At=1
+    while [ "$At" -le "$Total" ]; do
+        if { sleep 0.2; printf '\n'; } |
+             MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$CliBin --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-raw" 2> "$TmpDir/preview-error"; then
+            Status=0
+        else
+            Status=$?
+        fi
+        StripTerminalCodes "$TmpDir/preview-raw" "$TmpDir/preview.txt"
+        Count=$(GetAllocationCount "$TmpDir/preview.txt")
+        [ -n "$Count" ] || Fail "preview allocation count missing at $At"
+        [ "$Count" -ge "$At" ] || Fail "preview allocation $At was not reached"
+        [ "$Status" -ne 124 ] || Fail "preview allocation failure $At timed out"
+        [ "$Status" -ne 139 ] || Fail "preview allocation failure $At segfaulted"
+        if grep -aEq 'AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:|DEADLYSIGNAL|Segmentation fault' "$TmpDir/preview.txt" "$TmpDir/preview-error"; then
+            Fail "preview allocation failure $At triggered a sanitizer/runtime error"
+        fi
+        At=$((At + 1))
+    done
+    printf 'PASS: preview mode survived all %s allocation-failure points\n' "$Total"
+}
+
 SweepApi() {
     Name=$1
     Mode=$2
@@ -119,6 +157,7 @@ SweepCli small "$TmpDir/small.input"
 SweepCli fuzzy "$TmpDir/small.input" ndl fuzzy
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
+SweepPreview "$TmpDir/small.input"
 
 SweepApi many many '\n'
 SweepApi multi multi '\t\n'

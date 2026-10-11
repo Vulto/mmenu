@@ -487,6 +487,8 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     /* raw() disables terminal-generated SIGINT so Ctrl-C reaches wget_wch and can cancel cleanly. */
     raw(); noecho(); keypad(stdscr, TRUE);
+    /* Bound idle input waits so a resize arriving just before wget_wch cannot be missed. */
+    wtimeout(stdscr, 100);
     struct sigaction resize_action = {0};
     struct sigaction previous_resize_action;
     resize_action.sa_handler = handle_resize;

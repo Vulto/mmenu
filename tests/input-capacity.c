@@ -60,5 +60,12 @@ int main(void) {
     CHECK(mmenu_query_cursor_column(0, 128, 80) == 79);
     CHECK(mmenu_query_cursor_column(SIZE_MAX, 128, 0) == 0);
 
+    CHECK(setlocale(LC_CTYPE, "C.UTF-8") != NULL);
+    CHECK(mmenu_prompt_display_width("abc", INT_MAX) == 3);
+    CHECK(mmenu_prompt_display_width("界a", INT_MAX) == 3);
+    CHECK(mmenu_prompt_display_width("界a", 2) == 2);
+    CHECK(mmenu_prompt_display_width("abc", 0) == 0);
+    CHECK(mmenu_prompt_display_width(NULL, 80) == 0);
+
     return EXIT_SUCCESS;
 }

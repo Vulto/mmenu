@@ -360,7 +360,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     filt filtered = {0};
     if (!filt_init(&filtered)) goto cleanup;
     if (multi && n_options > 0) {
-        selected_options = calloc((size_t)n_options, sizeof(*selected_options));
+        selected_options = malloc((size_t)n_options * sizeof(*selected_options));
+        if (selected_options) memset(selected_options, 0, (size_t)n_options * sizeof(*selected_options));
         if (!selected_options) {
             if (errno == 0) errno = ENOMEM;
             perror("mmenu: allocating multi-select state");

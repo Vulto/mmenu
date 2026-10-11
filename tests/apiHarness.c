@@ -67,7 +67,9 @@ static int test_resize_preview_callback(const char *option, int index,
     if (marker) {
         FILE *file = fopen(marker, "a");
         if (!file) return -1;
-        if (fputc('x', file) == EOF || fclose(file) != 0) return -1;
+        int failed = fputc('x', file) == EOF;
+        if (fclose(file) != 0) failed = 1;
+        if (failed) return -1;
     }
     int result = snprintf(output, output_size, "resize-preview");
     return result < 0 ? -1 : 0;

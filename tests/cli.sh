@@ -441,6 +441,13 @@ elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
 else
     Pass 'duplicate preview command is rejected'
 fi
+if "$Bin" --preview '' < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'empty preview command must fail'
+elif ! grep -Fq 'must not be empty' "$TmpDir/stderr"; then
+    Fail 'empty preview command must explain the error'
+else
+    Pass 'empty preview command is rejected'
+fi
 if "$Bin" --preview < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing preview command must fail'
 elif ! grep -Fq 'requires a command argument' "$TmpDir/stderr"; then

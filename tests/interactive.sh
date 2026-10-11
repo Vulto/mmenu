@@ -39,6 +39,9 @@ CheckSelection() {
 }
 
 CheckSelection 'Enter selects the first option' 0 '\n'
+CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'
+CheckSelection 'custom navigation and accept keys work as aliases' 1 'jx' configured-keys
+CheckSelection 'exact matching remains correct while typing a multi-character query' 0 'alpha\n' exact-typing
 CheckMultiSelection() {
     Name=$1
     Expected=$2

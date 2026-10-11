@@ -16,7 +16,7 @@ of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead
 Batch filtering does not open ncurses:
 
 ```text
-mmenu --filter QUERY [-t]
+mmenu --filter QUERY [-t] [--read0] [--print0]
 mmenu --filter=QUERY [-t]
 mmenu -f QUERY [-t]
 mmenu --fuzzy [PROMPT] [-t]
@@ -24,19 +24,19 @@ mmenu --exact [PROMPT] [-t]
 mmenu --fuzzy --filter QUERY [-t]
 mmenu --fuzzy --no-sort --filter QUERY [-t]
 mmenu --exact --filter QUERY [-t]
-mmenu --invert-match --filter QUERY [-t]
+mmenu --invert-match --filter QUERY [-t] [--read0] [--print0]
 ```
 
 Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
 query matches every input record; an empty input is valid. Batch mode is byte-oriented and
-preserves invalid UTF-8 bytes, but rejects embedded NUL records. The interactive C API
+preserves invalid UTF-8 bytes, but rejects embedded NUL bytes in newline-delimited mode. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
 case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
 `--invert-match` (or `-v`) emits records that do not match the selected batch matcher, in original input order; it requires `--filter` and also supports `-t` indexes. The optional `--exact` mode matches only records exactly equal to the query, including case and all bytes. An empty exact query matches only empty records. The `--exact` and `--fuzzy` modes cannot be combined. The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
 results by early, adjacent, and word-boundary matches; ties retain input order. In the
 interactive menu, matched fuzzy characters are bolded and underlined. In fuzzy
 batch mode, use `--fuzzy --filter QUERY` (or `-f QUERY`); `-t` emits original input
-indexes in ranked order. Fuzzy mode requires valid multibyte query text; invalid multibyte
+indexes in ranked order. `--read0` treats NUL bytes as input record separators, and `--print0` terminates each output record (including indexes) with NUL; newline delimiters remain the default. Fuzzy mode requires valid multibyte query text; invalid multibyte
 candidate records are ignored. Without `--fuzzy`, the original substring behavior is
 unchanged. Unknown options, duplicate filter options, and unexpected positional arguments exit with
 status 2. Embedded NUL bytes and stdin/stdout I/O errors exit with status 1.
@@ -88,7 +88,9 @@ mmenu is now optimized for large piped inputs (hundreds of thousands to millions
 
 Options (in addition to the legacy positional prompt and `t`/`true` index argument):
 
-- `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching lines (or indices with `-t`), without initializing ncurses.
+- `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching records (or indices with `-t`), without initializing ncurses.
+- `--read0`: read NUL-delimited input records instead of newline-delimited records.
+- `--print0`: terminate each output record with NUL instead of newline.
 - `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.

@@ -7,11 +7,14 @@ Small ncurses menu for c programs and shell scripts, similar to suckless' dmenu.
 Interactive mode reads one option per line from stdin:
 
 ```text
-mmenu [PROMPT] [t|true] [-t]
+mmenu [PROMPT] [t|true] [-t] [--multi]
 ```
 
-The selected line is printed by default. For compatibility, a second positional argument
-of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead.
+The selected line is printed by default. `--multi` enables multi-selection: Tab toggles
+an option and Enter emits all toggled records in original input order. If no options were
+toggled, Enter selects the current option. For compatibility, a second positional argument
+of `t` or `true`, or the `-t` flag, prints the selected zero-based index instead; with
+`--multi -t`, all selected original indexes are printed.
 
 Batch filtering does not open ncurses:
 
@@ -96,6 +99,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `--no-sort`: with `--fuzzy --filter`, keep matching records in original input order instead of ranking by score; requires both flags.
 - `--format FORMAT`: in batch mode, expand `{}` to the matched record, `{index}` to its original zero-based input index, and `{query}` to the query. It can be combined with `--print0`, but not `-t`; requires `--filter`.
+- `--multi`: interactive multi-selection; Tab toggles the highlighted option and Enter emits all selected records (or indexes with `-t`). It cannot be combined with `--filter`.
 - `-t`: output zero-based matching indexes in batch mode, or the selected index in interactive mode.
 - `-h`/`--help`: print usage.
   ```bash

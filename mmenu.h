@@ -416,6 +416,31 @@ static void mmenu_draw_preview(const char *text, int rows, int cols, int menu_co
     }
 }
 
+static int mmenu_prompt_display_width(const char *prompt, int max_columns) {
+    if (!prompt || max_columns <= 0) return 0;
+
+    size_t length = strlen(prompt);
+    size_t offset = 0;
+    int columns = 0;
+    mbstate_t state = {0};
+    while (offset < length && columns < max_columns) {
+        wchar_t ch;
+        size_t bytes = mbrtowc(&ch, prompt + offset, length - offset, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+            ch = L'?';
+            bytes = 1;
+            memset(&state, 0, sizeof(state));
+        }
+        offset += bytes;
+
+        int width = wcwidth(ch);
+        if (width < 0) width = 1;
+        if (width > max_columns - columns) return max_columns;
+        columns += width;
+    }
+    return columns;
+}
+
 static int mmenu_query_cursor_column(size_t prompt_len, int input_len,
                                        int menu_cols) {
     if (menu_cols <= 0) return 0;
@@ -604,7 +629,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     int prev_input_len = input_len;   /* for incremental filter optimization */
 
     const char *prompt_str = prompt ? prompt : "> ";
-    size_t prompt_len = strlen(prompt_str);
+    size_t prompt_columns = (size_t)mmenu_prompt_display_width(prompt_str, INT_MAX);
 
     /* Initial filter (show all for empty query - fast path) */
     filt_clear(&filtered);
@@ -652,7 +677,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     /* Initial draw */
     clear();
     printw("%s%ls", prompt_str, input); clrtoeol();
-    mmenu_position_query_cursor(prompt_len, input_len, menu_cols);
+    mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
     int visible = rows - 1;
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
@@ -880,7 +905,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         /* Redraw */
         clear();
         printw("%s%ls", prompt_str, input); clrtoeol();
-        mmenu_position_query_cursor(prompt_len, input_len, menu_cols);
+        mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
         for (int v = 0; v < visible && top + v < filtered.count; v++) {
             int fidx = top + v;
             int oidx = filtered.indices[fidx];

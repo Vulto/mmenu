@@ -39,6 +39,33 @@ CheckSelection() {
 }
 
 CheckSelection 'Enter selects the first option' 0 '\n'
+CheckMultiSelection() {
+    Name=$1
+    Expected=$2
+    Keys=$3
+    if ! { sleep 0.2; printf '%b' "$Keys"; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin multi" /dev/null > "$TmpDir/multi-output" 2> "$TmpDir/multi-error"; then
+        printf 'FAIL: %s (process/timeout failure)\\n' "$Name" >&2
+        cat "$TmpDir/multi-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\\x1B\\[[0-?]*[ -/]*[@-~]//g; s/\\x1B[()][A-Za-z0-9]//g; s/\\x1B[=>]//g' "$TmpDir/multi-output" > "$TmpDir/multi-plain"
+    if ! grep -aFq "MMENU_MULTI_RESULT=$Expected" "$TmpDir/multi-plain"; then
+        printf 'FAIL: %s (expected multi selection %s)\\n' "$Name" "$Expected" >&2
+        tail -c 2000 "$TmpDir/multi-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    elif [ "$Expected" = "0,2" ] && ! grep -aFq '[x]' "$TmpDir/multi-plain"; then
+        printf 'FAIL: %s (selected options were not marked)\\n' "$Name" >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: %s\\n' "$Name"
+    fi
+}
+DownKey=$(TERM=xterm tput kcud1)
+CheckMultiSelection 'Tab toggles multiple options and Enter returns indexes in input order' '0,2' "$(printf '\\t')${DownKey}${DownKey}$(printf '\\t')\\n"
+CheckMultiSelection 'Enter without toggles selects the current option' '0' '\\n'
+CheckMultiSelection 'multi-select cancellation returns no selections' '-1' '\\003'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'

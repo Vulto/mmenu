@@ -111,16 +111,44 @@ static void lines_free(lines_t *l) {
     free(l->slabs);
 }
 
+static int parse_binding_key(const char *value, wint_t *key) {
+    if (!strcmp(value, "space")) {
+        *key = L' ';
+        return 1;
+    }
+    if (!value[0] || value[1] || (unsigned char)value[0] < 0x20 ||
+        (unsigned char)value[0] > 0x7e) return 0;
+    *key = (unsigned char)value[0];
+    return 1;
+}
+
+static int parse_binding_option(int argc, char **argv, int *arg_index,
+                                const char *arg, const char *name,
+                                wint_t *key, int *seen) {
+    size_t name_len = strlen(name);
+    const char *value;
+    if (!strcmp(arg, name)) {
+        if (*arg_index + 1 >= argc) return -1;
+        value = argv[++(*arg_index)];
+    } else if (!strncmp(arg, name, name_len) && arg[name_len] == '=') {
+        value = arg + name_len + 1;
+    } else return 0;
+    if (*seen || !parse_binding_key(value, key)) return -1;
+    *seen = 1;
+    return 1;
+}
+
 static void print_usage(FILE *out) {
     fprintf(out,
-        "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--read0] [--print0]\n"
-        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--read0] [--print0]\n"
+        "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--bind-ACTION KEY]\n"
+        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--query QUERY] [--bind-ACTION KEY]\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t | --format FORMAT] [--read0] [--print0]\n"
         "       mmenu --help | -h\n"
         "\n"
-        "Interactive mode reads one option per line. PROMPT is optional. --multi enables\n"
-        "Tab toggles options and Enter emits selected records (or indexes with -t).\n"
+        "Interactive mode reads one option per line. --query pre-fills the query.\n"
+        "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
+        "Use --multi for Tab toggling; Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
@@ -215,6 +243,11 @@ int main(int argc, char **argv) {
     int output_nul = 0;
     int output_index = 0;
     int multi_mode = 0;
+    const char *initial_query = NULL;
+    int initial_query_seen = 0;
+    mmenu_config menu_config = {0};
+    int bind_up_seen = 0, bind_down_seen = 0, bind_accept_seen = 0;
+    int bind_cancel_seen = 0, bind_toggle_seen = 0, bind_backspace_seen = 0;
     const char *output_format = NULL;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -251,6 +284,50 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--multi")) {
             multi_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--query")) {
+            if (initial_query_seen) return argument_error("--query may only be specified once");
+            if (i + 1 >= argc) return argument_error("--query requires a query argument");
+            initial_query = argv[++i];
+            initial_query_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--query=", 8)) {
+            if (initial_query_seen) return argument_error("--query may only be specified once");
+            initial_query = arg + 8;
+            initial_query_seen = 1;
+            continue;
+        }
+        int binding_result;
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-up", &menu_config.key_up, &bind_up_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-up (use one printable ASCII character or space)");
+            continue;
+        }
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-down", &menu_config.key_down, &bind_down_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-down (use one printable ASCII character or space)");
+            continue;
+        }
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-accept", &menu_config.key_accept, &bind_accept_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-accept (use one printable ASCII character or space)");
+            continue;
+        }
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-cancel", &menu_config.key_cancel, &bind_cancel_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-cancel (use one printable ASCII character or space)");
+            continue;
+        }
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-toggle", &menu_config.key_toggle, &bind_toggle_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-toggle (use one printable ASCII character or space)");
+            continue;
+        }
+        binding_result = parse_binding_option(argc, argv, &i, arg, "--bind-backspace", &menu_config.key_backspace, &bind_backspace_seen);
+        if (binding_result) {
+            if (binding_result < 0) return argument_error("invalid or duplicate --bind-backspace (use one printable ASCII character or space)");
             continue;
         }
         if (!strcmp(arg, "--format")) {
@@ -315,6 +392,19 @@ int main(int argc, char **argv) {
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
+    if ((initial_query_seen || bind_up_seen || bind_down_seen || bind_accept_seen ||
+         bind_cancel_seen || bind_toggle_seen || bind_backspace_seen) && filter_seen)
+        return argument_error("interactive query and key bindings cannot be used with --filter");
+    if (bind_toggle_seen && !multi_mode)
+        return argument_error("--bind-toggle requires --multi");
+    wint_t custom_keys[] = {menu_config.key_up, menu_config.key_down,
+                            menu_config.key_accept, menu_config.key_cancel,
+                            menu_config.key_toggle, menu_config.key_backspace};
+    for (size_t key_i = 0; key_i < sizeof(custom_keys) / sizeof(custom_keys[0]); key_i++)
+        for (size_t key_j = 0; custom_keys[key_i] && key_j < key_i; key_j++)
+            if (custom_keys[key_i] == custom_keys[key_j])
+                return argument_error("a custom key cannot be assigned to multiple actions");
+    menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     if (multi_mode && filter_seen)
         return argument_error("--multi is only available in interactive mode");
     if (output_format && !filter_seen)
@@ -442,10 +532,22 @@ int main(int argc, char **argv) {
     if (multi_mode) {
         int *selected = NULL;
         int selected_count = 0;
-        int status = mmenuMulti((const char *const *)opts.lines, opts.count, prompt,
-                                fuzzy_mode ? MMENU_FUZZY :
-                                exact_mode ? MMENU_EXACT : 0,
-                                &selected, &selected_count);
+        setlocale(LC_ALL, "");
+        if (initial_query_seen) {
+            size_t query_len = mbstowcs(NULL, initial_query, 0);
+            if (query_len == (size_t)-1) {
+                lines_free(&opts);
+                return argument_error("--query is not valid in the current locale");
+            }
+            if (query_len > 128) {
+                lines_free(&opts);
+                return argument_error("--query exceeds 128 characters");
+            }
+        }
+        int status = mmenuMultiConfigured((const char *const *)opts.lines, opts.count, prompt,
+                                          fuzzy_mode ? MMENU_FUZZY :
+                                          exact_mode ? MMENU_EXACT : 0,
+                                          &menu_config, &selected, &selected_count);
         if (status != 0) {
             print_record("", output_nul);
         } else {
@@ -454,9 +556,22 @@ int main(int argc, char **argv) {
         }
         free(selected);
     } else {
-        int chosen = mmenuEx((const char *const *)opts.lines, opts.count, prompt,
-                             fuzzy_mode ? MMENU_FUZZY :
-                             exact_mode ? MMENU_EXACT : 0);
+        setlocale(LC_ALL, "");
+        if (initial_query_seen) {
+            size_t query_len = mbstowcs(NULL, initial_query, 0);
+            if (query_len == (size_t)-1) {
+                lines_free(&opts);
+                return argument_error("--query is not valid in the current locale");
+            }
+            if (query_len > 128) {
+                lines_free(&opts);
+                return argument_error("--query exceeds 128 characters");
+            }
+        }
+        int chosen = mmenuConfigured((const char *const *)opts.lines, opts.count, prompt,
+                                     fuzzy_mode ? MMENU_FUZZY :
+                                     exact_mode ? MMENU_EXACT : 0,
+                                     &menu_config);
         if (chosen == -1) {
             print_record("", output_nul);
         } else {

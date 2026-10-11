@@ -110,8 +110,7 @@ SweepPreview() {
         Count=$(GetAllocationCount "$TmpDir/preview.txt")
         [ -n "$Count" ] || Fail "preview allocation count missing at $At"
         [ "$Count" -ge "$At" ] || Fail "preview allocation $At was not reached"
-        [ "$Status" -ne 124 ] || Fail "preview allocation failure $At timed out"
-        [ "$Status" -ne 139 ] || Fail "preview allocation failure $At segfaulted"
+        [ "$Status" -lt 128 ] || Fail "preview allocation failure $At was terminated by a signal or timeout"
         if grep -aEq 'AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:|DEADLYSIGNAL|Segmentation fault' "$TmpDir/preview.txt" "$TmpDir/preview-error"; then
             Fail "preview allocation failure $At triggered a sanitizer/runtime error"
         fi

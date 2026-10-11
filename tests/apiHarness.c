@@ -22,6 +22,21 @@ static int test_preview_callback(const char *option, int index,
     return result < 0 ? -1 : 0;
 }
 
+static int test_long_preview_callback(const char *option, int index,
+                                      const wchar_t *query, char *output,
+                                      size_t output_size, void *userdata) {
+    (void)option;
+    (void)index;
+    (void)query;
+    (void)userdata;
+    if (output_size == 0) return -1;
+    size_t length = output_size - 1;
+    if (length > 200) length = 200;
+    memset(output, 'x', length);
+    output[length] = '\0';
+    return 0;
+}
+
 static int SetTerminalSize(unsigned short rows, unsigned short cols)
 {
     int tty_fd = open("/dev/tty", O_RDWR);
@@ -150,6 +165,15 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "preview-long") == 0) {
+        if (!SetTerminalSize(8, 40)) return 2;
+        mmenu_config config = {
+            .preview = test_long_preview_callback
+        };
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "preview-callback") == 0) {
         mmenu_config config = {
             .initial_query = "needle",

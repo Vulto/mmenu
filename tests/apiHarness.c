@@ -37,6 +37,25 @@ static int test_long_preview_callback(const char *option, int index,
     return 0;
 }
 
+static int test_wide_preview_callback(const char *option, int index,
+                                      const wchar_t *query, char *output,
+                                      size_t output_size, void *userdata) {
+    (void)option;
+    (void)index;
+    (void)query;
+    (void)userdata;
+    if (output_size == 0) return -1;
+    static const char glyph[] = "日";
+    size_t used = 0;
+    while (output_size - used > sizeof(glyph) - 1 &&
+           used + sizeof(glyph) - 1 <= 600) {
+        memcpy(output + used, glyph, sizeof(glyph) - 1);
+        used += sizeof(glyph) - 1;
+    }
+    output[used] = '\0';
+    return 0;
+}
+
 static int SetTerminalSize(unsigned short rows, unsigned short cols)
 {
     int tty_fd = open("/dev/tty", O_RDWR);
@@ -169,6 +188,15 @@ int main(int argc, char **argv)
         if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {
             .preview = test_long_preview_callback
+        };
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "preview-unicode") == 0) {
+        if (!SetTerminalSize(8, 40)) return 2;
+        mmenu_config config = {
+            .preview = test_wide_preview_callback
         };
         int result = mmenuConfigured(options, count, prompt, 0, &config);
         printf("MMENU_RESULT=%d\n", result);

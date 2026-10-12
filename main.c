@@ -461,6 +461,8 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
+        "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
         "--extended enables AND/OR, inverse, exact-substring, prefix (^), and suffix ($) terms.\n"
         "--invert-match or -v emits records that do not match the batch query.\n"
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
@@ -547,6 +549,7 @@ int main(int argc, char **argv) {
     int fuzzy_mode = 0;
     int exact_mode = 0;
     int extended_mode = 0;
+    unsigned int case_mode = 0;
     int invert_mode = 0;
     int no_sort = 0;
     int input_nul = 0;
@@ -572,6 +575,18 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--fuzzy")) {
             fuzzy_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--ignore-case") || !strcmp(arg, "-i")) {
+            case_mode = 0;
+            continue;
+        }
+        if (!strcmp(arg, "--no-ignore-case") || !strcmp(arg, "+i")) {
+            case_mode = MMENU_CASE_SENSITIVE;
+            continue;
+        }
+        if (!strcmp(arg, "--smart-case")) {
+            case_mode = MMENU_SMART_CASE;
             continue;
         }
         if (!strcmp(arg, "--exact")) {
@@ -743,7 +758,7 @@ int main(int argc, char **argv) {
         return argument_error("--preview command must not be empty");
     unsigned int match_flags = (fuzzy_mode ? MMENU_FUZZY : 0u) |
                                (exact_mode ? MMENU_EXACT : 0u) |
-                               (extended_mode ? MMENU_EXTENDED : 0u);
+                               (extended_mode ? MMENU_EXTENDED : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;
@@ -868,11 +883,11 @@ int main(int argc, char **argv) {
                 int matched;
                 if (fuzzy_mode) {
                     long long score;
-                    matched = FuzzyScore(opts.lines[i], wide_query, &score);
+                    matched = FuzzyScore(opts.lines[i], wide_query, match_flags, &score);
                 } else if (exact_mode) {
                     matched = strcmp(opts.lines[i], filter_query) == 0;
                 } else {
-                    matched = MmenuAsciiStrcasestr(opts.lines[i], filter_query) != NULL;
+                    matched = MmenuStrstrPolicy(opts.lines[i], filter_query, match_flags) != NULL;
                 }
                 if (!matched) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
@@ -897,7 +912,7 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < opts.count; i++) {
                 long long score;
-                if (FuzzyScore(opts.lines[i], query, &score)) {
+                if (FuzzyScore(opts.lines[i], query, match_flags, &score)) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }
@@ -914,8 +929,7 @@ int main(int argc, char **argv) {
             }
             FuzzyMatch *matches = NULL;
             int match_count = 0;
-            if (!FuzzyCollect((const char *const *)opts.lines, opts.count,
-                              query, &matches, &match_count)) {
+            if (!FuzzyCollect((const char *const *)opts.lines, opts.count, query, match_flags, &matches, &match_count)) {
                 free(query);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -928,7 +942,7 @@ int main(int argc, char **argv) {
             free(query);
         } else {
             for (int i = 0; i < opts.count; i++) {
-                if (MmenuAsciiStrcasestr(opts.lines[i], filter_query)) {
+                if (MmenuStrstrPolicy(opts.lines[i], filter_query, match_flags)) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }

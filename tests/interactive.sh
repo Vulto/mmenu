@@ -52,6 +52,24 @@ CheckSelection() {
     fi
 }
 
+CheckStreamApi() {
+    if ! { sleep 0.5; printf '\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin stream" /dev/null > "$TmpDir/stream-output" 2> "$TmpDir/stream-error"; then
+        printf 'FAIL: configured C API streaming callback did not exit cleanly\n' >&2
+        cat "$TmpDir/stream-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/stream-output" > "$TmpDir/stream-plain"
+    if grep -aFq 'MMENU_RESULT=1' "$TmpDir/stream-plain"; then
+        printf 'PASS: configured C API accepts asynchronously supplied records\n'
+    else
+        printf 'FAIL: configured C API did not filter streamed records correctly\n' >&2
+        tail -c 2000 "$TmpDir/stream-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    fi
+}
+
 CheckPreviewClipping() {
     if ! { sleep 0.2; printf '\n'; } |
          LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin preview-long" /dev/null > "$TmpDir/preview-long-output" 2> "$TmpDir/preview-long-error"; then
@@ -401,6 +419,8 @@ CheckInvalidLocaleText C invalid-utf8 'option 0 is not valid in the current loca
 CheckInvalidLocaleText C.UTF-8 invalid-utf8 'option 0 is not valid in the current locale'
 CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current locale'
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
+
+CheckStreamApi
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

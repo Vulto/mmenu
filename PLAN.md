@@ -7,7 +7,7 @@
 - Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
 - Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides initial-query, preview callback, and a small set of key bindings.
 - Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
-- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38269956887 passed all four jobs with live-accept tests for newline and NUL delimiters. Additional API-callback and stream edge-case regressions are not yet included in that green run. The CLI batch filter remains a complete-input path.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI runs 38269956887 and 38271304492 passed all four jobs; the latter validates strict C23 language-mode builds. The current commit adds expanded API-callback and stream edge-case regressions that still require a green CI run. The CLI batch filter remains a complete-input path.
 - The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
 - Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
 - No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
@@ -406,12 +406,12 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Specify record lifetime and ownership explicitly; the CLI implementation must keep record bytes in the existing arena and avoid per-record allocations.
 - [ ] Add an incremental nonblocking stdin reader that supports newline and NUL record delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.
 - [ ] Integrate the stream callback into the interactive event loop so the menu can render an initial prompt and newly arrived options without waiting for stdin EOF.
-- [ ] Recompute results when records arrive while preserving the current query, selected item when possible, multi-select state, original indexes, and preview state.
+- [ ] Recompute results when records arrive while preserving the current query, selected item when possible, multi-select state, original indexes, and preview state — implementation is present; query-edit and multi-select regressions are included in the pending CI run.
 - [ ] Drain currently available input in batches and filter once per batch; avoid repeated whole-list scans for each record.
 - [ ] Keep the current batch filter path synchronous and behavior-compatible. Add an explicit synchronous interactive input mode only if needed to preserve a documented compatibility requirement.
-- [ ] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, user accept/cancel while the producer remains open, and producer closure before any record arrives.
+- [ ] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, user accept/cancel while the producer remains open, and producer closure before any record arrives — explicit EOF, invalid UTF-8, cancellation, and empty-producer tests are included in the pending CI run.
 - [ ] Add deterministic PTY regressions using a controlled slow producer. Assert prompt/first-item visibility before EOF, continued interactivity while the producer is open, and correct final output/indexes.
-- [ ] Add regression cases for empty records, a final record without a delimiter, both delimiters, very long records, and errors; do not weaken existing assertions.
+- [ ] Add regression cases for empty records, a final record without a delimiter, both delimiters, very long records, and errors; do not weaken existing assertions — these cases are included in the pending CI run.
 - [ ] Run the complete regression suite, allocation-failure tests, static analysis, sanitizer/fuzz jobs, and benchmark artifacts after each self-contained commit.
 - [ ] Mark M1 complete only after all streaming acceptance tests and all four CI jobs pass.
 

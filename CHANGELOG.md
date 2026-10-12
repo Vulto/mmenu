@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
 - Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
 

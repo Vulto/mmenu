@@ -1753,12 +1753,15 @@ static int mmenu_internal(const char *const *options, int n_options,
                                     &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next && (flags & MMENU_FUZZY)) {
-            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count) ||
+                !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap, match_count)) {
                 free(matches);
                 goto cleanup;
             }
-            for (int i = 0; i < match_count; i++)
+            for (int i = 0; i < match_count; i++) {
                 filtered_scores[i] = matches[i].score;
+                filtered_metrics[i] = matches[i].metrics;
+            }
         }
         for (int i = 0; i < match_count; i++) {
             if (!filt_push(&filtered, matches[i].index)) {
@@ -1773,12 +1776,15 @@ static int mmenu_internal(const char *const *options, int n_options,
         if (!FuzzyCollect(current_match_options, n_options, input, flags, &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next) {
-            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count) ||
+                !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap, match_count)) {
                 free(matches);
                 goto cleanup;
             }
-            for (int i = 0; i < match_count; i++)
+            for (int i = 0; i < match_count; i++) {
                 filtered_scores[i] = matches[i].score;
+                filtered_metrics[i] = matches[i].metrics;
+            }
         }
         for (int i = 0; i < match_count; i++) {
             if (!filt_push(&filtered, matches[i].index)) {

@@ -422,6 +422,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Support the grammar with substring and fuzzy matchers in batch, interactive, and streaming paths; keep fuzzy result ordering score-based and stable.
 - [x] Define the combination rule: extended mode rejects whole-record --exact/MMENU_EXACT, while --fuzzy remains supported.
 - [x] Add CLI and interactive C API regressions for every operator, OR/AND composition, inversion, fuzzy mode, and legacy behavior.
+- [x] Include extended query parsing and fuzzy-result allocations in the exhaustive CLI/API allocation-failure sweeps.
 - [x] Document the new syntax and record it in the Unreleased changelog.
 - [x] Run the full four-job CI matrix and resolve all failures before merging.
 

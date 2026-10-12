@@ -204,6 +204,35 @@ static wchar_t FoldAscii(wchar_t ch)
     return ch >= L'A' && ch <= L'Z' ? ch + (L'a' - L'A') : ch;
 }
 
+/* Byte-wise ASCII folding keeps matching independent of the active locale.
+   UTF-8 bytes outside ASCII remain unchanged, as documented by the API. */
+static unsigned char MmenuFoldAsciiByte(unsigned char ch)
+{
+    return ch >= 'A' && ch <= 'Z' ? (unsigned char)(ch + ('a' - 'A')) : ch;
+}
+
+static int MmenuAsciiNcasecmp(const char *left, const char *right, size_t length)
+{
+    for (size_t i = 0; i < length; i++) {
+        unsigned char a = MmenuFoldAsciiByte((unsigned char)left[i]);
+        unsigned char b = MmenuFoldAsciiByte((unsigned char)right[i]);
+        if (a != b) return a < b ? -1 : 1;
+        if (a == '\0') return 0;
+    }
+    return 0;
+}
+
+static char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
+{
+    if (!*needle) return (char *)haystack;
+    size_t needleLength = strlen(needle);
+    for (const char *cursor = haystack; *cursor; cursor++) {
+        if (MmenuAsciiNcasecmp(cursor, needle, needleLength) == 0)
+            return (char *)cursor;
+    }
+    return NULL;
+}
+
 static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 {
     if (previous == L'/' || previous == L'\\' || previous == L'_' ||
@@ -524,30 +553,30 @@ static int mmenu_query_term_match(const char *candidate,
 
     switch (term->kind) {
     case MMENU_QUERY_EXACT:
-        matched = strcasestr(candidate, term->bytes) != NULL;
+        matched = MmenuAsciiStrcasestr(candidate, term->bytes) != NULL;
         if (matched && (flags & MMENU_FUZZY)) *score = 10;
         break;
     case MMENU_QUERY_PREFIX:
         matched = candidate_len >= term->bytes_len &&
-                  strncasecmp(candidate, term->bytes, term->bytes_len) == 0;
+                  MmenuAsciiNcasecmp(candidate, term->bytes, term->bytes_len) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 20;
         break;
     case MMENU_QUERY_SUFFIX:
         matched = candidate_len >= term->bytes_len &&
-                  strncasecmp(candidate + candidate_len - term->bytes_len,
+                  MmenuAsciiNcasecmp(candidate + candidate_len - term->bytes_len,
                               term->bytes, term->bytes_len) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 15;
         break;
     case MMENU_QUERY_EQUAL:
         matched = candidate_len == term->bytes_len &&
-                  strncasecmp(candidate, term->bytes, term->bytes_len) == 0;
+                  MmenuAsciiNcasecmp(candidate, term->bytes, term->bytes_len) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 30;
         break;
     case MMENU_QUERY_NORMAL:
         if (flags & MMENU_FUZZY)
             matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, score);
         else
-            matched = strcasestr(candidate, term->bytes) != NULL;
+            matched = MmenuAsciiStrcasestr(candidate, term->bytes) != NULL;
         break;
     }
     return matched;
@@ -1060,7 +1089,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
     for (int i = start; i < end; i++) {
         int matches = (flags & MMENU_EXACT)
                     ? strcmp(options[i], q) == 0
-                    : strcasestr(options[i], q) != NULL;
+                    : MmenuAsciiStrcasestr(options[i], q) != NULL;
         if (matches && !filt_push(filtered, i)) {
             free(q);
             return 0;
@@ -1305,7 +1334,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         if (q) {
             for (int i = 0; i < n_options; i++) {
                 if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                     strcasestr(current_options[i], q) != NULL) &&
+                     MmenuAsciiStrcasestr(current_options[i], q) != NULL) &&
                     !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
@@ -1509,7 +1538,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
                         if ((flags & MMENU_EXACT) ? strcmp(current_options[oidx], q) == 0 :
-                            strcasestr(current_options[oidx], q) != NULL) {
+                            MmenuAsciiStrcasestr(current_options[oidx], q) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap;
                                 if (!mmenu_next_capacity(newf.cap, INITIAL_CAP,
@@ -1551,7 +1580,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 } else {
                     for (int i = 0; i < n_options; i++) {
                         if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                         strcasestr(current_options[i], q) != NULL) &&
+                         MmenuAsciiStrcasestr(current_options[i], q) != NULL) &&
                         !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;

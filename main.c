@@ -872,7 +872,7 @@ int main(int argc, char **argv) {
                 } else if (exact_mode) {
                     matched = strcmp(opts.lines[i], filter_query) == 0;
                 } else {
-                    matched = strcasestr(opts.lines[i], filter_query) != NULL;
+                    matched = MmenuAsciiStrcasestr(opts.lines[i], filter_query) != NULL;
                 }
                 if (!matched) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
@@ -928,7 +928,7 @@ int main(int argc, char **argv) {
             free(query);
         } else {
             for (int i = 0; i < opts.count; i++) {
-                if (strcasestr(opts.lines[i], filter_query)) {
+                if (MmenuAsciiStrcasestr(opts.lines[i], filter_query)) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
                 }
             }

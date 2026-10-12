@@ -44,7 +44,7 @@ mmenu --exact --filter QUERY [-t]
 mmenu --invert-match --filter QUERY [-t] [--read0] [--print0]
 ```
 
-Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
+Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. Use `--no-ignore-case` (or `+i`) for ASCII-case-sensitive matching, `--ignore-case` (or `-i`) to restore the default, and `--smart-case` to ignore case unless the query contains an ASCII uppercase letter. These policies also apply to fuzzy and extended matching. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
 query matches every input record; an empty input is valid. Batch mode is byte-oriented and
 preserves invalid UTF-8 bytes, but rejects embedded NUL bytes in newline-delimited mode. The interactive C API
 requires valid multibyte options and prompt text in the active locale; matching folds ASCII
@@ -70,7 +70,7 @@ find . -type f | mmenu --preview 'file {}' --query .c
 ## For C programs
 The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
 and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. For multi-selection, `mmenuMulti` returns status 0 and fills an allocated array of selected zero-based indexes; the caller must `free` that array. It supports the same matching flags and returns indexes in original input order. If no options were toggled, Enter selects the current option. `mmenuConfigured` and `mmenuMultiConfigured` additionally accept an `mmenu_config` structure for an initial query, printable key aliases, an optional generic preview callback, and an optional stream callback. The stream callback can return a record, temporary no-data, EOF, or an error; record storage must remain valid until the menu call returns. The menu invokes it without blocking for more input and filters new records as they arrive. The preview callback receives the selected record, original index, and current wide-character query and fills a caller-provided output buffer. Shell execution remains a CLI callback implementation, not matcher logic; zero-valued key fields preserve built-in keys. Initial queries are limited to 128 wide characters, and conflicting custom aliases are rejected. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. If no controlling terminal is available, the API reports the error and returns -1 rather than terminating the host process. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
-For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. These flags are mutually exclusive; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
+For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. Add `MMENU_CASE_SENSITIVE` for ASCII-case-sensitive matching or `MMENU_SMART_CASE` for query-sensitive case behavior (the flags are mutually exclusive). These flags are mutually exclusive; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
 
 ```c
 #include "mmenu.h"
@@ -110,6 +110,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--read0`: read NUL-delimited input records instead of newline-delimited records.
 - `--print0`: terminate each output record with NUL instead of newline.
 - `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode. It cannot be combined with `--extended`.
+- `--ignore-case`/`-i`: ASCII-case-insensitive matching (the default); `--no-ignore-case`/`+i`: ASCII-case-sensitive matching; `--smart-case`: case-insensitive unless the complete query contains an ASCII uppercase letter. Non-ASCII bytes are always matched exactly.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, prefix terms prefixed by `^`, and suffix terms ending in `$`. `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.

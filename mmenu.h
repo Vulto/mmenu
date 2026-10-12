@@ -94,6 +94,7 @@ typedef struct {
     void *search_text_userdata;
     mmenu_display_text_callback display_text;
     void *display_text_userdata;
+    const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -211,15 +212,147 @@ static int mmenu_next_capacity(int current, int initial, size_t element_size,
 
 typedef struct { int *indices; int cap; int count; } filt;
 
+typedef enum {
+    MMENU_TIEBREAK_LENGTH,
+    MMENU_TIEBREAK_BEGIN,
+    MMENU_TIEBREAK_END,
+    MMENU_TIEBREAK_INDEX,
+    MMENU_TIEBREAK_CHUNK,
+    MMENU_TIEBREAK_PATHNAME,
+    MMENU_TIEBREAK_SCORE
+} mmenu_tiebreak_key;
+
+typedef struct {
+    mmenu_tiebreak_key keys[7];
+    int count;
+} mmenu_tiebreak_spec;
+
+typedef struct {
+    size_t length;
+    size_t begin;
+    size_t end;
+    size_t basename_start;
+    unsigned int chunks;
+    int has_match;
+} FuzzyMetrics;
+
 typedef struct {
     int index;
     long long score;
+    FuzzyMetrics metrics;
 } FuzzyMatch;
 
 static wchar_t FoldAscii(wchar_t ch)
 {
     return ch >= L'A' && ch <= L'Z' ? ch + (L'a' - L'A') : ch;
 }
+
+static int MmenuTieBreakParse(const char *source, mmenu_tiebreak_spec *spec,
+                              char *error, size_t error_size)
+{
+    if (!spec) return 0;
+    spec->count = 0;
+    const char *keys = source && *source ? source : "index";
+    const char *cursor = keys;
+    while (*cursor) {
+        const char *end = strchr(cursor, ',');
+        size_t length = end ? (size_t)(end - cursor) : strlen(cursor);
+        if (length == 0) {
+            if (error && error_size) snprintf(error, error_size, "--tiebreak contains an empty key");
+            return 0;
+        }
+        mmenu_tiebreak_key key;
+        if (length == 6 && memcmp(cursor, "length", 6) == 0) key = MMENU_TIEBREAK_LENGTH;
+        else if (length == 5 && memcmp(cursor, "begin", 5) == 0) key = MMENU_TIEBREAK_BEGIN;
+        else if (length == 3 && memcmp(cursor, "end", 3) == 0) key = MMENU_TIEBREAK_END;
+        else if (length == 5 && memcmp(cursor, "index", 5) == 0) key = MMENU_TIEBREAK_INDEX;
+        else if (length == 5 && memcmp(cursor, "chunk", 5) == 0) key = MMENU_TIEBREAK_CHUNK;
+        else if (length == 8 && memcmp(cursor, "pathname", 8) == 0) key = MMENU_TIEBREAK_PATHNAME;
+        else if (length == 5 && memcmp(cursor, "score", 5) == 0) key = MMENU_TIEBREAK_SCORE;
+        else {
+            if (error && error_size)
+                snprintf(error, error_size, "invalid --tiebreak key '%.*s' (expected length,begin,end,index,chunk,pathname,score)",
+                         (int)(length > INT_MAX ? INT_MAX : length), cursor);
+            return 0;
+        }
+        for (int i = 0; i < spec->count; i++) {
+            if (spec->keys[i] == key) {
+                if (error && error_size)
+                    snprintf(error, error_size, "--tiebreak key '%.*s' is repeated",
+                             (int)(length > INT_MAX ? INT_MAX : length), cursor);
+                return 0;
+            }
+        }
+        if (spec->count >= (int)(sizeof(spec->keys) / sizeof(spec->keys[0]))) {
+            if (error && error_size) snprintf(error, error_size, "too many --tiebreak keys");
+            return 0;
+        }
+        spec->keys[spec->count++] = key;
+        if (!end) break;
+        cursor = end + 1;
+    }
+    int has_index = 0;
+    for (int i = 0; i < spec->count; i++)
+        if (spec->keys[i] == MMENU_TIEBREAK_INDEX) has_index = 1;
+    if (!has_index) spec->keys[spec->count++] = MMENU_TIEBREAK_INDEX;
+    return 1;
+}
+
+static size_t MmenuByteOffsetToCharacterIndex(const char *text, size_t byte_offset)
+{
+    size_t count = 0;
+    size_t consumed = 0;
+    mbstate_t state = {0};
+    while (consumed < byte_offset && text[consumed]) {
+        wchar_t ch;
+        size_t bytes = mbrtowc(&ch, text + consumed, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+            memset(&state, 0, sizeof(state));
+            consumed++;
+        } else {
+            consumed += bytes;
+        }
+        count++;
+    }
+    return count;
+}
+
+static void MmenuTextMetrics(const char *text, FuzzyMetrics *metrics)
+{
+    if (!metrics) return;
+    memset(metrics, 0, sizeof(*metrics));
+    size_t last_separator = SIZE_MAX;
+    size_t position = 0;
+    mbstate_t state = {0};
+    const char *cursor = text;
+    while (*cursor) {
+        wchar_t ch;
+        size_t bytes = mbrtowc(&ch, cursor, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+            memset(&state, 0, sizeof(state));
+            ch = (unsigned char)*cursor;
+            bytes = 1;
+        }
+        if (ch == L'/' || ch == L'\\\\') last_separator = position;
+        position++;
+        cursor += bytes;
+    }
+    metrics->length = position;
+    metrics->basename_start = last_separator == SIZE_MAX ? 0 : last_separator + 1;
+}
+
+static void MmenuSubstringMetrics(const char *candidate, const char *matched_at,
+                                  size_t term_length, FuzzyMetrics *metrics)
+{
+    MmenuTextMetrics(candidate, metrics);
+    if (!matched_at || !metrics) return;
+    metrics->begin = MmenuByteOffsetToCharacterIndex(candidate,
+                                                     (size_t)(matched_at - candidate));
+    metrics->end = metrics->begin + (term_length ? term_length - 1 : 0);
+    metrics->has_match = term_length != 0;
+    metrics->chunks = metrics->has_match ? 1U : 0U;
+}
+
 
 /* Byte-wise ASCII folding keeps matching independent of the active locale.
    UTF-8 bytes outside ASCII remain unchanged, as documented by the API. */

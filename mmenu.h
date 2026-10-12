@@ -1038,6 +1038,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         int stream_preserve_index = -1;
         int query_edited = 0;
         int accept_pending = 0;
+        int toggle_pending = 0;
 
         int is_key_code = kc == KEY_CODE_YES;
         int is_up = ch == key_up || (config && config->key_up && ch == config->key_up);
@@ -1060,9 +1061,13 @@ static int mmenu_internal(const char *const *options, int n_options,
         } else if (is_backspace) {
             if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; query_edited = 1; }
         } else if (is_toggle) {
-            if (filtered.count > 0)
+            if (filtered.count > 0) {
                 selected_options[filtered.indices[selection]] =
                     !selected_options[filtered.indices[selection]];
+            } else if (stream_changed) {
+                /* Apply a queued toggle after the first streamed batch is filtered. */
+                toggle_pending = 1;
+            }
         } else if (is_accept) {
             accept_pending = 1;
         } else if (!is_key_code && iswprint(ch) && input_len < MAX_INPUT_LEN) {
@@ -1196,6 +1201,11 @@ static int mmenu_internal(const char *const *options, int n_options,
             }
             top = 0;
             preview_dirty = 1;
+        }
+
+        if (toggle_pending && filtered.count > 0) {
+            selected_options[filtered.indices[selection]] =
+                !selected_options[filtered.indices[selection]];
         }
 
         if (accept_pending) {

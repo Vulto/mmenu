@@ -268,6 +268,65 @@ RunInvalidMultibyteStreamRecord() {
     printf 'PASS: invalid multibyte streamed record fails with a diagnostic\n'
 }
 
+RunStreamingPreview() {
+    rm -f "$TmpDir/input" "$TmpDir/eof" "$TmpDir/result" "$TmpDir/result.tmp" "$TmpDir/terminal"
+    export MMENU_BIN="$Bin" MMENU_FIFO="$TmpDir/input" MMENU_EOF="$TmpDir/eof"
+    export MMENU_RESULT="$TmpDir/result" MMENU_RESULT_TMP="$TmpDir/result.tmp"
+    # shellcheck disable=SC2016
+    Command='mkfifo "$MMENU_FIFO"; ( { printf "first\n"; sleep 0.3; printf "second\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --preview "printf preview-state" < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
+    { sleep 0.65; printf '\n'; } |
+        LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "sh -c '$Command'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/script-error" &
+    SessionPid=$!
+    sleep 0.9
+    if [ -e "$TmpDir/eof" ] || [ ! -f "$TmpDir/result" ]; then
+        printf 'FAIL: preview-enabled streaming menu did not accept before EOF\n' >&2
+        kill "$SessionPid" 2>/dev/null || :
+        wait "$SessionPid" 2>/dev/null || :
+        return 1
+    fi
+    if ! grep -aFq 'preview-state' "$TmpDir/terminal"; then
+        printf 'FAIL: preview pane did not render while streaming\n' >&2
+        kill "$SessionPid" 2>/dev/null || :
+        wait "$SessionPid" 2>/dev/null || :
+        return 1
+    fi
+    wait "$SessionPid"
+    grep -aFxq first "$TmpDir/result" || {
+        printf 'FAIL: preview-enabled stream selected the wrong record\n' >&2
+        return 1
+    }
+    printf 'PASS: preview remains active as records arrive\n'
+}
+
+RunStreamingEarlyToggle() {
+    rm -f "$TmpDir/input" "$TmpDir/eof" "$TmpDir/result" "$TmpDir/result.tmp" "$TmpDir/terminal"
+    export MMENU_BIN="$Bin" MMENU_FIFO="$TmpDir/input" MMENU_EOF="$TmpDir/eof"
+    export MMENU_RESULT="$TmpDir/result" MMENU_RESULT_TMP="$TmpDir/result.tmp"
+    # shellcheck disable=SC2016
+    Command='mkfifo "$MMENU_FIFO"; ( { printf "first\n"; sleep 0.3; printf "second\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --multi < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
+    { sleep 0.05; printf '\t'; sleep 0.35; printf '\n'; } |
+        LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "sh -c '$Command'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/script-error" &
+    SessionPid=$!
+    sleep 0.65
+    if [ -e "$TmpDir/eof" ] || [ ! -f "$TmpDir/result" ]; then
+        printf 'FAIL: early multi-select toggle did not accept before EOF\n' >&2
+        kill "$SessionPid" 2>/dev/null || :
+        wait "$SessionPid" 2>/dev/null || :
+        return 1
+    fi
+    wait "$SessionPid"
+    grep -aFxq first "$TmpDir/result" || {
+        printf 'FAIL: toggle received before the first streamed batch was lost\n' >&2
+        od -An -tx1c "$TmpDir/result" >&2
+        return 1
+    }
+    if grep -aFxq second "$TmpDir/result"; then
+        printf 'FAIL: second streamed record was selected without a toggle\n' >&2
+        return 1
+    fi
+    printf 'PASS: early multi-select toggle applies to the first streamed record\n'
+}
+
 RunStreamingQuery
 RunFinalUnterminated
 RunLongStream
@@ -277,3 +336,5 @@ RunInvalidStreamRecord
 RunStreamingEditedQuery
 RunStreamingMultiSelect
 RunInvalidMultibyteStreamRecord
+RunStreamingPreview
+RunStreamingEarlyToggle

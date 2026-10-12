@@ -62,7 +62,7 @@ CheckEqual 'extended caret and dollar anchor both ends' "$TmpDir/expected" "$Tmp
 printf 'src/main.c\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/expected"
 "$Bin" --extended --filter '!README' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended inverse terms exclude matching records' "$TmpDir/expected" "$TmpDir/actual"
-printf 'README.md\nsrc/README.md\n' > "$TmpDir/expected"
+printf 'src/README.md\nREADME.md\n' > "$TmpDir/expected"
 "$Bin" --extended --filter "'README" < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended single quote forces contiguous matching' "$TmpDir/expected" "$TmpDir/actual"
 printf 'src/main.c\n' > "$TmpDir/expected"

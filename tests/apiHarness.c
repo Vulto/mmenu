@@ -233,7 +233,7 @@ int main(int argc, char **argv)
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-flags") == 0) {
-        if (mmenuEx(options, 4, prompt, 4u) != -1) return 1;
+        if (mmenuEx(options, 4, prompt, 8u) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-keys") == 0) {

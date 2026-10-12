@@ -269,7 +269,7 @@ static int nth_find_delimiter(const char *record, const char *cursor,
     int code = regexec(&nth_delimiter_regex, cursor, 1, &match, flags);
     if (code == REG_NOMATCH) return 0;
     if (code != 0) {
-        errno = EINVAL;
+        errno = code == REG_ESPACE ? ENOMEM : EINVAL;
         return -1;
     }
     if (match.rm_so < 0 || match.rm_eo <= match.rm_so) {
@@ -291,7 +291,10 @@ static int nth_field_count(const char *record, const char *delimiter) {
             int found = nth_find_delimiter(record, cursor, &end, &delimiter_len);
             if (found < 0) return -1;
             if (!found) break;
-            if (count == INT_MAX) return -1;
+            if (count == INT_MAX) {
+                errno = EOVERFLOW;
+                return -1;
+            }
             count++;
             cursor = end + delimiter_len;
         }
@@ -302,7 +305,10 @@ static int nth_field_count(const char *record, const char *delimiter) {
     while (*cursor) {
         while (*cursor && isspace(*cursor)) cursor++;
         if (!*cursor) break;
-        if (count == INT_MAX) return -1;
+        if (count == INT_MAX) {
+            errno = EOVERFLOW;
+            return -1;
+        }
         count++;
         while (*cursor && !isspace(*cursor)) cursor++;
     }

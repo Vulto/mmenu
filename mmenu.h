@@ -507,11 +507,6 @@ static int FuzzyScoreMetrics(const char *candidate, const wchar_t *query,
     return FuzzyScoreLengthMetrics(candidate, query, wcslen(query), flags, result, metrics);
 }
 
-static int FuzzyScore(const char *candidate, const wchar_t *query,
-                      unsigned int flags, long long *result)
-{
-    return FuzzyScoreMetrics(candidate, query, flags, result, NULL);
-}
 /* Highlight the same greedy subsequence used by FuzzyScore, clipping by
    terminal display cells so wide Unicode characters do not overrun the row. */
 static void RenderFuzzyOption(const wchar_t *option, int columns,

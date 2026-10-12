@@ -19,8 +19,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Search and matching
 
-- [x] Extended query mode (--extended / -x) — present — opt-in grammar is implemented in batch, interactive, and streaming paths.
-- [x] Extended query syntax — present — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, and `^term$` whole-record terms; broader upstream fzf syntax remains tracked separately.
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, and `^term$` whole-record terms; broader upstream fzf syntax remains unimplemented.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.

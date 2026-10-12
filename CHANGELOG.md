@@ -15,6 +15,7 @@
 - Interactive C API failures without a controlling terminal return an error instead of terminating the host process.
 - Allocation failures in interactive filtering are handled safely, including incremental-filter fallback.
 - Exact-mode interactive query edits recompute results correctly for multi-character queries.
+- Interactive query cursor positioning clamps safely at terminal boundaries and accounts for wide Unicode prompt display columns.
 
 ### Quality
 - Expanded GCC/Clang strict-build and sanitizer CI, static analysis, Valgrind, allocation-failure sweeps, matcher fuzzing, performance comparisons, and ranking-quality baselines.

@@ -461,6 +461,7 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
         "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
         "--extended enables AND/OR, inverse, exact-substring, prefix (^), and suffix ($) terms.\n"

@@ -163,6 +163,26 @@ else
     Pass 'delimiter requires nth'
 fi
 
+# --delimiter uses POSIX extended regular expressions and splits delimiter runs.
+printf 'id:src/mmenu.c,,42\nid:docs/readme.md;10\nid:src/main.c,12\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c,,42\nid:src/main.c,12\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --delimiter '[:,;]+' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex delimiter selects fields across delimiter alternatives and runs' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --filter x --nth 2 --delimiter '[' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid delimiter regular expression must fail'
+elif ! grep -Fq 'invalid --delimiter regex' "$TmpDir/stderr"; then
+    Fail 'invalid delimiter regular expression must explain the error'
+else
+    Pass 'invalid delimiter regular expressions are rejected'
+fi
+if "$Bin" --filter x --nth 2 --delimiter 'a*' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'zero-width delimiter regular expression must fail'
+elif ! grep -Fq 'must not match an empty string' "$TmpDir/stderr"; then
+    Fail 'zero-width delimiter regular expression must explain the error'
+else
+    Pass 'zero-width delimiter regular expressions are rejected'
+fi
+
 # NUL-delimited records support both terminated and final unterminated input.
 printf 'alpha\000beta\000alpha beta' > "$TmpDir/input0"
 printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"

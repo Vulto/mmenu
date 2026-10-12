@@ -6,7 +6,7 @@
 - Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.
 - Interactive fuzzy `--no-sort` mode to preserve input order, including while streaming new records.
 - Interactive `--disabled` mode keeps all options visible while queries are edited.
-- `--nth` field selection for batch and interactive matching, with literal custom delimiters and raw-record output preservation.
+- `--nth` field selection for batch and interactive matching, with POSIX extended-regex delimiters, empty-width delimiter validation, and raw-record output preservation.
 - `--accept-nth` output-field selection for batch and interactive accepted records.
 - `--with-nth` interactive display-field transformation while retaining original records for matching/output unless `--nth` is also set.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.

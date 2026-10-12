@@ -42,7 +42,7 @@ FzyVersion=$(printf '%s' "$FzyVersion" | tr ',' ';' | tr '\n' ' ')
     printf 'revision=%s\n' "$Revision"
     printf 'host=%s\n' "$(uname -a)"
     printf 'compiler=%s\n' "$CompilerVersion"
-    printf 'flags=-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE\n'
+    printf 'flags=-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE\n'
     printf 'query=%s\n' "$Query"
     printf 'samples_per_size=%s\n' "$Samples"
     printf 'input_pattern=one in ten records contain needle; other records contain noise\n'

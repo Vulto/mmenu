@@ -84,7 +84,7 @@ int main() {
 Requires a C compiler and the ncursesw development headers.
 
 ```sh
-cc -std=c11 -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
+cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
 ./mmenu --help
 ```
 

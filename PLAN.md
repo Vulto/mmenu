@@ -4,10 +4,10 @@
 
 - Repository: Vulto/mmenu; default branch: master.
 - Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
-- Implementation is a C11 single-header ncursesw library plus a CLI in main.c. The CI currently compiles as C11 with GCC and Clang.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
 - Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides initial-query, preview callback, and a small set of key bindings.
 - Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
-- Interactive CLI input is being moved to an additive stream callback and a nonblocking reader that retains completed records in the existing arena. This implementation is awaiting its new streaming regression suite and full CI result. The CLI batch filter remains a complete-input path.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38269956887 passed all four jobs with live-accept tests for newline and NUL delimiters. Additional API-callback and stream edge-case regressions are not yet included in that green run. The CLI batch filter remains a complete-input path.
 - The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
 - Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
 - No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
@@ -372,7 +372,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Expose new interactive options through configured API without leaking ncurses types — partial — current API has only a small config structure.
 - [ ] Provide C API configuration for match mode, case policy, scorer, layout, selection, bindings, preview, streaming, and output — missing.
 - [ ] Stable ownership/lifetime rules for selections, callback data, streamed records, and preview jobs — partial — existing multi-select ownership is documented; new facilities need contracts.
-- [ ] C23 compiler mode and portable C23 implementation — missing — CI currently builds in C11 mode.
+- [x] C23 compiler mode and portable C23 implementation — present — strict builds, static analysis, fuzzing, benchmarks, release checks, and documented source builds use -std=c2x.
 - [ ] Keep binary size and dependency set measured — missing — establish baseline in M0.
 
 ## Milestone list (ordered)
@@ -395,12 +395,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Run the existing interactive first-paint benchmark at 1k, 10k, and 100k records with three samples per size.
 - [x] Add and run a deterministic same-input throughput comparison for mmenu, fzf, and fzy, recording tool versions, compiler, exact match counts, timing samples, and RSS.
 - [x] Record C23-mode smoke-build support and executable sizes for GCC and Clang.
+- [x] Switch strict builds, static analysis, fuzzing, benchmark builds, release checks, and source build instructions to C23 language mode.
 - [x] Confirm the full four-job CI matrix passes with the C23 smoke build, throughput harness, and unchanged regression assertions.
 - [x] Preserve measurement limitations and avoid using noisy wall-clock comparisons as CI pass/fail thresholds.
 
 ### M1 — Streaming input
 
-- Implementation commit prepared: additive callback API, nonblocking arena-backed CLI reader, incremental live filtering, and controlled-PTY tests. Acceptance status remains pending the full CI matrix.
+- Initial implementation commit is green on all four CI jobs. The expanded API-callback and stream edge-case acceptance tests remain open.
 - [ ] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior must remain unchanged. The callback must distinguish record available, temporarily no record, EOF, and read error.
 - [ ] Specify record lifetime and ownership explicitly; the CLI implementation must keep record bytes in the existing arena and avoid per-record allocations.
 - [ ] Add an incremental nonblocking stdin reader that supports newline and NUL record delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.

@@ -31,7 +31,7 @@ for Count in 1000 10000 100000; do
         : > "$TmpDir/output"
         : > "$TmpDir/error"
         Start=$(date +%s%N)
-        timeout 20s script -q -e -c "stty rows 24 cols 80; TERM=xterm '$Bin' '$Prompt' < '$TmpDir/input'" /dev/null <&3 > "$TmpDir/output" 2> "$TmpDir/error" &
+        timeout 20s script -q -f -e -c "stty rows 24 cols 80; TERM=xterm '$Bin' '$Prompt' < '$TmpDir/input'" /dev/null <&3 > "$TmpDir/output" 2> "$TmpDir/error" &
         Pid=$!
 
         Found=0
@@ -52,6 +52,7 @@ for Count in 1000 10000 100000; do
             printf '\n' >&3
             wait "$Pid" || :
             cat "$TmpDir/error" >&2
+            tail -c 1000 "$TmpDir/output" | od -An -tx1c >&2
             printf 'FAIL: interactive prompt did not render for %s options (sample %s)\n' "$Count" "$Sample" >&2
             exit 1
         fi

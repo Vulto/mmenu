@@ -1406,7 +1406,8 @@ static int mmenu_filter_stream_batch(const char *const *options,
             filtered->indices = grown;
             filtered->cap = new_cap;
         }
-        if (!mmenu_scores_reserve(scores, scores_cap, total)) {
+        if (!mmenu_scores_reserve(scores, scores_cap, total) ||
+            !mmenu_metrics_reserve(metrics, metrics_cap, total)) {
             free(batch);
             return 0;
         }
@@ -1415,24 +1416,32 @@ static int mmenu_filter_stream_batch(const char *const *options,
             for (int i = 0; i < batch_count; i++) {
                 filtered->indices[old_count + i] = batch[i].index;
                 (*scores)[old_count + i] = batch[i].score;
+                (*metrics)[old_count + i] = batch[i].metrics;
             }
             filtered->count = total;
             free(batch);
             return 1;
         }
 
-        /* Merge backward in-place: old and batch runs are both score-sorted. */
+        /* Merge backward in-place using the same full ordering as batch mode. */
         int old_pos = old_count - 1;
         int batch_pos = batch_count - 1;
         int out_pos = total - 1;
         while (old_pos >= 0 && batch_pos >= 0) {
-            if ((*scores)[old_pos] >= batch[batch_pos].score) {
+            FuzzyMatch old_match = {
+                .index = filtered->indices[old_pos],
+                .score = (*scores)[old_pos],
+                .metrics = (*metrics)[old_pos]
+            };
+            if (MmenuCompareFuzzyMatches(&old_match, &batch[batch_pos], tiebreak) < 0) {
                 filtered->indices[out_pos] = batch[batch_pos].index;
                 (*scores)[out_pos] = batch[batch_pos].score;
+                (*metrics)[out_pos] = batch[batch_pos].metrics;
                 batch_pos--;
             } else {
                 filtered->indices[out_pos] = filtered->indices[old_pos];
                 (*scores)[out_pos] = (*scores)[old_pos];
+                (*metrics)[out_pos] = (*metrics)[old_pos];
                 old_pos--;
             }
             out_pos--;
@@ -1440,6 +1449,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
         while (batch_pos >= 0) {
             filtered->indices[out_pos] = batch[batch_pos].index;
             (*scores)[out_pos] = batch[batch_pos].score;
+            (*metrics)[out_pos] = batch[batch_pos].metrics;
             batch_pos--;
             out_pos--;
         }

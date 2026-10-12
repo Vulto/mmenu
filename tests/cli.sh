@@ -132,6 +132,10 @@ printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/
 printf 'id:src/mmenu.c:42\nid:src/main.c:12\n' > "$TmpDir/expected"
 "$Bin" --filter .c --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth selects fields for substring matching while preserving raw output' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmh.c\nid:docs/readme.md\n' > "$TmpDir/input"
+printf 'id:src/mmh.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter mmh --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth fields are used by fuzzy matching with the -d alias' "$TmpDir/expected" "$TmpDir/actual"
 "$Bin" --extended --filter '^src' --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth field selection applies to extended queries' "$TmpDir/expected" "$TmpDir/actual"
 printf 'one two three\nalpha beta gamma\n' > "$TmpDir/input"
@@ -141,7 +145,7 @@ CheckEqual 'nth supports negative field indexes and joins selected fields' "$Tmp
 printf 'id:src/mmenu.c:42\n' > "$TmpDir/input"
 printf 'id:src/mmenu.c:42\n' > "$TmpDir/input"
 printf 'id:src/mmenu.c:42\n' > "$TmpDir/expected"
-"$Bin" --exact --filter src/mmenu.c --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+"$Bin" --exact --filter src/mmenu.c --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth field selection applies to exact matching' "$TmpDir/expected" "$TmpDir/actual"
 if "$Bin" --filter x --nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'invalid nth expression must fail'

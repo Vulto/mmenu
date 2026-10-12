@@ -276,7 +276,7 @@ CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 CheckApiContract invalid-flags 'unsupported API flags'
-CheckApiContract invalid-case-flags 'conflicting case policy flags'
+CheckApiContract invalid-case-flags 'unsupported API flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-query 'initial query exceeds'
 

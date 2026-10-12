@@ -264,8 +264,7 @@ static int nth_delimiter_regex_prepare(const char *pattern) {
 /* Find the next delimiter while preserving ^/$ as anchors to the full record. */
 static int nth_find_delimiter(const char *record, const char *cursor,
                               const char **end, size_t *length) {
-    int flags = (cursor != record ? REG_NOTBOL : 0) |
-                (*cursor ? REG_NOTEOL : 0);
+    int flags = cursor != record ? REG_NOTBOL : 0;
     regmatch_t match;
     int code = regexec(&nth_delimiter_regex, cursor, 1, &match, flags);
     if (code == REG_NOMATCH) return 0;

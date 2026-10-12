@@ -426,12 +426,16 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 
 /* Greedy subsequence score: reward early, word-boundary, and adjacent matches;
    penalize leading and internal gaps. Invalid multibyte candidates do not match. */
-static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
-                            size_t query_len, unsigned int flags, long long *result)
+static int FuzzyScoreLengthMetrics(const char *candidate, const wchar_t *query,
+                                   size_t query_len, unsigned int flags,
+                                   long long *result, FuzzyMetrics *metrics)
 {
     size_t query_pos = 0;
     size_t candidate_pos = 0;
     size_t last_match = SIZE_MAX;
+    size_t first_match = SIZE_MAX;
+    size_t last_separator = SIZE_MAX;
+    unsigned int chunks = 0;
     int case_sensitive = MmenuCaseSensitiveWide(flags, query);
     wchar_t previous = 0;
     long long score = 0;
@@ -444,12 +448,15 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
         if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)
             return 0;
 
+        if (current == L'/' || current == L'\\\\') last_separator = candidate_pos;
         if (query_pos < query_len &&
             (case_sensitive ? current == query[query_pos] : FoldAscii(current) == FoldAscii(query[query_pos]))) {
             score += 10;
             if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
                 score += 8;
             if (last_match == SIZE_MAX) {
+                first_match = candidate_pos;
+                chunks = 1;
                 if (candidate_pos > (size_t)LLONG_MAX)
                     score = LLONG_MIN / 2;
                 else
@@ -457,9 +464,12 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
             } else {
                 size_t gap = candidate_pos - last_match - 1;
                 if (gap == 0) score += 15;
-                else if (gap > (size_t)LLONG_MAX / 4)
-                    score = LLONG_MIN / 2;
-                else score -= (long long)gap;
+                else {
+                    if (chunks < UINT_MAX) chunks++;
+                    if (gap > (size_t)LLONG_MAX / 4)
+                        score = LLONG_MIN / 2;
+                    else score -= (long long)gap;
+                }
             }
             last_match = candidate_pos;
             query_pos++;
@@ -472,15 +482,35 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
 
     if (query_pos != query_len) return 0;
     *result = score;
+    if (metrics) {
+        memset(metrics, 0, sizeof(*metrics));
+        metrics->length = candidate_pos;
+        metrics->begin = first_match == SIZE_MAX ? 0 : first_match;
+        metrics->end = last_match == SIZE_MAX ? 0 : last_match;
+        metrics->basename_start = last_separator == SIZE_MAX ? 0 : last_separator + 1;
+        metrics->chunks = chunks;
+        metrics->has_match = first_match != SIZE_MAX;
+    }
     return 1;
+}
+
+static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
+                            size_t query_len, unsigned int flags, long long *result)
+{
+    return FuzzyScoreLengthMetrics(candidate, query, query_len, flags, result, NULL);
+}
+
+static int FuzzyScoreMetrics(const char *candidate, const wchar_t *query,
+                             unsigned int flags, long long *result, FuzzyMetrics *metrics)
+{
+    return FuzzyScoreLengthMetrics(candidate, query, wcslen(query), flags, result, metrics);
 }
 
 static int FuzzyScore(const char *candidate, const wchar_t *query,
                       unsigned int flags, long long *result)
 {
-    return FuzzyScoreLength(candidate, query, wcslen(query), flags, result);
+    return FuzzyScoreMetrics(candidate, query, flags, result, NULL);
 }
-
 /* Highlight the same greedy subsequence used by FuzzyScore, clipping by
    terminal display cells so wide Unicode characters do not overrun the row. */
 static void RenderFuzzyOption(const wchar_t *option, int columns,
@@ -511,6 +541,49 @@ static void RenderFuzzyOption(const wchar_t *option, int columns,
     }
 }
 
+static int MmenuCompareFuzzyMatches(const FuzzyMatch *a, const FuzzyMatch *b,
+                                    const mmenu_tiebreak_spec *spec)
+{
+    if (a->score > b->score) return -1;
+    if (a->score < b->score) return 1;
+    if (spec) {
+        for (int i = 0; i < spec->count; i++) {
+            int comparison = 0;
+            switch (spec->keys[i]) {
+            case MMENU_TIEBREAK_LENGTH:
+                comparison = (a->metrics.length > b->metrics.length) -
+                             (a->metrics.length < b->metrics.length);
+                break;
+            case MMENU_TIEBREAK_BEGIN:
+                comparison = (a->metrics.begin > b->metrics.begin) -
+                             (a->metrics.begin < b->metrics.begin);
+                break;
+            case MMENU_TIEBREAK_END:
+                comparison = (a->metrics.end > b->metrics.end) -
+                             (a->metrics.end < b->metrics.end);
+                break;
+            case MMENU_TIEBREAK_INDEX:
+                comparison = (a->index > b->index) - (a->index < b->index);
+                break;
+            case MMENU_TIEBREAK_CHUNK:
+                comparison = (a->metrics.chunks > b->metrics.chunks) -
+                             (a->metrics.chunks < b->metrics.chunks);
+                break;
+            case MMENU_TIEBREAK_PATHNAME: {
+                int a_basename = a->metrics.has_match && a->metrics.begin >= a->metrics.basename_start;
+                int b_basename = b->metrics.has_match && b->metrics.begin >= b->metrics.basename_start;
+                comparison = b_basename - a_basename;
+                break;
+            }
+            case MMENU_TIEBREAK_SCORE:
+                break;
+            }
+            if (comparison) return comparison;
+        }
+    }
+    return (a->index > b->index) - (a->index < b->index);
+}
+
 static int CompareFuzzyMatches(const void *left, const void *right)
 {
     const FuzzyMatch *a = left;
@@ -520,6 +593,37 @@ static int CompareFuzzyMatches(const void *left, const void *right)
     return (a->index > b->index) - (a->index < b->index);
 }
 
+static void MmenuFuzzySiftDown(FuzzyMatch *matches, size_t root, size_t end,
+                               const mmenu_tiebreak_spec *spec)
+{
+    while (root < end / 2) {
+        size_t child = root * 2 + 1;
+        if (child + 1 < end &&
+            MmenuCompareFuzzyMatches(&matches[child], &matches[child + 1], spec) < 0)
+            child++;
+        if (MmenuCompareFuzzyMatches(&matches[root], &matches[child], spec) >= 0)
+            return;
+        FuzzyMatch temporary = matches[root];
+        matches[root] = matches[child];
+        matches[child] = temporary;
+        root = child;
+    }
+}
+
+static void MmenuFuzzySort(FuzzyMatch *matches, int count,
+                           const mmenu_tiebreak_spec *spec)
+{
+    if (!matches || count < 2) return;
+    size_t length = (size_t)count;
+    for (size_t start = length / 2; start > 0; start--)
+        MmenuFuzzySiftDown(matches, start - 1, length, spec);
+    for (size_t end = length; end > 1; end--) {
+        FuzzyMatch temporary = matches[0];
+        matches[0] = matches[end - 1];
+        matches[end - 1] = temporary;
+        MmenuFuzzySiftDown(matches, 0, end - 1, spec);
+    }
+}
 /* Returns matching indices; MMENU_NO_SORT preserves input order, otherwise
    score ranking is stable for equal scores. */
 static int FuzzyCollect(const char *const *options, int n_options,

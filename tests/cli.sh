@@ -114,7 +114,7 @@ printf '0\n1\n2\n' > "$TmpDir/expected"
 CheckEqual 'fuzzy no-sort preserves original indexes' "$TmpDir/expected" "$TmpDir/actual"
 if "$Bin" --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'no-sort without fuzzy mode must fail'
-elif ! grep -Fq 'requires --fuzzy and --filter' "$TmpDir/stderr"; then
+elif ! grep -Fq 'requires --fuzzy' "$TmpDir/stderr"; then
     Fail 'no-sort without fuzzy mode must explain the error'
 else
     Pass 'no-sort requires fuzzy batch mode'

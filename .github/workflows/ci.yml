@@ -72,7 +72,7 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/streaming.sh
       - name: Clean release smoke and public-header build
         if: always() && steps.compile.outcome == 'success'
         env:
@@ -90,6 +90,9 @@ jobs:
       - name: Interactive C API regression suite
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/interactive.sh build/api-test build/api-test-allocfail
+      - name: Streaming input regression suite
+        if: always() && steps.compile.outcome == 'success'
+        run: sh tests/streaming.sh build/mmenu
       - name: Ranking-quality baseline
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/ranking-baseline.sh build/mmenu build/ranking-baseline.csv

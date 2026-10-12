@@ -7,7 +7,7 @@
 - Implementation is a C11 single-header ncursesw library plus a CLI in main.c. The CI currently compiles as C11 with GCC and Clang.
 - Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides initial-query, preview callback, and a small set of key bindings.
 - Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
-- Interactive input is currently loaded as a complete list before the menu starts. The CLI batch filter is also a complete-input path.
+- Interactive CLI input is being moved to an additive stream callback and a nonblocking reader that retains completed records in the existing arena. This implementation is awaiting its new streaming regression suite and full CI result. The CLI batch filter remains a complete-input path.
 - The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
 - Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
 - No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
@@ -43,8 +43,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Input, streaming, and output
 
-- [ ] Interactive incremental streaming input; show and update results before stdin closes — missing — the interactive list is currently fully loaded first.
-- [ ] Keep arena/slab allocation for streaming input without per-record allocation — partial — the arena loader exists, but it is not incremental into the live UI.
+- [ ] Interactive incremental streaming input; show and update results before stdin closes — partial — an additive callback and nonblocking CLI reader are implemented; acceptance validation is pending.
+- [ ] Keep arena/slab allocation for streaming input without per-record allocation — partial — streamed record bytes use the existing arena; one reusable record buffer grows only as needed.
 - [ ] NUL-delimited input (--read0) — present — existing CLI option and regression coverage.
 - [ ] NUL-delimited output (--print0) — present — existing CLI option and regression coverage.
 - [ ] ANSI escape parsing and color preservation (--ansi) — missing.
@@ -400,6 +400,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### M1 — Streaming input
 
+- Implementation commit prepared: additive callback API, nonblocking arena-backed CLI reader, incremental live filtering, and controlled-PTY tests. Acceptance status remains pending the full CI matrix.
 - [ ] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior must remain unchanged. The callback must distinguish record available, temporarily no record, EOF, and read error.
 - [ ] Specify record lifetime and ownership explicitly; the CLI implementation must keep record bytes in the existing arena and avoid per-record allocations.
 - [ ] Add an incremental nonblocking stdin reader that supports newline and NUL record delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.

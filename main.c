@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <poll.h>
 
 #define CHUNK_CAP (1024 * 1024)   /* 1 MiB slabs for string data - huge reduction in mallocs */
 
@@ -126,6 +127,137 @@ static void lines_free(lines_t *l) {
     for (int i = 0; i < l->slabs_count; i++) free(l->slabs[i]);
     free(l->slabs);
 }
+
+/* Nonblocking stdin source. The reusable record buffer grows only for unusually
+   long records; completed records are copied into the existing arena. */
+typedef struct {
+    lines_t *lines;
+    int fd;
+    int delimiter;
+    unsigned char input[8192];
+    size_t input_pos;
+    size_t input_len;
+    char *record;
+    size_t record_len;
+    size_t record_cap;
+    int eof;
+    int error;
+} input_stream_t;
+
+static int stream_record_reserve(input_stream_t *stream, size_t needed) {
+    if (needed <= stream->record_cap) return 1;
+    size_t capacity = stream->record_cap ? stream->record_cap : 4096;
+    while (capacity < needed) {
+        if (capacity > SIZE_MAX / 2) {
+            errno = ENOMEM;
+            return 0;
+        }
+        capacity *= 2;
+    }
+    char *record = realloc(stream->record, capacity);
+    if (!record) {
+        if (errno == 0) errno = ENOMEM;
+        return 0;
+    }
+    stream->record = record;
+    stream->record_cap = capacity;
+    return 1;
+}
+
+static int stream_record_append(input_stream_t *stream,
+                                const unsigned char *bytes, size_t length) {
+    if (stream->delimiter != '\0' && length && memchr(bytes, '\0', length)) {
+        errno = EILSEQ;
+        return 0;
+    }
+    if (length > SIZE_MAX - stream->record_len) {
+        errno = ENOMEM;
+        return 0;
+    }
+    size_t needed = stream->record_len + length;
+    if (!stream_record_reserve(stream, needed)) return 0;
+    if (length) memcpy(stream->record + stream->record_len, bytes, length);
+    stream->record_len = needed;
+    return 1;
+}
+
+static int stream_emit_record(input_stream_t *stream, const char **record) {
+    if (stream->record_len == SIZE_MAX ||
+        !stream_record_reserve(stream, stream->record_len + 1)) {
+        stream->error = 1;
+        return MMENU_STREAM_ERROR;
+    }
+    stream->record[stream->record_len] = '\0';
+    if (mbstowcs(NULL, stream->record, 0) == (size_t)-1) {
+        stream->error = 1;
+        errno = EILSEQ;
+        return MMENU_STREAM_ERROR;
+    }
+    char *stored = lines_arena_dup(stream->lines, stream->record, stream->record_len);
+    lines_push(stream->lines, stored);
+    stream->record_len = 0;
+    *record = stored;
+    return MMENU_STREAM_RECORD;
+}
+
+static int lines_stream_next(void *userdata, const char **record) {
+    input_stream_t *stream = userdata;
+    if (!stream || !record) {
+        errno = EINVAL;
+        return MMENU_STREAM_ERROR;
+    }
+    *record = NULL;
+    for (;;) {
+        if (stream->input_pos < stream->input_len) {
+            const unsigned char *begin = stream->input + stream->input_pos;
+            size_t available = stream->input_len - stream->input_pos;
+            const unsigned char *delimiter =
+                memchr(begin, stream->delimiter, available);
+            size_t amount = delimiter ? (size_t)(delimiter - begin) : available;
+            if (!stream_record_append(stream, begin, amount)) {
+                stream->error = 1;
+                return MMENU_STREAM_ERROR;
+            }
+            stream->input_pos += amount;
+            if (delimiter) {
+                stream->input_pos++;
+                return stream_emit_record(stream, record);
+            }
+            continue;
+        }
+        if (stream->eof) {
+            if (stream->record_len > 0)
+                return stream_emit_record(stream, record);
+            return MMENU_STREAM_EOF;
+        }
+        struct pollfd descriptor = {.fd = stream->fd, .events = POLLIN};
+        int ready = poll(&descriptor, 1, 0);
+        if (ready == 0) return MMENU_STREAM_PENDING;
+        if (ready < 0) {
+            if (errno == EINTR) return MMENU_STREAM_PENDING;
+            stream->error = 1;
+            return MMENU_STREAM_ERROR;
+        }
+        if (descriptor.revents & POLLNVAL) {
+            errno = EBADF;
+            stream->error = 1;
+            return MMENU_STREAM_ERROR;
+        }
+        ssize_t amount = read(stream->fd, stream->input, sizeof(stream->input));
+        if (amount > 0) {
+            stream->input_pos = 0;
+            stream->input_len = (size_t)amount;
+        } else if (amount == 0) {
+            stream->eof = 1;
+        } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+            return MMENU_STREAM_PENDING;
+        } else {
+            stream->error = 1;
+            return MMENU_STREAM_ERROR;
+        }
+    }
+}
+
 
 static int parse_binding_key(const char *value, wint_t *key) {
     if (!strcmp(value, "space")) {
@@ -619,29 +751,38 @@ int main(int argc, char **argv) {
     setvbuf(stdin, NULL, _IOFBF, 64 * 1024);
 
     lines_t opts = {0};
-    char *buf = NULL;
-    size_t buf_cap = 0;
-    ssize_t read_len;
+    input_stream_t input_stream = {
+        .lines = &opts,
+        .fd = STDIN_FILENO,
+        .delimiter = input_nul ? '\0' : '\n'
+    };
 
-    /* getdelim preserves arbitrarily long records and final unterminated records. */
-    int input_delimiter = input_nul ? '\0' : '\n';
-    while ((read_len = getdelim(&buf, &buf_cap, input_delimiter, stdin)) != -1) {
-        size_t len = (size_t)read_len;
-        if (!input_nul && memchr(buf, '\0', len) != NULL) {
-            fprintf(stderr, "mmenu: input record contains an embedded NUL byte\n");
-            free(buf);
+    if (filter_query != NULL) {
+        char *buf = NULL;
+        size_t buf_cap = 0;
+        ssize_t read_len;
+        /* Batch mode remains synchronous and preserves the existing getdelim path. */
+        while ((read_len = getdelim(&buf, &buf_cap, input_stream.delimiter, stdin)) != -1) {
+            size_t len = (size_t)read_len;
+            if (!input_nul && memchr(buf, '\0', len) != NULL) {
+                fprintf(stderr, "mmenu: input record contains an embedded NUL byte\n");
+                free(buf);
+                lines_free(&opts);
+                return EXIT_FAILURE;
+            }
+            if (len > 0 && buf[len - 1] == input_stream.delimiter) len--;
+            char *stored = lines_arena_dup(&opts, buf, len);
+            lines_push(&opts, stored);
+        }
+        free(buf);
+        if (ferror(stdin)) {
+            perror("mmenu: reading stdin");
             lines_free(&opts);
             return EXIT_FAILURE;
         }
-        if (len > 0 && buf[len - 1] == input_delimiter) len--;
-        char *stored = lines_arena_dup(&opts, buf, len);
-        lines_push(&opts, stored);
-    }
-    free(buf);
-    if (ferror(stdin)) {
-        perror("mmenu: reading stdin");
-        lines_free(&opts);
-        return EXIT_FAILURE;
+    } else {
+        menu_config.stream_next = lines_stream_next;
+        menu_config.stream_userdata = &input_stream;
     }
 
     /* Non-interactive fast path: outputs matching lines or original indexes. */
@@ -739,6 +880,12 @@ int main(int argc, char **argv) {
                                           fuzzy_mode ? MMENU_FUZZY :
                                           exact_mode ? MMENU_EXACT : 0,
                                           &menu_config, &selected, &selected_count);
+        if (input_stream.error) {
+            free(selected);
+            free(input_stream.record);
+            lines_free(&opts);
+            return EXIT_FAILURE;
+        }
         if (status != 0) {
             print_record("", output_nul);
         } else {
@@ -751,6 +898,11 @@ int main(int argc, char **argv) {
                                      fuzzy_mode ? MMENU_FUZZY :
                                      exact_mode ? MMENU_EXACT : 0,
                                      &menu_config);
+        if (input_stream.error) {
+            free(input_stream.record);
+            lines_free(&opts);
+            return EXIT_FAILURE;
+        }
         if (chosen == -1) {
             print_record("", output_nul);
         } else {
@@ -758,6 +910,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    free(input_stream.record);
     lines_free(&opts);
     return flush_stdout();
 }

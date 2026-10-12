@@ -51,6 +51,16 @@ typedef int (*mmenu_preview_callback)(const char *option, int index,
 
 /* Optional interactive query, key aliases, and preview callback.
    A zero key keeps its default. */
+/* Stream callbacks return one record, temporary no-data, EOF, or error.
+   Returned record strings must remain valid until the menu call returns. */
+enum {
+    MMENU_STREAM_ERROR = -1,
+    MMENU_STREAM_EOF = 0,
+    MMENU_STREAM_RECORD = 1,
+    MMENU_STREAM_PENDING = 2
+};
+typedef int (*mmenu_stream_next_callback)(void *userdata, const char **record);
+
 typedef struct {
     const char *initial_query;
     wint_t key_up;
@@ -61,6 +71,8 @@ typedef struct {
     wint_t key_backspace;
     mmenu_preview_callback preview;
     void *preview_userdata;
+    mmenu_stream_next_callback stream_next;
+    void *stream_userdata;
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -482,10 +494,264 @@ static void mmenu_update_preview(const mmenu_config *config,
         snprintf(output, output_size, "Preview command failed");
 }
 
+/* Pull a bounded batch of available records into the stable pointer vector.
+   The caller owns record storage; this helper owns only the pointer vector. */
+static int mmenu_stream_append_available(const mmenu_config *config,
+                                         const char ***options,
+                                         int *n_options, int *options_cap,
+                                         unsigned char **selected_options,
+                                         int *selected_options_cap,
+                                         int multi, int *finished, int *added) {
+    int budget = *n_options < 1024 ? 256 : *n_options / 4;
+    if (budget < 256) budget = 256;
+    if (budget > 65536) budget = 65536;
+    *added = 0;
+    while (!*finished && budget-- > 0) {
+        const char *record = NULL;
+        errno = 0;
+        int status = config->stream_next(config->stream_userdata, &record);
+        if (status == MMENU_STREAM_PENDING) return 1;
+        if (status == MMENU_STREAM_EOF) {
+            *finished = 1;
+            return 1;
+        }
+        if (status == MMENU_STREAM_ERROR) {
+            if (errno == 0) errno = EIO;
+            perror("mmenu: reading streamed input");
+            return 0;
+        }
+        if (status != MMENU_STREAM_RECORD || !record) {
+            errno = EINVAL;
+            perror("mmenu: invalid stream callback result");
+            return 0;
+        }
+        if (mbstowcs(NULL, record, 0) == (size_t)-1) {
+            fprintf(stderr, "mmenu: streamed option %d is not valid in the current locale\n",
+                    *n_options);
+            errno = EILSEQ;
+            return 0;
+        }
+        if (*n_options == INT_MAX) {
+            errno = ENOMEM;
+            perror("mmenu: too many streamed options");
+            return 0;
+        }
+        if (*n_options == *options_cap) {
+            int new_capacity;
+            if (!mmenu_next_capacity(*options_cap, INITIAL_CAP,
+                                     sizeof(**options), &new_capacity)) {
+                perror("mmenu: streamed option capacity");
+                return 0;
+            }
+            size_t bytes;
+            if (!mmenu_size_mul((size_t)new_capacity, sizeof(**options), &bytes)) {
+                perror("mmenu: streamed option capacity");
+                return 0;
+            }
+            const char **grown = realloc((void *)*options, bytes);
+            if (!grown) {
+                if (errno == 0) errno = ENOMEM;
+                perror("mmenu: growing streamed options");
+                return 0;
+            }
+            *options = grown;
+            if (multi && *selected_options_cap < new_capacity) {
+                unsigned char *grown_selected = realloc(*selected_options,
+                                                        (size_t)new_capacity);
+                if (!grown_selected) {
+                    if (errno == 0) errno = ENOMEM;
+                    perror("mmenu: growing streamed multi-select state");
+                    return 0;
+                }
+                memset(grown_selected + *selected_options_cap, 0,
+                       (size_t)(new_capacity - *selected_options_cap));
+                *selected_options = grown_selected;
+                *selected_options_cap = new_capacity;
+            }
+            *options_cap = new_capacity;
+        }
+        (*options)[*n_options] = record;
+        (*n_options)++;
+        *added = 1;
+    }
+    return 1;
+}
+
+static int mmenu_scores_reserve(long long **scores, int *capacity, int needed) {
+    if (needed <= *capacity) return 1;
+    int next;
+    if (!mmenu_next_capacity(*capacity, INITIAL_CAP, sizeof(**scores), &next)) {
+        perror("mmenu: streamed score capacity");
+        return 0;
+    }
+    while (next < needed) {
+        if (next > INT_MAX / 2) {
+            errno = ENOMEM;
+            perror("mmenu: streamed score capacity");
+            return 0;
+        }
+        next *= 2;
+    }
+    size_t bytes;
+    if (!mmenu_size_mul((size_t)next, sizeof(**scores), &bytes)) {
+        perror("mmenu: streamed score capacity");
+        return 0;
+    }
+    long long *grown = realloc(*scores, bytes);
+    if (!grown) {
+        if (errno == 0) errno = ENOMEM;
+        perror("mmenu: growing streamed scores");
+        return 0;
+    }
+    *scores = grown;
+    *capacity = next;
+    return 1;
+}
+
+/* Filter only newly arrived records. Fuzzy results are inserted by score while
+   preserving input order for ties; substring/exact results naturally append. */
+static int mmenu_filter_stream_batch(const char *const *options,
+                                     int start, int end,
+                                     const wchar_t *query, unsigned int flags,
+                                     filt *filtered, long long **scores,
+                                     int *scores_cap) {
+    if (!query[0]) {
+        for (int i = start; i < end; i++)
+            if (!filt_push(filtered, i)) return 0;
+        return 1;
+    }
+    if (flags & MMENU_FUZZY) {
+        FuzzyMatch *batch = NULL;
+        int batch_count = 0;
+        int batch_cap = 0;
+        for (int i = start; i < end; i++) {
+            long long score;
+            if (!FuzzyScore(options[i], query, &score)) continue;
+            if (batch_count == batch_cap) {
+                int new_cap;
+                if (!mmenu_next_capacity(batch_cap, INITIAL_CAP,
+                                         sizeof(*batch), &new_cap)) {
+                    free(batch);
+                    perror("mmenu: streamed fuzzy batch capacity");
+                    return 0;
+                }
+                FuzzyMatch *grown = realloc(batch, (size_t)new_cap * sizeof(*batch));
+                if (!grown) {
+                    if (errno == 0) errno = ENOMEM;
+                    free(batch);
+                    perror("mmenu: growing streamed fuzzy batch");
+                    return 0;
+                }
+                batch = grown;
+                batch_cap = new_cap;
+            }
+            batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
+        }
+        if (batch_count > 1)
+            qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
+        if (batch_count == 0) {
+            free(batch);
+            return 1;
+        }
+
+        int old_count = filtered->count;
+        if (batch_count > INT_MAX - old_count) {
+            free(batch);
+            errno = ENOMEM;
+            perror("mmenu: streamed fuzzy result count");
+            return 0;
+        }
+        int total = old_count + batch_count;
+        if (total > filtered->cap) {
+            int new_cap = filtered->cap;
+            while (new_cap < total) {
+                int next;
+                if (!mmenu_next_capacity(new_cap, INITIAL_CAP,
+                                         sizeof(*filtered->indices), &next)) {
+                    free(batch);
+                    perror("mmenu: streamed fuzzy result capacity");
+                    return 0;
+                }
+                new_cap = next;
+            }
+            size_t bytes;
+            if (!mmenu_size_mul((size_t)new_cap, sizeof(*filtered->indices), &bytes)) {
+                free(batch);
+                perror("mmenu: streamed fuzzy result capacity");
+                return 0;
+            }
+            int *grown = realloc(filtered->indices, bytes);
+            if (!grown) {
+                if (errno == 0) errno = ENOMEM;
+                free(batch);
+                perror("mmenu: growing streamed fuzzy results");
+                return 0;
+            }
+            filtered->indices = grown;
+            filtered->cap = new_cap;
+        }
+        if (!mmenu_scores_reserve(scores, scores_cap, total)) {
+            free(batch);
+            return 0;
+        }
+
+        /* Merge backward in-place: old and batch runs are both score-sorted. */
+        int old_pos = old_count - 1;
+        int batch_pos = batch_count - 1;
+        int out_pos = total - 1;
+        while (old_pos >= 0 && batch_pos >= 0) {
+            if ((*scores)[old_pos] >= batch[batch_pos].score) {
+                filtered->indices[out_pos] = batch[batch_pos].index;
+                (*scores)[out_pos] = batch[batch_pos].score;
+                batch_pos--;
+            } else {
+                filtered->indices[out_pos] = filtered->indices[old_pos];
+                (*scores)[out_pos] = (*scores)[old_pos];
+                old_pos--;
+            }
+            out_pos--;
+        }
+        while (batch_pos >= 0) {
+            filtered->indices[out_pos] = batch[batch_pos].index;
+            (*scores)[out_pos] = batch[batch_pos].score;
+            batch_pos--;
+            out_pos--;
+        }
+        filtered->count = total;
+        free(batch);
+        return 1;
+    }
+
+    errno = 0;
+    char *q = wc_to_mb(query);
+    if (!q) {
+        if (errno == 0) errno = EILSEQ;
+        perror("mmenu: converting streamed filter");
+        return 0;
+    }
+    for (int i = start; i < end; i++) {
+        int matches = (flags & MMENU_EXACT)
+                    ? strcmp(options[i], q) == 0
+                    : strcasestr(options[i], q) != NULL;
+        if (matches && !filt_push(filtered, i)) {
+            free(q);
+            return 0;
+        }
+    }
+    free(q);
+    return 1;
+}
+
 static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,
                           const mmenu_config *config,
                           int **selected_indices, int *selected_count) {
+    const char *const *current_options = options;
+    const char **stream_options = NULL;
+    int stream_options_cap = 0;
+    int stream_finished = 0;
+    long long *filtered_scores = NULL;
+    int filtered_scores_cap = 0;
     if (multi) {
         if (!selected_indices || !selected_count) {
             fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
@@ -509,7 +775,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         return -1;
     }
     for (int i = 0; i < n_options; i++) {
-        if (!options[i]) {
+        if (!current_options[i]) {
             fprintf(stderr, "mmenu: option %d must not be NULL\\n", i);
             return -1;
         }
@@ -536,7 +802,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     }
 
     for (int i = 0; i < n_options; i++) {
-        if (mbstowcs(NULL, options[i], 0) == (size_t)-1) {
+        if (mbstowcs(NULL, current_options[i], 0) == (size_t)-1) {
             fprintf(stderr, "mmenu: option %d is not valid in the current locale\n", i);
             return -1;
         }
@@ -558,11 +824,28 @@ static int mmenu_internal(const char *const *options, int n_options,
         return -1;
     }
 
+    if (config && config->stream_next) {
+        stream_options_cap = n_options > INITIAL_CAP ? n_options : INITIAL_CAP;
+        size_t bytes;
+        if (!mmenu_size_mul((size_t)stream_options_cap, sizeof(*stream_options), &bytes)) {
+            perror("mmenu: streamed option vector size");
+            return -1;
+        }
+        stream_options = malloc(bytes);
+        if (!stream_options) {
+            if (errno == 0) errno = ENOMEM;
+            perror("mmenu: allocating streamed option vector");
+            return -1;
+        }
+        for (int i = 0; i < n_options; i++) stream_options[i] = options[i];
+        current_options = (const char *const *)stream_options;
+    }
+
     FILE *tty = fopen("/dev/tty", "r+");
-    if (!tty) { perror("mmenu: opening /dev/tty"); return -1; }
+    if (!tty) { free(stream_options); perror("mmenu: opening /dev/tty"); return -1; }
 
     SCREEN *scr = newterm(NULL, tty, tty);
-    if (!scr) { fclose(tty); fprintf(stderr, "Failed to init ncurses\n"); return -1; }
+    if (!scr) { free(stream_options); fclose(tty); fprintf(stderr, "Failed to init ncurses\n"); return -1; }
     set_term(scr);
 
     /* raw() disables terminal-generated SIGINT so Ctrl-C reaches wget_wch and can cancel cleanly. */
@@ -580,6 +863,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         endwin();
         delscreen(scr);
         fclose(tty);
+        free(stream_options);
         return -1;
     }
     int restore_resize_action = 1;
@@ -591,6 +875,7 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     int ret = -1;
     unsigned char *selected_options = NULL;
+    int selected_options_cap = 0;
     filt filtered = {0};
     wchar_t input[MAX_INPUT_LEN + 1] = {0};
     int input_len = 0;
@@ -610,14 +895,18 @@ static int mmenu_internal(const char *const *options, int n_options,
     wint_t key_backspace = config ? config->key_backspace : 0;
 
     if (!filt_init(&filtered)) goto cleanup;
-    if (multi && n_options > 0) {
-        errno = 0;
-        selected_options = malloc((size_t)n_options * sizeof(*selected_options));
-        if (selected_options) memset(selected_options, 0, (size_t)n_options * sizeof(*selected_options));
-        if (!selected_options) {
-            if (errno == 0) errno = ENOMEM;
-            perror("mmenu: allocating multi-select state");
-            goto cleanup;
+    if (multi) {
+        size_t selected_capacity = config && config->stream_next
+                                 ? (size_t)stream_options_cap : (size_t)n_options;
+        if (selected_capacity > 0) {
+            selected_options = malloc(selected_capacity);
+            if (selected_options) memset(selected_options, 0, selected_capacity);
+            if (!selected_options) {
+                if (errno == 0) errno = ENOMEM;
+                perror("mmenu: allocating multi-select state");
+                goto cleanup;
+            }
+            selected_options_cap = (int)selected_capacity;
         }
     }
 
@@ -640,8 +929,16 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!FuzzyCollect(options, n_options, input, &matches, &match_count))
+        if (!FuzzyCollect(current_options, n_options, input, &matches, &match_count))
             goto cleanup;
+        if (config && config->stream_next) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+                free(matches);
+                goto cleanup;
+            }
+            for (int i = 0; i < match_count; i++)
+                filtered_scores[i] = matches[i].score;
+        }
         for (int i = 0; i < match_count; i++) {
             if (!filt_push(&filtered, matches[i].index)) {
                 free(matches);
@@ -657,8 +954,8 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
         if (q) {
             for (int i = 0; i < n_options; i++) {
-                if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
-                     strcasestr(options[i], q) != NULL) &&
+                if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
+                     strcasestr(current_options[i], q) != NULL) &&
                     !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
@@ -669,7 +966,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     }
     if (filtered.count > 0) selection = 0;
     if (preview_visible) {
-        mmenu_update_preview(config, options, n_options, &filtered, selection,
+        mmenu_update_preview(config, current_options, n_options, &filtered, selection,
                              input, preview_output, sizeof(preview_output));
         preview_dirty = 0;
     }
@@ -683,7 +980,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
         errno = 0;
-        wchar_t *w = mb_to_wc(options[oidx]);
+        wchar_t *w = mb_to_wc(current_options[oidx]);
         if (!w && errno == ENOMEM) {
             perror("mmenu: rendering option");
             goto cleanup;
@@ -722,10 +1019,25 @@ static int mmenu_internal(const char *const *options, int n_options,
 
         wint_t ch = 0;
         int kc = resized ? ERR : wget_wch(stdscr, &ch);
-        if (kc == ERR && !resized) continue;
+        int stream_changed = 0;
+        int stream_start_count = n_options;
+        if (config && config->stream_next && !stream_finished) {
+            if (!mmenu_stream_append_available(config, &stream_options, &n_options,
+                                               &stream_options_cap, &selected_options,
+                                               &selected_options_cap, multi,
+                                               &stream_finished, &stream_changed))
+                goto cleanup;
+            current_options = (const char *const *)stream_options;
+        }
+        if (kc == ERR && !resized && !stream_changed) continue;
         if (resized) kc = OK;
 
-        need_filter = 0;
+        need_filter = stream_changed;
+        int force_full_filter = stream_changed;
+        int preserve_stream_selection = 0;
+        int stream_preserve_index = -1;
+        int query_edited = 0;
+        int accept_pending = 0;
 
         int is_key_code = kc == KEY_CODE_YES;
         int is_up = ch == key_up || (config && config->key_up && ch == config->key_up);
@@ -746,52 +1058,46 @@ static int mmenu_internal(const char *const *options, int n_options,
         } else if (is_down) {
             if (selection < filtered.count - 1) { selection++; preview_dirty = 1; }
         } else if (is_backspace) {
-            if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; }
+            if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; query_edited = 1; }
         } else if (is_toggle) {
             if (filtered.count > 0)
                 selected_options[filtered.indices[selection]] =
                     !selected_options[filtered.indices[selection]];
         } else if (is_accept) {
-            if (multi) {
-                int count = 0;
-                for (int i = 0; i < n_options; i++)
-                    if (selected_options[i]) count++;
-                if (count == 0 && filtered.count > 0) count = 1;
-                if ((size_t)count > SIZE_MAX / sizeof(int)) {
-                    errno = ENOMEM;
-                    perror("mmenu: multi-select result is too large");
-                    goto cleanup;
-                }
-                int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
-                if (count && !indices) {
-                    if (errno == 0) errno = ENOMEM;
-                    perror("mmenu: allocating multi-select result");
-                    goto cleanup;
-                }
-                int out = 0;
-                for (int i = 0; i < n_options; i++)
-                    if (selected_options[i]) indices[out++] = i;
-                if (out == 0 && count == 1)
-                    indices[out++] = filtered.indices[selection];
-                *selected_indices = indices;
-                *selected_count = out;
-                ret = 0;
-            } else if (filtered.count > 0) {
-                ret = filtered.indices[selection];
-            }
-            goto cleanup;
+            accept_pending = 1;
         } else if (!is_key_code && iswprint(ch) && input_len < MAX_INPUT_LEN) {
             input[input_len++] = ch;
             input[input_len] = L'\0';
             need_filter = 1;
+            query_edited = 1;
+        }
+
+        if (stream_changed && !query_edited && filtered.count > 0 &&
+            selection >= 0 && selection < filtered.count) {
+            stream_preserve_index = filtered.indices[selection];
+            preserve_stream_selection = 1;
         }
 
         if (need_filter) {
-            if (flags & MMENU_FUZZY) {
+            if (stream_changed && !query_edited) {
+                if (!mmenu_filter_stream_batch(current_options, stream_start_count,
+                                               n_options, input, flags, &filtered,
+                                               &filtered_scores, &filtered_scores_cap))
+                    goto cleanup;
+            } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!FuzzyCollect(options, n_options, input, &matches, &match_count))
+                if (!FuzzyCollect(current_options, n_options, input, &matches, &match_count))
                     goto cleanup;
+                if (config && config->stream_next) {
+                    if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
+                                              match_count)) {
+                        free(matches);
+                        goto cleanup;
+                    }
+                    for (int i = 0; i < match_count; i++)
+                        filtered_scores[i] = matches[i].score;
+                }
                 filt_clear(&filtered);
                 for (int i = 0; i < match_count; i++) {
                     if (!filt_push(&filtered, matches[i].index)) {
@@ -808,7 +1114,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                 goto cleanup;
             }
             int do_full = 1;
-            if (q && !(flags & MMENU_EXACT) && input_len > prev_input_len && filtered.count > 0) {
+            if (q && !force_full_filter && !(flags & MMENU_EXACT) &&
+                input_len > prev_input_len && filtered.count > 0) {
                 /* Common case: user typed another char. Refine only the previous matches. */
                 filt newf;
                 newf.cap = filtered.count < INITIAL_CAP ? INITIAL_CAP : filtered.count;
@@ -823,8 +1130,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                     newf.count = 0;
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
-                        if ((flags & MMENU_EXACT) ? strcmp(options[oidx], q) == 0 :
-                            strcasestr(options[oidx], q) != NULL) {
+                        if ((flags & MMENU_EXACT) ? strcmp(current_options[oidx], q) == 0 :
+                            strcasestr(current_options[oidx], q) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap;
                                 if (!mmenu_next_capacity(newf.cap, INITIAL_CAP,
@@ -865,8 +1172,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                     }
                 } else {
                     for (int i = 0; i < n_options; i++) {
-                        if (((flags & MMENU_EXACT) ? strcmp(options[i], q) == 0 :
-                         strcasestr(options[i], q) != NULL) &&
+                        if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
+                         strcasestr(current_options[i], q) != NULL) &&
                         !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
@@ -879,12 +1186,51 @@ static int mmenu_internal(const char *const *options, int n_options,
             }
             prev_input_len = input_len;
             selection = 0;
+            if (preserve_stream_selection && stream_preserve_index >= 0) {
+                for (int i = 0; i < filtered.count; i++) {
+                    if (filtered.indices[i] == stream_preserve_index) {
+                        selection = i;
+                        break;
+                    }
+                }
+            }
             top = 0;
             preview_dirty = 1;
         }
 
+        if (accept_pending) {
+            if (multi) {
+                int count = 0;
+                for (int i = 0; i < n_options; i++)
+                    if (selected_options[i]) count++;
+                if (count == 0 && filtered.count > 0) count = 1;
+                if ((size_t)count > SIZE_MAX / sizeof(int)) {
+                    errno = ENOMEM;
+                    perror("mmenu: multi-select result is too large");
+                    goto cleanup;
+                }
+                int *indices = count ? malloc((size_t)count * sizeof(*indices)) : NULL;
+                if (count && !indices) {
+                    if (errno == 0) errno = ENOMEM;
+                    perror("mmenu: allocating multi-select result");
+                    goto cleanup;
+                }
+                int out = 0;
+                for (int i = 0; i < n_options; i++)
+                    if (selected_options[i]) indices[out++] = i;
+                if (out == 0 && count == 1)
+                    indices[out++] = filtered.indices[selection];
+                *selected_indices = indices;
+                *selected_count = out;
+                ret = 0;
+            } else if (filtered.count > 0) {
+                ret = filtered.indices[selection];
+            }
+            goto cleanup;
+        }
+
         if (preview_visible && preview_dirty) {
-            mmenu_update_preview(config, options, n_options, &filtered, selection,
+            mmenu_update_preview(config, current_options, n_options, &filtered, selection,
                                  input, preview_output, sizeof(preview_output));
             preview_dirty = 0;
         }
@@ -910,7 +1256,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             int fidx = top + v;
             int oidx = filtered.indices[fidx];
             errno = 0;
-            wchar_t *w = mb_to_wc(options[oidx]);
+            wchar_t *w = mb_to_wc(current_options[oidx]);
             if (!w && errno == ENOMEM) {
                 perror("mmenu: rendering option");
                 goto cleanup;
@@ -935,6 +1281,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     }
 
 cleanup:
+    free(filtered_scores);
+    free(stream_options);
     free(selected_options);
     free(filtered.indices);
     if (restore_resize_action)

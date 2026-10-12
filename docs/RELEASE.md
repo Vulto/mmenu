@@ -26,7 +26,7 @@ Additionally:
 - [ ] Confirm that shell scripts pass ShellCheck and that `git diff --check` is clean.
 - [ ] Verify that the public header builds as a standalone implementation and that the standalone CLI builds from a clean temporary directory.
 - [ ] Check the release diff for generated files, secrets, local paths, temporary benchmarks, and unreviewed changes.
-- [ ] Confirm runtime dependency expectations: a C11 compiler and wide-character ncurses development/runtime libraries for builds and execution, respectively.
+- [ ] Confirm runtime dependency expectations: a C23-capable C compiler and wide-character ncurses development/runtime libraries for builds and execution, respectively.
 
 ## Tag and publish
 

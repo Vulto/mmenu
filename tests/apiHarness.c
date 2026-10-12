@@ -75,6 +75,24 @@ static int test_resize_preview_callback(const char *option, int index,
     return result < 0 ? -1 : 0;
 }
 
+typedef struct {
+    const char *const *records;
+    size_t count;
+    size_t next;
+    int pending_once;
+} stream_fixture_t;
+
+static int test_stream_next(void *userdata, const char **record) {
+    stream_fixture_t *stream = userdata;
+    if (stream->pending_once) {
+        stream->pending_once = 0;
+        return MMENU_STREAM_PENDING;
+    }
+    if (stream->next >= stream->count) return MMENU_STREAM_EOF;
+    *record = stream->records[stream->next++];
+    return MMENU_STREAM_RECORD;
+}
+
 static int SetTerminalSize(unsigned short rows, unsigned short cols)
 {
     int tty_fd = open("/dev/tty", O_RDWR);
@@ -115,6 +133,23 @@ int main(int argc, char **argv)
     if (argc > 1 && strcmp(argv[1], "no-tty") == 0) {
         if (mmenu(options, count, prompt) != -1) return 1;
         puts("MMENU_API_RESULT=terminal-unavailable");
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "stream") == 0) {
+        const char *stream_records[] = {"alpha", "needle", "other"};
+        stream_fixture_t stream = {
+            .records = stream_records,
+            .count = sizeof(stream_records) / sizeof(stream_records[0]),
+            .pending_once = 1
+        };
+        mmenu_config config = {
+            .initial_query = "needle",
+            .stream_next = test_stream_next,
+            .stream_userdata = &stream
+        };
+        int result = mmenuConfigured(NULL, 0, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
         return 0;
     }
 

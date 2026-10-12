@@ -18,7 +18,7 @@ Pass() {
 
 git -C "$Root" diff --check HEAD^ HEAD
 
-"$CC" -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror \
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
     -D_DEFAULT_SOURCE -o "$Bin" "$Root/main.c" -lncursesw
 Pass 'clean optimized CLI build'
 
@@ -52,7 +52,7 @@ int main(void) {
     return 0;
 }
 EOF
-"$CC" -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror \
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
     -D_DEFAULT_SOURCE -I "$Root" -o "$TmpDir/public-api" \
     "$TmpDir/public-api.c" -lncursesw
 Pass 'standalone public-header/API consumer build'

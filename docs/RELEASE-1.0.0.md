@@ -14,10 +14,10 @@ mmenu is a small ncurses-based menu for C programs and shell scripts. Version 1.
 
 ## Build from source
 
-Requirements: a C11 compiler and the wide-character ncurses development headers and libraries.
+Requirements: a C compiler with C23 language-mode support and the wide-character ncurses development headers and libraries.
 
 ```sh
-cc -std=c11 -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
+cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
 ./mmenu --help
 ```
 

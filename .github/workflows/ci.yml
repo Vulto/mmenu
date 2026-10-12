@@ -38,9 +38,9 @@ jobs:
         run: |
           mkdir -p build
           if [ "${{ matrix.mode }}" = sanitizers ]; then
-            CFLAGS="-O1 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=address,undefined"
+            CFLAGS="-O1 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=address,undefined"
           else
-            CFLAGS="-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror"
+            CFLAGS="-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror"
           fi
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
           $CC $CFLAGS -D_DEFAULT_SOURCE -o build/input-capacity-test tests/input-capacity.c -lncursesw
@@ -51,6 +51,11 @@ jobs:
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c main.c -o build/main-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail.o
           $CC $CFLAGS -o build/mmenu-allocfail build/main-allocfail.o build/allocFail.o -lncursesw
+      - name: C23 language-mode smoke build
+        if: matrix.mode == 'release' && steps.compile.outcome == 'success'
+        env:
+          CC: ${{ matrix.compiler }}
+        run: sh tests/c23-smoke.sh
       - name: Install pinned skim reference binary
         if: matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: |
@@ -67,7 +72,7 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/streaming.sh
       - name: Clean release smoke and public-header build
         if: always() && steps.compile.outcome == 'success'
         env:
@@ -75,7 +80,7 @@ jobs:
         run: sh tests/release-check.sh
       - name: GCC static analyzer
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release' && steps.compile.outcome == 'success'
-        run: gcc -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c -lncursesw
+        run: gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c -lncursesw
       - name: Input capacity overflow regression
         if: always() && steps.compile.outcome == 'success'
         run: build/input-capacity-test
@@ -85,6 +90,9 @@ jobs:
       - name: Interactive C API regression suite
         if: always() && steps.compile.outcome == 'success'
         run: sh tests/interactive.sh build/api-test build/api-test-allocfail
+      - name: Streaming input regression suite
+        if: always() && steps.compile.outcome == 'success'
+        run: sh tests/streaming.sh build/mmenu
       - name: Ranking-quality baseline
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/ranking-baseline.sh build/mmenu build/ranking-baseline.csv
@@ -93,7 +101,7 @@ jobs:
         env:
           LC_ALL: C.UTF-8
         run: |
-          clang -O1 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined -D_DEFAULT_SOURCE -o build/fuzz-matcher tests/fuzz/matcher.c -lncursesw
+          clang -O1 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined -D_DEFAULT_SOURCE -o build/fuzz-matcher tests/fuzz/matcher.c -lncursesw
           timeout 45s build/fuzz-matcher -max_total_time=15 -max_len=8192 -print_final_stats=1 tests/fuzz/corpus
       - name: Allocation-failure injection
         if: always() && steps.compile.outcome == 'success'
@@ -110,8 +118,13 @@ jobs:
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         env:
           CC: gcc
-          BENCHMARK_CFLAGS: -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE
+          BENCHMARK_CFLAGS: -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE
         run: sh tests/benchmark.sh build/mmenu build/performance.csv
+      - name: Matcher throughput measurements
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        env:
+          CC: gcc
+        run: sh tests/matcher-throughput.sh build/mmenu build/matcher-throughput.csv
       - name: Interactive first-paint measurements
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/interactive-benchmark.sh build/mmenu build/interactive-first-paint.csv
@@ -127,7 +140,7 @@ jobs:
           BaselineDir="$RUNNER_TEMP/mmenu-baseline-src"
           BaselineBin="$RUNNER_TEMP/mmenu-baseline-bin"
           git worktree add --detach "$BaselineDir" "$BASE_SHA"
-          gcc -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o "$BaselineBin" "$BaselineDir/main.c" -lncursesw
+          gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o "$BaselineBin" "$BaselineDir/main.c" -lncursesw
           sh tests/performance-regression.sh "$BaselineBin" build/mmenu build/performance-regression.csv
       - name: Upload performance results
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'

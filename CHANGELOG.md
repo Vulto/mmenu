@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
+
 ## 1.0.0 - 2026-10-11
 
 ### Added

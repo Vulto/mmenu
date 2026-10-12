@@ -12,7 +12,21 @@ CheckSelection() {
     Name=$1
     Expected=$2
     Keys=$3
-    if ! { sleep 0.2; printf '%b' "$Keys"; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+    SecondKey=${8:-}
+    if [ -n "$SecondKey" ]; then
+        if { sleep 0.5; printf '%b' "$Keys"; sleep 0.1; printf '%b' "$SecondKey"; sleep 0.1; printf '\n'; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+            InputStatus=0
+        else
+            InputStatus=$?
+        fi
+    else
+        if { sleep 0.2; printf '%b' "$Keys"; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+            InputStatus=0
+        else
+            InputStatus=$?
+        fi
+    fi
+    if [ "$InputStatus" -ne 0 ]; then
         printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
         cat "$TmpDir/error" >&2
         Failures=$((Failures + 1))
@@ -35,6 +49,24 @@ CheckSelection() {
         Failures=$((Failures + 1))
     else
         printf 'PASS: %s\n' "$Name"
+    fi
+}
+
+CheckStreamApi() {
+    if ! { sleep 0.5; printf '\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin stream" /dev/null > "$TmpDir/stream-output" 2> "$TmpDir/stream-error"; then
+        printf 'FAIL: configured C API streaming callback did not exit cleanly\n' >&2
+        cat "$TmpDir/stream-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/stream-output" > "$TmpDir/stream-plain"
+    if grep -aFq 'MMENU_RESULT=1' "$TmpDir/stream-plain"; then
+        printf 'PASS: configured C API accepts asynchronously supplied records\n'
+    else
+        printf 'FAIL: configured C API did not filter streamed records correctly\n' >&2
+        tail -c 2000 "$TmpDir/stream-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
     fi
 }
 
@@ -118,7 +150,7 @@ CheckUnicodePreviewClipping() {
 }
 CheckUnicodePreviewClipping
 
-CheckSelection 'backspacing an initial query broadens the match set' 1 "\177$(TERM=xterm tput kcud1)\n" configured-query-edit
+CheckSelection 'backspacing an initial query broadens the match set' 1 '\177' configured-query-edit '' '' C.UTF-8 "$(TERM=xterm tput kcud1)"
 CheckSelection 'custom navigation and accept keys work as aliases' 1 'jx' configured-keys
 CheckSelection 'exact matching remains correct while typing a multi-character query' 0 'alpha\n' exact-typing
 CheckMultiSelection() {
@@ -387,6 +419,8 @@ CheckInvalidLocaleText C invalid-utf8 'option 0 is not valid in the current loca
 CheckInvalidLocaleText C.UTF-8 invalid-utf8 'option 0 is not valid in the current locale'
 CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current locale'
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
+
+CheckStreamApi
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

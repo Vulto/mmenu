@@ -455,3 +455,22 @@ RunWithNthStreaming
 RunAcceptNthStreaming
 RunNthStreaming
 RunFuzzyNoSortStreaming
+
+RunTiebreakStreaming() {
+    if ! { printf 'ab-long\nab\n'; sleep 0.6; printf '\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin --fuzzy --tiebreak length --query ab -t" /dev/null > "$TmpDir/tiebreak-terminal" 2> "$TmpDir/tiebreak-error"; then
+        printf 'FAIL: streamed fuzzy tie-break did not exit cleanly\n' >&2
+        cat "$TmpDir/tiebreak-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/tiebreak-terminal" > "$TmpDir/tiebreak-plain"
+    if grep -aFxq '1' "$TmpDir/tiebreak-plain"; then
+        printf 'PASS: streamed fuzzy tie-break uses the configured ordering\n'
+    else
+        printf 'FAIL: streamed fuzzy tie-break selected the wrong index\n' >&2
+        tail -c 2000 "$TmpDir/tiebreak-terminal" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    fi
+}
+RunTiebreakStreaming

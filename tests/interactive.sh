@@ -287,7 +287,7 @@ CheckApiContract() {
     elif ! grep -Fq 'MMENU_API_RESULT=invalid-rejected' "$TmpDir/api-output"; then
         printf 'FAIL: API contract %s was not rejected cleanly\n' "$Mode" >&2
         Failures=$((Failures + 1))
-    elif ! grep -Fq "$Diagnostic" "$TmpDir/api-error"; then
+    elif ! grep -Fq -- "$Diagnostic" "$TmpDir/api-error"; then
         printf 'FAIL: API contract %s omitted diagnostic: %s\n' "$Mode" "$Diagnostic" >&2
         cat "$TmpDir/api-error" >&2
         Failures=$((Failures + 1))

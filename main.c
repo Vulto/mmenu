@@ -737,8 +737,8 @@ int main(int argc, char **argv) {
         return argument_error("--extended cannot be combined with whole-record --exact");
     if (invert_mode && !filter_seen)
         return argument_error("--invert-match requires --filter");
-    if (no_sort && (!fuzzy_mode || !filter_seen))
-        return argument_error("--no-sort requires --fuzzy and --filter");
+    if (no_sort && !fuzzy_mode)
+        return argument_error("--no-sort requires --fuzzy");
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
@@ -758,7 +758,8 @@ int main(int argc, char **argv) {
         return argument_error("--preview command must not be empty");
     unsigned int match_flags = (fuzzy_mode ? MMENU_FUZZY : 0u) |
                                (exact_mode ? MMENU_EXACT : 0u) |
-                               (extended_mode ? MMENU_EXTENDED : 0u) | case_mode;
+                               (extended_mode ? MMENU_EXTENDED : 0u) |
+                               (no_sort ? MMENU_NO_SORT : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;

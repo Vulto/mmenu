@@ -30,7 +30,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Scoring schemes (--scheme=default|path|history) — missing — no selectable scoring scheme.
 - [ ] Fuzzy algorithms (--algo=v1|v2) — missing — only the existing matcher is available.
 - [x] Search field selection (--nth) — present — 1-based field indexes, negative indexes, and ranges apply to batch and interactive matching while raw records remain displayed/output.
-- [ ] Display field transformation (--with-nth) — missing.
+- [x] Display field transformation (--with-nth) — present — interactive-only field projection with original-record output preserved.
 - [ ] Accepted-output field selection/template (--accept-nth) — missing.
 - [x] Unsorted matching (--no-sort / +s) — present — fuzzy batch, interactive, extended, and streaming results preserve input order.
 - [ ] Custom field delimiter (--delimiter / -d) — partial — literal delimiter strings work with --nth; regex delimiter semantics remain unimplemented.

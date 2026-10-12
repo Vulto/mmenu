@@ -19,6 +19,12 @@ static const char *test_search_text(const char *option, int index, void *userdat
     return search_text[index];
 }
 
+static const char *test_display_text(const char *option, int index, void *userdata) {
+    (void)option;
+    const char *const *display_text = userdata;
+    return display_text[index];
+}
+
 static int test_preview_callback(const char *option, int index,
                                 const wchar_t *query, char *output,
                                 size_t output_size, void *userdata) {
@@ -145,10 +151,13 @@ int main(int argc, char **argv)
     if (argc > 1 && strcmp(argv[1], "nth-api") == 0) {
         const char *field_options[] = {"first alpha", "second needle", "third other"};
         const char *search_text[] = {"alpha", "needle", "other"};
+        const char *display_text[] = {"DISPLAY_ALPHA", "DISPLAY_NEEDLE", "DISPLAY_OTHER"};
         mmenu_config config = {
             .initial_query = "needle",
             .search_text = test_search_text,
-            .search_text_userdata = (void *)search_text
+            .search_text_userdata = (void *)search_text,
+            .display_text = test_display_text,
+            .display_text_userdata = (void *)display_text
         };
         int result = mmenuConfigured(field_options, 3, prompt, 0, &config);
         printf("MMENU_RESULT=%d\n", result);

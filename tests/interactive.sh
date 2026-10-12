@@ -187,6 +187,26 @@ CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
 CheckSelection 'interactive fuzzy no-sort preserves input order' 0 '\n' fuzzy-no-sort
 CheckSelection 'disabled search keeps all options visible for a non-matching query' 0 '\n' disabled
 CheckSelection 'custom searchable text callback filters without changing displayed records' 1 '\n' nth-api
+CheckDisplayText() {
+    if ! { sleep 0.2; printf '\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin nth-api" /dev/null > "$TmpDir/display-output" 2> "$TmpDir/display-error"; then
+        printf 'FAIL: display-text callback test did not exit cleanly\n' >&2
+        cat "$TmpDir/display-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/display-output" > "$TmpDir/display-plain"
+    if ! grep -aFq 'DISPLAY_NEEDLE' "$TmpDir/display-plain" ||
+       ! grep -aFq 'MMENU_RESULT=1' "$TmpDir/display-plain"; then
+        printf 'FAIL: custom display text was not rendered\n' >&2
+        cat "$TmpDir/display-plain" >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: custom display text is rendered while matching and return indexes stay stable\n'
+    fi
+}
+CheckDisplayText
+
 
 CheckFuzzyHighlight() {
     if ! { sleep 0.2; printf 'ndl\n'; } |

@@ -118,7 +118,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--no-sort`: with `--fuzzy`, keep matching records in original input order instead of ranking by score in both interactive and batch modes; requires `--fuzzy`.
 - `--disabled`: interactive-only; keep all options visible regardless of the current query.
 - `--nth SPEC`: search only the selected 1-based fields or ranges (for example `1,3`, `2..4`, or `1,-1`). Matching uses the selected fields joined by spaces, while display and output preserve the original record.
-- `--accept-nth SPEC`: output only the selected fields from each accepted record. This is independent of `--nth`; the two options can use the same literal `--delimiter`/`-d` setting.
+- `--accept-nth SPEC`: output only the selected fields from each accepted record. This is independent of `--nth`; the two options can use the same literal `--delimiter`/`-d` setting. It cannot be combined with `--index` or `--format`.
 - `--delimiter TEXT`/`-d TEXT`: split fields using a literal, non-empty delimiter string; requires `--nth`. Regex delimiters are not supported.
 - `--format FORMAT`: in batch mode, expand `{}` to the matched record, `{index}` to its original zero-based input index, and `{query}` to the query. It can be combined with `--print0`, but not `-t`; requires `--filter`.
 - `--multi`: interactive multi-selection; Tab toggles the highlighted option and Enter emits all selected records (or indexes with `-t`). It cannot be combined with `--filter`.

@@ -23,16 +23,16 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Extended query syntax, including whitespace-separated terms — partial — current matching is simpler and does not implement the complete query grammar.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [ ] Extended-search disable (--no-extended / +x) — missing — no extended-search parser exists.
-- [ ] Case-insensitive matching (--ignore-case / -i) — missing — no selectable case mode.
-- [ ] Case-sensitive matching (--no-ignore-case / +i) — missing — no selectable case mode.
-- [ ] Smart-case matching (--smart-case) — missing — no query-sensitive case policy.
+- [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
+- [x] Case-sensitive matching (--no-ignore-case / +i) — present — ASCII case-sensitive matching in substring, fuzzy, extended, and interactive paths.
+- [x] Smart-case matching (--smart-case) — present — query-wide ASCII uppercase detection with CLI/API coverage.
 - [ ] Literal matching and Latin normalization controls (--literal) — missing — no equivalent option.
 - [ ] Scoring schemes (--scheme=default|path|history) — missing — no selectable scoring scheme.
 - [ ] Fuzzy algorithms (--algo=v1|v2) — missing — only the existing matcher is available.
 - [ ] Search field selection (--nth) — missing — all input text is searched.
 - [ ] Display field transformation (--with-nth) — missing.
 - [ ] Accepted-output field selection/template (--accept-nth) — missing.
-- [ ] Unsorted matching (--no-sort / +s) — partial — batch fuzzy mode supports --no-sort; interactive behavior and option compatibility differ.
+- [x] Unsorted matching (--no-sort / +s) — present — fuzzy batch, interactive, extended, and streaming results preserve input order.
 - [ ] Custom field delimiter (--delimiter / -d) — missing.
 - [ ] Tail-limited input (--tail) — missing.
 - [ ] Disabled search (--disabled) — missing.

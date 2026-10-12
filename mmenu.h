@@ -448,7 +448,7 @@ static int FuzzyScoreLengthMetrics(const char *candidate, const wchar_t *query,
         if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)
             return 0;
 
-        if (current == L'/' || current == L'\\\\') last_separator = candidate_pos;
+        if (current == L'/' || current == L'\\') last_separator = candidate_pos;
         if (query_pos < query_len &&
             (case_sensitive ? current == query[query_pos] : FoldAscii(current) == FoldAscii(query[query_pos]))) {
             score += 10;
@@ -2008,7 +2008,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
+                if (!FuzzyCollect(current_match_options, n_options, input, flags, &tiebreak, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,

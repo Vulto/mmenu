@@ -36,7 +36,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Custom field delimiter (--delimiter / -d) — present — POSIX extended regular expressions support alternatives, repetitions, and character classes; invalid and empty-width expressions are rejected.
 - [ ] Tail-limited input (--tail) — missing.
 - [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
-- [ ] Configurable tie-breaking (--tiebreak) — missing.
+- [x] Configurable tie-breaking (--tiebreak) — present — equal-score fuzzy matches can be ordered by length, begin/end position, index, chunk count, pathname/basename match, and score; input index remains the stable fallback.
 - [x] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — present — covered by CLI and interactive API regressions.
 - [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.
 - [ ] Ranking-quality fixtures and stable ranking baseline — partial — a baseline exists; the current matcher still needs comprehensive quality comparison.
@@ -443,6 +443,14 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Cover regex delimiters across `--nth`, `--with-nth`, and `--accept-nth`, including anchored behavior, malformed expressions, and empty-width expressions.
 - [x] Include field-selection and regex-delimiter allocations in exhaustive CLI allocation-failure sweeps.
 - [x] Run the full GCC/Clang release and sanitizer matrix before merging.
+
+### M2d — Configurable fuzzy tie-breaking
+
+- [x] Preserve score as the primary ranking key and keep input index as the deterministic default/fallback.
+- [x] Add `--tiebreak` and additive `mmenu_config.tiebreak` support for length, begin, end, index, chunk count, pathname/basename, and score keys.
+- [x] Apply the same tie-break ordering to simple fuzzy queries, extended fuzzy queries, batch filtering, and interactive/streaming filtering.
+- [x] Reject unknown, duplicate, empty, and malformed tie-break keys; require fuzzy mode when configured.
+- [ ] Run the full GCC/Clang release and sanitizer matrix before merging.
 
 ## Measurement notes
 

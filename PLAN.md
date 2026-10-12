@@ -35,7 +35,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Unsorted matching (--no-sort / +s) — present — fuzzy batch, interactive, extended, and streaming results preserve input order.
 - [ ] Custom field delimiter (--delimiter / -d) — missing.
 - [ ] Tail-limited input (--tail) — missing.
-- [ ] Disabled search (--disabled) — missing.
+- [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
 - [ ] Configurable tie-breaking (--tiebreak) — missing.
 - [ ] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — missing — no fzf extended-search grammar.
 - [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.

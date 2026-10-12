@@ -27,7 +27,7 @@
 #include <stdint.h>
 
 /* MMENU_FUZZY enables subsequence matching and score-ranked results. */
-enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u, MMENU_DISABLED = 64u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
    Default matching is ASCII-case-insensitive substring matching; non-ASCII
@@ -994,7 +994,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
                                      const wchar_t *query, unsigned int flags,
                                      filt *filtered, long long **scores,
                                      int *scores_cap) {
-    if (!query[0]) {
+    if ((flags & MMENU_DISABLED) || !query[0]) {
         for (int i = start; i < end; i++)
             if (!filt_push(filtered, i)) return 0;
         return 1;
@@ -1173,7 +1173,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT)) ||
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT | MMENU_DISABLED)) ||
         ((flags & MMENU_CASE_SENSITIVE) && (flags & MMENU_SMART_CASE)) ||
         ((flags & MMENU_NO_SORT) && !(flags & MMENU_FUZZY)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
@@ -1337,7 +1337,7 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     /* Initial filter (show all for empty query - fast path) */
     filt_clear(&filtered);
-    if (input[0] == L'\0') {
+    if ((flags & MMENU_DISABLED) || input[0] == L'\0') {
         for (int i = 0; i < n_options; i++) {
             if (!filt_push(&filtered, i)) goto cleanup;
         }
@@ -1429,7 +1429,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                 printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                 option_cols = menu_cols - 4;
             }
-            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input, flags);
+            if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED))
+            RenderFuzzyOption(w, option_cols, input, flags);
             else printw("%.*ls", option_cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
             clrtoeol();
@@ -1520,7 +1521,11 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
 
         if (need_filter) {
-            if (stream_changed && !query_edited) {
+            if (flags & MMENU_DISABLED) {
+                filt_clear(&filtered);
+                for (int i = 0; i < n_options; i++)
+                    if (!filt_push(&filtered, i)) goto cleanup;
+            } else if (stream_changed && !query_edited) {
                 if (!mmenu_filter_stream_batch(current_options, stream_start_count,
                                                n_options, input, flags, &filtered,
                                                &filtered_scores, &filtered_scores_cap))
@@ -1738,7 +1743,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                     printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                     option_cols = menu_cols - 4;
                 }
-                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input, flags);
+                if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED))
+            RenderFuzzyOption(w, option_cols, input, flags);
                 else printw("%.*ls", option_cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
                 clrtoeol();

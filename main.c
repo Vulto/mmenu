@@ -461,6 +461,7 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--disabled keeps all options visible without filtering as the query changes.\n"
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
         "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
@@ -550,6 +551,7 @@ int main(int argc, char **argv) {
     int fuzzy_mode = 0;
     int exact_mode = 0;
     int extended_mode = 0;
+    int disabled_mode = 0;
     unsigned int case_mode = 0;
     int invert_mode = 0;
     int no_sort = 0;
@@ -576,6 +578,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--fuzzy")) {
             fuzzy_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--disabled")) {
+            disabled_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--ignore-case") || !strcmp(arg, "-i")) {
@@ -738,6 +744,8 @@ int main(int argc, char **argv) {
         return argument_error("--extended cannot be combined with whole-record --exact");
     if (invert_mode && !filter_seen)
         return argument_error("--invert-match requires --filter");
+    if (disabled_mode && filter_seen)
+        return argument_error("--disabled is only available in interactive mode");
     if (no_sort && !fuzzy_mode)
         return argument_error("--no-sort requires --fuzzy");
 
@@ -760,7 +768,8 @@ int main(int argc, char **argv) {
     unsigned int match_flags = (fuzzy_mode ? MMENU_FUZZY : 0u) |
                                (exact_mode ? MMENU_EXACT : 0u) |
                                (extended_mode ? MMENU_EXTENDED : 0u) |
-                               (no_sort ? MMENU_NO_SORT : 0u) | case_mode;
+                               (no_sort ? MMENU_NO_SORT : 0u) |
+                               (disabled_mode ? MMENU_DISABLED : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;

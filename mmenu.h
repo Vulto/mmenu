@@ -1269,12 +1269,44 @@ static int mmenu_scores_reserve(long long **scores, int *capacity, int needed) {
 
 /* Filter only newly arrived records. Fuzzy results are inserted by score while
    preserving input order for ties; substring/exact results naturally append. */
+static int mmenu_metrics_reserve(FuzzyMetrics **metrics, int *capacity, int needed) {
+    if (needed <= *capacity) return 1;
+    int next;
+    if (!mmenu_next_capacity(*capacity, INITIAL_CAP, sizeof(**metrics), &next)) {
+        perror("mmenu: streamed match metrics capacity");
+        return 0;
+    }
+    while (next < needed) {
+        if (next > INT_MAX / 2) {
+            errno = ENOMEM;
+            perror("mmenu: streamed match metrics capacity");
+            return 0;
+        }
+        next *= 2;
+    }
+    size_t bytes;
+    if (!mmenu_size_mul((size_t)next, sizeof(**metrics), &bytes)) {
+        perror("mmenu: streamed match metrics capacity");
+        return 0;
+    }
+    FuzzyMetrics *grown = realloc(*metrics, bytes);
+    if (!grown) {
+        if (errno == 0) errno = ENOMEM;
+        perror("mmenu: growing streamed match metrics");
+        return 0;
+    }
+    *metrics = grown;
+    *capacity = next;
+    return 1;
+}
+
 static int mmenu_filter_stream_batch(const char *const *options,
                                      int start, int end,
                                      const wchar_t *query, unsigned int flags,
                                      const mmenu_tiebreak_spec *tiebreak,
                                      filt *filtered, long long **scores,
-                                     int *scores_cap) {
+                                     int *scores_cap, FuzzyMetrics **metrics,
+                                     int *metrics_cap) {
     if ((flags & MMENU_DISABLED) || !query[0]) {
         for (int i = start; i < end; i++)
             if (!filt_push(filtered, i)) return 0;

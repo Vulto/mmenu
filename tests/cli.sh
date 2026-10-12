@@ -127,6 +127,35 @@ else
     Pass 'no-sort requires fuzzy batch mode'
 fi
 
+# --nth changes the searchable fields but emits the original record.
+printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c:42\nid:src/main.c:12\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth selects fields for substring matching while preserving raw output' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --extended --filter '^src' --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth field selection applies to extended queries' "$TmpDir/expected" "$TmpDir/actual"
+printf 'one two three\nalpha beta gamma\n' > "$TmpDir/input"
+printf 'one two three\n' > "$TmpDir/expected"
+"$Bin" --filter 'one three' --nth '1,-1' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth supports negative field indexes and joins selected fields' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmenu.c:42\n' > "$TmpDir/expected"
+"$Bin" --exact --filter src/mmenu.c --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth field selection applies to exact matching' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --filter x --nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid nth expression must fail'
+elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; then
+    Fail 'invalid nth expression must explain the error'
+else
+    Pass 'invalid nth expressions are rejected'
+fi
+if "$Bin" --delimiter : --filter x < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'delimiter without nth must fail'
+elif ! grep -Fq 'requires --nth' "$TmpDir/stderr"; then
+    Fail 'delimiter without nth must explain the error'
+else
+    Pass 'delimiter requires nth'
+fi
+
 # NUL-delimited records support both terminated and final unterminated input.
 printf 'alpha\000beta\000alpha beta' > "$TmpDir/input0"
 printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"

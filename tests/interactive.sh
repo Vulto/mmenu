@@ -185,6 +185,7 @@ CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
 CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
 CheckSelection 'interactive fuzzy no-sort preserves input order' 0 '\n' fuzzy-no-sort
+CheckSelection 'disabled search keeps all options visible for a non-matching query' 0 '\n' disabled
 
 CheckFuzzyHighlight() {
     if ! { sleep 0.2; printf 'ndl\n'; } |

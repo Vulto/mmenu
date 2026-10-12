@@ -164,6 +164,12 @@ printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/expected"
 LC_ALL=C "$Bin" --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'ASCII-insensitive substring matching works in the C locale' "$TmpDir/expected" "$TmpDir/actual"
 
+# ASCII folding must not case-fold non-ASCII UTF-8 bytes.
+printf 'ÄLPHA\nälpha\n' > "$TmpDir/input"
+printf 'älpha\n' > "$TmpDir/expected"
+"$Bin" --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'non-ASCII case variants remain distinct' "$TmpDir/expected" "$TmpDir/actual"
+
 # Fuzzy mode is opt-in; legacy substring mode must keep its existing contract.
 printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
 printf 'src/mmh.c\nsrc/mmenu.h\nsrc/m-m-h.c\n' > "$TmpDir/expected"

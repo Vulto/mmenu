@@ -292,6 +292,48 @@ static char *select_nth_fields(const char *record, const char *spec,
     return selected;
 }
 
+static void print_nth_fields(const char *record, const char *spec,
+                            const char *delimiter, int nul_delimiter) {
+    int field_count = nth_field_count(record, delimiter);
+    if (field_count < 0) {
+        errno = ENOMEM;
+        return;
+    }
+    int output_fields = 0;
+    if (delimiter && *delimiter) {
+        size_t delimiter_len = strlen(delimiter);
+        const char *start = record;
+        int field = 1;
+        for (;;) {
+            const char *end = strstr(start, delimiter);
+            size_t length = end ? (size_t)(end - start) : strlen(start);
+            if (nth_selects_field(spec, field, field_count)) {
+                if (output_fields++) fputc(' ', stdout);
+                if (length) fwrite(start, 1, length, stdout);
+            }
+            if (!end) break;
+            start = end + delimiter_len;
+            field++;
+        }
+    } else {
+        const unsigned char *cursor = (const unsigned char *)record;
+        int field = 1;
+        while (*cursor) {
+            while (*cursor && isspace(*cursor)) cursor++;
+            if (!*cursor) break;
+            const unsigned char *start = cursor;
+            while (*cursor && !isspace(*cursor)) cursor++;
+            size_t length = (size_t)(cursor - start);
+            if (nth_selects_field(spec, field, field_count)) {
+                if (output_fields++) fputc(' ', stdout);
+                fwrite(start, 1, length, stdout);
+            }
+            field++;
+        }
+    }
+    fputc(nul_delimiter ? '\0' : '\n', stdout);
+}
+
 /* Nonblocking stdin source. The reusable record buffer grows only for unusually
    long records; completed records are copied into the existing arena. */
 typedef struct {
@@ -651,6 +693,7 @@ static void print_usage(FILE *out) {
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
         "--nth SPEC searches selected 1-based fields/ranges; --delimiter/-d sets a literal separator.\n"
+        "--accept-nth SPEC outputs selected fields from each accepted record.\n"
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
         "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
@@ -671,11 +714,14 @@ static void print_record(const char *record, int nul_delimiter) {
 }
 
 static void print_match(const char *record, int index, int output_index,
-                        int nul_delimiter) {
+                        int nul_delimiter, const char *accept_nth,
+                        const char *field_delimiter) {
     if (output_index) {
         char index_text[32];
         snprintf(index_text, sizeof(index_text), "%d", index);
         print_record(index_text, nul_delimiter);
+    } else if (accept_nth) {
+        print_nth_fields(record, accept_nth, field_delimiter, nul_delimiter);
     } else {
         print_record(record, nul_delimiter);
     }
@@ -715,9 +761,11 @@ static void print_formatted_match(const char *record, int index,
 
 static void print_batch_match(const char *record, int index, int output_index,
                               int nul_delimiter, const char *format,
-                              const char *query) {
+                              const char *query, const char *accept_nth,
+                              const char *field_delimiter) {
     if (format) print_formatted_match(record, index, format, query, nul_delimiter);
-    else print_match(record, index, output_index, nul_delimiter);
+    else print_match(record, index, output_index, nul_delimiter,
+                     accept_nth, field_delimiter);
 }
 
 static int flush_stdout(void) {
@@ -757,8 +805,10 @@ int main(int argc, char **argv) {
     int bind_cancel_seen = 0, bind_toggle_seen = 0, bind_backspace_seen = 0;
     const char *output_format = NULL;
     const char *nth_spec = NULL;
+    const char *accept_nth = NULL;
     const char *field_delimiter = NULL;
     int nth_seen = 0;
+    int accept_nth_seen = 0;
     int delimiter_seen = 0;
     const char *prompt = "> ";
     int positional_count = 0;
@@ -890,6 +940,18 @@ int main(int argc, char **argv) {
             nth_seen = 1;
             continue;
         }
+        if (!strcmp(arg, "--accept-nth")) {
+            if (accept_nth_seen || i + 1 >= argc) return argument_error("--accept-nth requires one field expression");
+            accept_nth = argv[++i];
+            accept_nth_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--accept-nth=", 13)) {
+            if (accept_nth_seen) return argument_error("--accept-nth may only be specified once");
+            accept_nth = arg + 13;
+            accept_nth_seen = 1;
+            continue;
+        }
         if (!strcmp(arg, "--delimiter") || !strcmp(arg, "-d")) {
             if (delimiter_seen || i + 1 >= argc) return argument_error("--delimiter requires one literal delimiter");
             field_delimiter = argv[++i];
@@ -967,8 +1029,12 @@ int main(int argc, char **argv) {
         return argument_error("--nth must be a comma-separated list of fields or ranges");
     if (delimiter_seen && (!field_delimiter || !*field_delimiter))
         return argument_error("--delimiter must not be empty");
-    if (delimiter_seen && !nth_seen)
-        return argument_error("--delimiter requires --nth");
+    if (accept_nth_seen && !nth_spec_valid(accept_nth))
+        return argument_error("--accept-nth must be a comma-separated list of fields or ranges");
+    if (delimiter_seen && !nth_seen && !accept_nth_seen)
+        return argument_error("--delimiter requires --nth or --accept-nth");
+    if (accept_nth_seen && (output_index || output_format))
+        return argument_error("--accept-nth cannot be combined with --index or --format");
     if (no_sort && !fuzzy_mode)
         return argument_error("--no-sort requires --fuzzy");
 
@@ -1108,7 +1174,7 @@ int main(int argc, char **argv) {
                                                     match_flags, &score);
                     if (invert_mode ? !matched : matched)
                         print_batch_match(opts.lines[i], i, output_index, output_nul,
-                                          output_format, filter_query);
+                                          output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
                 mmenu_query_free(&query);
             } else {
@@ -1125,7 +1191,7 @@ int main(int argc, char **argv) {
                 for (int i = 0; i < match_count; i++) {
                     int index = matches[i].index;
                     print_batch_match(opts.lines[index], index, output_index,
-                                      output_nul, output_format, filter_query);
+                                      output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
                 free(matches);
             }
@@ -1155,14 +1221,14 @@ int main(int argc, char **argv) {
                     matched = MmenuStrstrPolicy(match_lines[i], filter_query, match_flags) != NULL;
                 }
                 if (!matched) {
-                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }
             free(wide_query);
         } else if (exact_mode) {
             for (int i = 0; i < opts.count; i++) {
                 if (strcmp(match_lines[i], filter_query) == 0) {
-                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }
         } else if (fuzzy_mode && no_sort) {
@@ -1179,7 +1245,7 @@ int main(int argc, char **argv) {
             for (int i = 0; i < opts.count; i++) {
                 long long score;
                 if (FuzzyScore(match_lines[i], query, match_flags, &score)) {
-                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }
             free(query);
@@ -1204,14 +1270,14 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < match_count; i++) {
                 int index = matches[i].index;
-                print_batch_match(opts.lines[index], index, output_index, output_nul, output_format, filter_query);
+                print_batch_match(opts.lines[index], index, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
             }
             free(matches);
             free(query);
         } else {
             for (int i = 0; i < opts.count; i++) {
                 if (MmenuStrstrPolicy(match_lines[i], filter_query, match_flags)) {
-                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query);
+                    print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }
         }
@@ -1236,7 +1302,7 @@ int main(int argc, char **argv) {
             print_record("", output_nul);
         } else {
             for (int i = 0; i < selected_count; i++)
-                print_match(opts.lines[selected[i]], selected[i], output_index, output_nul);
+                print_match(opts.lines[selected[i]], selected[i], output_index, output_nul, accept_nth, delimiter_seen ? field_delimiter : NULL);
         }
         free(selected);
     } else {
@@ -1251,7 +1317,7 @@ int main(int argc, char **argv) {
         if (chosen == -1) {
             print_record("", output_nul);
         } else {
-            print_match(opts.lines[chosen], chosen, output_index, output_nul);
+            print_match(opts.lines[chosen], chosen, output_index, output_nul, accept_nth, delimiter_seen ? field_delimiter : NULL);
         }
     }
 

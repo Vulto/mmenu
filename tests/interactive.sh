@@ -276,6 +276,7 @@ CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 CheckApiContract invalid-flags 'unsupported API flags'
+CheckApiContract invalid-case-flags 'conflicting case policy flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-query 'initial query exceeds'
 
@@ -420,6 +421,7 @@ CheckInvalidLocaleText C.UTF-8 invalid-utf8 'option 0 is not valid in the curren
 CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current locale'
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
 
+CheckSelection 'case-sensitive matching is exposed through the C API' 1 '\n' case-sensitive
 CheckSelection 'extended query AND terms work in the interactive C API' 1 '\n' extended
 
 CheckStreamApi

@@ -252,8 +252,11 @@ static int MmenuTieBreakParse(const char *source, mmenu_tiebreak_spec *spec,
 {
     if (!spec) return 0;
     spec->count = 0;
-    const char *keys = source && *source ? source : "index";
-    const char *cursor = keys;
+    if (source && !*source) {
+        if (error && error_size) snprintf(error, error_size, "--tiebreak must not be empty");
+        return 0;
+    }
+    const char *cursor = source ? source : "index";
     while (*cursor) {
         const char *end = strchr(cursor, ',');
         size_t length = end ? (size_t)(end - cursor) : strlen(cursor);
@@ -290,6 +293,10 @@ static int MmenuTieBreakParse(const char *source, mmenu_tiebreak_spec *spec,
         spec->keys[spec->count++] = key;
         if (!end) break;
         cursor = end + 1;
+        if (!*cursor) {
+            if (error && error_size) snprintf(error, error_size, "--tiebreak contains an empty key");
+            return 0;
+        }
     }
     int has_index = 0;
     for (int i = 0; i < spec->count; i++)

@@ -115,14 +115,17 @@ CheckEqual 'fuzzy no-sort preserves original indexes' "$TmpDir/expected" "$TmpDi
 
 # Fuzzy tiebreak keys order equal-score matches after the primary score.
 printf 'ab-long\nab\n' > "$TmpDir/input"
-printf 'ab-long\nab\n' > "$TmpDir/expected"
+printf 'ab\nab-long\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --filter ab < "$TmpDir/input" > "$TmpDir/actual"
-CheckEqual 'default fuzzy tiebreak preserves input order for equal scores' "$TmpDir/expected" "$TmpDir/actual"
+CheckEqual 'default fuzzy tiebreak prefers shorter equal-score matches' "$TmpDir/expected" "$TmpDir/actual"
+printf 'ab-long\nab\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --tiebreak=index --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'index tiebreak preserves input order for equal scores' "$TmpDir/expected" "$TmpDir/actual"
 printf 'ab\nab-long\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --tiebreak=length --filter ab < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'length tiebreak prefers shorter equal-score matches' "$TmpDir/expected" "$TmpDir/actual"
-"$Bin" --fuzzy --tiebreak=length,begin,end,index,chunk,pathname,score --filter ab < "$TmpDir/input" > "$TmpDir/actual"
-CheckEqual 'all supported tiebreak keys parse and compose' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --fuzzy --tiebreak=length,begin,end,chunk,pathname,index --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'all supported tiebreak keys parse and compose with index last' "$TmpDir/expected" "$TmpDir/actual"
 if "$Bin" --fuzzy --tiebreak=length, --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'trailing empty tiebreak key must fail'
 elif ! grep -Fq 'contains an empty key' "$TmpDir/stderr"; then
@@ -136,6 +139,20 @@ elif ! grep -Fq 'is repeated' "$TmpDir/stderr"; then
     Fail 'duplicate tiebreak keys must explain the error'
 else
     Pass 'duplicate tiebreak keys are rejected'
+fi
+if "$Bin" --fuzzy --tiebreak=index,begin --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'index before the final tie-break key must fail'
+elif ! grep -Fq 'index must be the final key' "$TmpDir/stderr"; then
+    Fail 'index ordering error must be explained'
+else
+    Pass 'index is required to be the final tie-break key'
+fi
+if "$Bin" --fuzzy --tiebreak=score --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'unsupported score tiebreak key must fail'
+elif ! grep -Fq "invalid --tiebreak key 'score'" "$TmpDir/stderr"; then
+    Fail 'unsupported score key must explain the error'
+else
+    Pass 'unsupported tiebreak keys are rejected'
 fi
 if "$Bin" --tiebreak length --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'tiebreak without fuzzy mode must fail'

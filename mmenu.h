@@ -64,10 +64,14 @@ enum {
     MMENU_STREAM_PENDING = 2
 };
 typedef int (*mmenu_stream_next_callback)(void *userdata, const char **record);
+/* Return stable searchable text for an option; NULL signals an error. The
+   returned string must remain valid until the configured menu call returns. */
+typedef const char *(*mmenu_search_text_callback)(const char *option, int index,
+                                                   void *userdata);
 
 /* Optional interactive query, key aliases, preview, and input-stream callback.
-   Zero-valued key fields preserve the built-in keys; stream_userdata is passed
-   unchanged to stream_next. */
+   Zero-valued key fields preserve the built-in keys; stream_userdata and
+   search_text_userdata are passed unchanged to their callbacks. */
 typedef struct {
     const char *initial_query;
     wint_t key_up;
@@ -80,6 +84,8 @@ typedef struct {
     void *preview_userdata;
     mmenu_stream_next_callback stream_next;
     void *stream_userdata;
+    mmenu_search_text_callback search_text;
+    void *search_text_userdata;
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1159,6 +1165,10 @@ static int mmenu_internal(const char *const *options, int n_options,
                           const mmenu_config *config,
                           int **selected_indices, int *selected_count) {
     const char *const *current_options = options;
+    const char *const *current_match_options = options;
+    const char **match_options = NULL;
+    int match_options_cap = 0;
+    int use_search_text = config && config->search_text;
     const char **stream_options = NULL;
     int stream_options_cap = 0;
     int stream_finished = 0;
@@ -1310,6 +1320,36 @@ static int mmenu_internal(const char *const *options, int n_options,
     wint_t key_backspace = config ? config->key_backspace : 0;
 
     if (!filt_init(&filtered)) goto cleanup;
+    if (use_search_text) {
+        match_options_cap = n_options > INITIAL_CAP ? n_options : INITIAL_CAP;
+        size_t match_bytes;
+        if (!mmenu_size_mul((size_t)match_options_cap, sizeof(*match_options),
+                            &match_bytes)) {
+            perror("mmenu: searchable option vector size");
+            goto cleanup;
+        }
+        match_options = malloc(match_bytes);
+        if (!match_options) {
+            if (errno == 0) errno = ENOMEM;
+            perror("mmenu: allocating searchable option vector");
+            goto cleanup;
+        }
+        for (int i = 0; i < n_options; i++) {
+            match_options[i] = config->search_text(current_options[i], i,
+                                                    config->search_text_userdata);
+            if (!match_options[i]) {
+                fprintf(stderr, "mmenu: searchable text callback failed for option %d\n", i);
+                goto cleanup;
+            }
+            if (mbstowcs(NULL, match_options[i], 0) == (size_t)-1) {
+                fprintf(stderr, "mmenu: searchable text for option %d is not valid in the current locale\n", i);
+                goto cleanup;
+            }
+        }
+        current_match_options = (const char *const *)match_options;
+    } else {
+        current_match_options = current_options;
+    }
     if (multi) {
         size_t selected_capacity = config && config->stream_next
                                  ? (size_t)stream_options_cap : (size_t)n_options;
@@ -1344,7 +1384,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_EXTENDED) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!mmenu_extended_collect(current_options, 0, n_options, input, flags,
+        if (!mmenu_extended_collect(current_match_options, 0, n_options, input, flags,
                                     &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next && (flags & MMENU_FUZZY)) {
@@ -1365,7 +1405,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!FuzzyCollect(current_options, n_options, input, flags, &matches, &match_count))
+        if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next) {
             if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
@@ -1390,8 +1430,8 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
         if (q) {
             for (int i = 0; i < n_options; i++) {
-                if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                     MmenuStrstrPolicy(current_options[i], q, flags) != NULL) &&
+                if (((flags & MMENU_EXACT) ? strcmp(current_match_options[i], q) == 0 :
+                     MmenuStrstrPolicy(current_match_options[i], q, flags) != NULL) &&
                     !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
@@ -1429,7 +1469,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                 option_cols = menu_cols - 4;
             }
-            if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED))
+            if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text)
             RenderFuzzyOption(w, option_cols, input, flags);
             else printw("%.*ls", option_cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
@@ -1465,6 +1505,45 @@ static int mmenu_internal(const char *const *options, int n_options,
                                                &stream_finished, &stream_changed))
                 goto cleanup;
             current_options = (const char *const *)stream_options;
+            if (use_search_text) {
+                if (n_options > match_options_cap) {
+                    int new_cap;
+                    if (!mmenu_next_capacity(match_options_cap, INITIAL_CAP,
+                                             sizeof(*match_options), &new_cap)) {
+                        perror("mmenu: searchable option capacity");
+                        goto cleanup;
+                    }
+                    size_t match_bytes;
+                    if (!mmenu_size_mul((size_t)new_cap, sizeof(*match_options),
+                                        &match_bytes)) {
+                        perror("mmenu: searchable option capacity");
+                        goto cleanup;
+                    }
+                    const char **grown = realloc(match_options, match_bytes);
+                    if (!grown) {
+                        if (errno == 0) errno = ENOMEM;
+                        perror("mmenu: growing searchable options");
+                        goto cleanup;
+                    }
+                    match_options = grown;
+                    match_options_cap = new_cap;
+                }
+                for (int i = stream_start_count; i < n_options; i++) {
+                    match_options[i] = config->search_text(current_options[i], i,
+                                                            config->search_text_userdata);
+                    if (!match_options[i]) {
+                        fprintf(stderr, "mmenu: searchable text callback failed for option %d\n", i);
+                        goto cleanup;
+                    }
+                    if (mbstowcs(NULL, match_options[i], 0) == (size_t)-1) {
+                        fprintf(stderr, "mmenu: searchable text for option %d is not valid in the current locale\n", i);
+                        goto cleanup;
+                    }
+                }
+                current_match_options = (const char *const *)match_options;
+            } else {
+                current_match_options = current_options;
+            }
         }
         if (kc == ERR && !resized && !stream_changed) continue;
         if (resized) kc = OK;
@@ -1526,14 +1605,14 @@ static int mmenu_internal(const char *const *options, int n_options,
                 for (int i = 0; i < n_options; i++)
                     if (!filt_push(&filtered, i)) goto cleanup;
             } else if (stream_changed && !query_edited) {
-                if (!mmenu_filter_stream_batch(current_options, stream_start_count,
+                if (!mmenu_filter_stream_batch(current_match_options, stream_start_count,
                                                n_options, input, flags, &filtered,
                                                &filtered_scores, &filtered_scores_cap))
                     goto cleanup;
             } else if (flags & MMENU_EXTENDED) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!mmenu_extended_collect(current_options, 0, n_options, input,
+                if (!mmenu_extended_collect(current_match_options, 0, n_options, input,
                                             flags, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next && (flags & MMENU_FUZZY)) {
@@ -1556,7 +1635,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!FuzzyCollect(current_options, n_options, input, flags, &matches, &match_count))
+                if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
@@ -1599,8 +1678,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                     newf.count = 0;
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
-                        if ((flags & MMENU_EXACT) ? strcmp(current_options[oidx], q) == 0 :
-                            MmenuStrstrPolicy(current_options[oidx], q, flags) != NULL) {
+                        if ((flags & MMENU_EXACT) ? strcmp(current_match_options[oidx], q) == 0 :
+                            MmenuStrstrPolicy(current_match_options[oidx], q, flags) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap;
                                 if (!mmenu_next_capacity(newf.cap, INITIAL_CAP,
@@ -1641,8 +1720,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                     }
                 } else {
                     for (int i = 0; i < n_options; i++) {
-                        if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                         MmenuStrstrPolicy(current_options[i], q, flags) != NULL) &&
+                        if (((flags & MMENU_EXACT) ? strcmp(current_match_options[i], q) == 0 :
+                         MmenuStrstrPolicy(current_match_options[i], q, flags) != NULL) &&
                         !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
@@ -1743,7 +1822,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                     printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                     option_cols = menu_cols - 4;
                 }
-                if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED))
+                if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text)
             RenderFuzzyOption(w, option_cols, input, flags);
                 else printw("%.*ls", option_cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
@@ -1756,6 +1835,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     }
 
 cleanup:
+    free(match_options);
     free(filtered_scores);
     free(stream_options);
     free(selected_options);

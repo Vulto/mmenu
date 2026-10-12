@@ -387,19 +387,31 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ## Tasks for the current milestone
 
-### M0 — Baseline & checklist
+### M0 — Baseline & checklist (complete)
 
-- [x] Verify this checklist against the entire upstream fzf 0.74.5 man page, including options, inverse options, actions, events, placeholders, environment variables, and exit statuses.
-- [ ] Build baseline binaries with GCC and Clang using the existing CI flags; also build in strict C23 mode and record compiler support.
-- [x] Run the full existing regression suite unchanged and record the exact commit and result.
-- [x] Run tests/benchmark.sh with 5 samples per input size (1k, 10k, 100k, 1M), preserving raw CSV, summary CSV, metadata, elapsed time, and peak RSS.
-- [x] Run tests/interactive-benchmark.sh with 3 samples per size (1k, 10k, 100k), preserving first-paint measurements and terminal dimensions.
-- [x] Run the newly added reproducible matcher-throughput harness against the same generated records/query for mmenu, fzy, and fzf; retain versions, compiler/runtime, input size, matches, elapsed time, and RSS. Do not make noisy absolute timing a CI gate.
-- [x] Record the existing controlled-PTY interactive first-paint baseline at a fixed 80x24 terminal size, including its measurement limitations.
-- [x] Record existing batch/interactive benchmark numbers, available tool versions, machine/kernel, terminal, sample count, and known measurement limitations below.
-- [ ] Record C23-mode compiler support and baseline binary size from the new smoke-build artifact.
-- [x] Confirm the matcher-throughput harness is deterministic in input/query/output and that all existing test assertions remain unchanged.
-- [ ] Verify the harness and C23 smoke build on CI, then mark M0 complete only after all four CI jobs pass.
+- [x] Verify this checklist against the full upstream fzf 0.74.5 option, action, event, placeholder, environment-variable, and exit-status reference.
+- [x] Run the full existing regression suite unchanged on baseline commit 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- [x] Run the existing batch benchmark at 1k, 10k, 100k, and 1M records with five samples per size.
+- [x] Run the existing interactive first-paint benchmark at 1k, 10k, and 100k records with three samples per size.
+- [x] Add and run a deterministic same-input throughput comparison for mmenu, fzf, and fzy, recording tool versions, compiler, exact match counts, timing samples, and RSS.
+- [x] Record C23-mode smoke-build support and executable sizes for GCC and Clang.
+- [x] Confirm the full four-job CI matrix passes with the C23 smoke build, throughput harness, and unchanged regression assertions.
+- [x] Preserve measurement limitations and avoid using noisy wall-clock comparisons as CI pass/fail thresholds.
+
+### M1 — Streaming input
+
+- [ ] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior must remain unchanged. The callback must distinguish record available, temporarily no record, EOF, and read error.
+- [ ] Specify record lifetime and ownership explicitly; the CLI implementation must keep record bytes in the existing arena and avoid per-record allocations.
+- [ ] Add an incremental nonblocking stdin reader that supports newline and NUL record delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.
+- [ ] Integrate the stream callback into the interactive event loop so the menu can render an initial prompt and newly arrived options without waiting for stdin EOF.
+- [ ] Recompute results when records arrive while preserving the current query, selected item when possible, multi-select state, original indexes, and preview state.
+- [ ] Drain currently available input in batches and filter once per batch; avoid repeated whole-list scans for each record.
+- [ ] Keep the current batch filter path synchronous and behavior-compatible. Add an explicit synchronous interactive input mode only if needed to preserve a documented compatibility requirement.
+- [ ] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, user accept/cancel while the producer remains open, and producer closure before any record arrives.
+- [ ] Add deterministic PTY regressions using a controlled slow producer. Assert prompt/first-item visibility before EOF, continued interactivity while the producer is open, and correct final output/indexes.
+- [ ] Add regression cases for empty records, a final record without a delimiter, both delimiters, very long records, and errors; do not weaken existing assertions.
+- [ ] Run the complete regression suite, allocation-failure tests, static analysis, sanitizer/fuzz jobs, and benchmark artifacts after each self-contained commit.
+- [ ] Mark M1 complete only after all streaming acceptance tests and all four CI jobs pass.
 
 ## Measurement notes
 
@@ -417,13 +429,12 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
   - 10,000 records: samples 8,328,363 / 8,368,603 / 8,362,950 ns; median 8,362,950 ns.
   - 100,000 records: samples 14,988,676 / 15,061,079 / 15,011,729 ns; median 15,011,729 ns.
 - Ranking-quality fixture versions: fzf 0.44.1 (Debian package), fzy 1.0, skim 5.7.4. On the four small judged query sets, mmenu fuzzy and fzf both reported MRR 1.0000; NDCG@5 values were menu 0.8273, mmh 0.8839, tst 0.9896, cfg 0.8502; Recall@5 values were 0.8333, 0.6667, 1.0000, 1.0000. fzy NDCG@5 was 0.8273, 0.8839, 0.8502, 0.8502 with the same recall values. Candidate counts were 8, 4, 5, and 4 respectively.
-- Matcher-throughput run 38191917923 (same GCC release job as the performance artifact; GCC 13.3.0 per that job's compiler metadata; query "ndl"; 3 samples; one in ten records contains "needle"; all tools returned the same exact set):
-  - 1,000 records — mmenu 3,000,323 ns / 1,900 KiB; fzf 4,361,185 ns / 11,028 KiB; fzy 2,643,567 ns / 2,052 KiB (median time / maximum RSS).
-  - 10,000 records — mmenu 7,397,665 ns / 2,080 KiB; fzf 9,284,398 ns / 15,816 KiB; fzy 3,376,936 ns / 2,308 KiB.
-  - 100,000 records — mmenu 50,176,892 ns / 5,344 KiB; fzf 36,425,782 ns / 26,204 KiB; fzy 9,123,756 ns / 5,764 KiB.
-  - 1,000,000 records — mmenu 480,676,231 ns / 38,584 KiB; fzf 318,311,756 ns / 132,360 KiB; fzy 59,030,097 ns / 43,252 KiB.
-- C23 smoke build passed in both GCC and Clang release jobs using -std=c2x. GCC version was 13.3.0. GCC loaded section totals from `size`: 37,128 bytes for both the existing C11 binary and C2x smoke binary. Exact Clang version and executable file byte counts are pending the next smoke-build artifact.
-- The throughput artifact's own compiler field was initially unset; this is being corrected by passing CC=gcc and recording the compiler version directly.
+- Matcher-throughput run 38192642023, artifact mmenu-performance-4d8992045b6ca6a25f1c071b8112095327baf45d (GCC 13.3.0; query "ndl"; three samples; one in ten records contains "needle"; all tools returned exactly the same set):
+  - 1,000 records — mmenu median 3,058,611 ns / 1,856 KiB max RSS; fzf 4,915,124 ns / 11,044 KiB; fzy 2,669,188 ns / 2,052 KiB.
+  - 10,000 records — mmenu 7,625,538 ns / 2,016 KiB; fzf 9,615,558 ns / 17,812 KiB; fzy 3,504,882 ns / 2,308 KiB.
+  - 100,000 records — mmenu 51,205,986 ns / 5,344 KiB; fzf 36,528,077 ns / 26,244 KiB; fzy 9,265,113 ns / 5,764 KiB.
+  - 1,000,000 records — mmenu 480,668,110 ns / 38,324 KiB; fzf 316,605,791 ns / 130,404 KiB; fzy 61,710,228 ns / 43,116 KiB.
+- C23 smoke builds passed with -std=c2x -Wall -Wextra -Wpedantic -Werror in both release jobs. GCC 13.3.0 executable size: 136,184 file bytes; C11 and C2x builds both had size section total 37,128 bytes. Clang 18.1.3 executable size: 112,360 file bytes; its C11 and C2x builds had equal file sizes. Artifact compiler metadata identifies GCC 13.3.0 and fzf 0.44.1 (Debian), fzy 1.0.
 
 
 - Batch timing measures end-to-end filter invocation, not isolated matcher throughput.

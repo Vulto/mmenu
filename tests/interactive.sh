@@ -184,6 +184,7 @@ CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
 CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
+CheckSelection 'interactive fuzzy no-sort preserves input order' 0 '\n' fuzzy-no-sort
 
 CheckFuzzyHighlight() {
     if ! { sleep 0.2; printf 'ndl\n'; } |
@@ -276,6 +277,7 @@ CheckApiContract invalid-null-options 'options must not be NULL'
 CheckApiContract invalid-negative-count 'option count must not be negative'
 CheckApiContract invalid-null-entry 'option 1 must not be NULL'
 CheckApiContract invalid-flags 'unsupported API flags'
+CheckApiContract invalid-no-sort 'unsupported API flags'
 CheckApiContract invalid-case-flags 'unsupported API flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-query 'initial query exceeds'

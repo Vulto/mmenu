@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include <regex.h>
 #include <sys/wait.h>
 #include <poll.h>
 
@@ -215,15 +216,85 @@ static int nth_selects_field(const char *spec, int field_index, int field_count)
     return 0;
 }
 
+static regex_t nth_delimiter_regex;
+static int nth_delimiter_regex_ready;
+
+static void nth_delimiter_regex_cleanup(void) {
+    if (nth_delimiter_regex_ready) {
+        regfree(&nth_delimiter_regex);
+        nth_delimiter_regex_ready = 0;
+    }
+}
+
+static int nth_delimiter_regex_prepare(const char *pattern) {
+    setlocale(LC_ALL, "");
+    int code = regcomp(&nth_delimiter_regex, pattern, REG_EXTENDED);
+    if (code != 0) {
+        char message[256];
+        regerror(code, &nth_delimiter_regex, message, sizeof(message));
+        fprintf(stderr, "mmenu: invalid --delimiter regex '%s': %s\\n",
+                pattern, message);
+        return 0;
+    }
+    nth_delimiter_regex_ready = 1;
+
+    /* Empty-width delimiters make splitting ambiguous and can prevent progress. */
+    regmatch_t match;
+    code = regexec(&nth_delimiter_regex, "", 1, &match, 0);
+    if (code == 0 && match.rm_so == match.rm_eo) {
+        fprintf(stderr, "mmenu: --delimiter regex must not match an empty string\\n");
+        nth_delimiter_regex_cleanup();
+        return 0;
+    }
+    if (code != 0 && code != REG_NOMATCH) {
+        char message[256];
+        regerror(code, &nth_delimiter_regex, message, sizeof(message));
+        fprintf(stderr, "mmenu: could not validate --delimiter regex: %s\\n", message);
+        nth_delimiter_regex_cleanup();
+        return 0;
+    }
+    if (atexit(nth_delimiter_regex_cleanup) != 0) {
+        fprintf(stderr, "mmenu: could not register delimiter cleanup\\n");
+        nth_delimiter_regex_cleanup();
+        return 0;
+    }
+    return 1;
+}
+
+/* Find the next delimiter while preserving ^/$ as anchors to the full record. */
+static int nth_find_delimiter(const char *record, const char *cursor,
+                              const char **end, size_t *length) {
+    int flags = (cursor != record ? REG_NOTBOL : 0) |
+                (*cursor ? REG_NOTEOL : 0);
+    regmatch_t match;
+    int code = regexec(&nth_delimiter_regex, cursor, 1, &match, flags);
+    if (code == REG_NOMATCH) return 0;
+    if (code != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (match.rm_so < 0 || match.rm_eo <= match.rm_so) {
+        errno = EINVAL;
+        return -1;
+    }
+    *end = cursor + match.rm_so;
+    *length = (size_t)(match.rm_eo - match.rm_so);
+    return 1;
+}
+
 static int nth_field_count(const char *record, const char *delimiter) {
     if (delimiter && *delimiter) {
         int count = 1;
-        size_t delimiter_len = strlen(delimiter);
         const char *cursor = record;
-        while ((cursor = strstr(cursor, delimiter)) != NULL) {
+        for (;;) {
+            const char *end = NULL;
+            size_t delimiter_len = 0;
+            int found = nth_find_delimiter(record, cursor, &end, &delimiter_len);
+            if (found < 0) return -1;
+            if (!found) break;
             if (count == INT_MAX) return -1;
             count++;
-            cursor += delimiter_len;
+            cursor = end + delimiter_len;
         }
         return count;
     }
@@ -248,7 +319,7 @@ static char *select_nth_fields(const char *record, const char *spec,
     }
     int field_count = nth_field_count(record, delimiter);
     if (field_count < 0) {
-        errno = ENOMEM;
+        if (errno == 0) errno = ENOMEM;
         return NULL;
     }
     char *selected = malloc(record_len + 2);
@@ -256,18 +327,23 @@ static char *select_nth_fields(const char *record, const char *spec,
     size_t output_len = 0;
     int output_fields = 0;
     if (delimiter && *delimiter) {
-        size_t delimiter_len = strlen(delimiter);
         const char *start = record;
         int field = 1;
         for (;;) {
-            const char *end = strstr(start, delimiter);
-            size_t length = end ? (size_t)(end - start) : strlen(start);
+            const char *end = NULL;
+            size_t delimiter_len = 0;
+            int found = nth_find_delimiter(record, start, &end, &delimiter_len);
+            if (found < 0) {
+                free(selected);
+                return NULL;
+            }
+            size_t length = found ? (size_t)(end - start) : strlen(start);
             if (nth_selects_field(spec, field, field_count)) {
                 if (output_fields++) selected[output_len++] = ' ';
                 if (length) memcpy(selected + output_len, start, length);
                 output_len += length;
             }
-            if (!end) break;
+            if (!found) break;
             start = end + delimiter_len;
             field++;
         }
@@ -288,10 +364,9 @@ static char *select_nth_fields(const char *record, const char *spec,
             field++;
         }
     }
-    selected[output_len] = '\0';
+    selected[output_len] = '\\0';
     return selected;
 }
-
 /* Nonblocking stdin source. The reusable record buffer grows only for unusually
    long records; completed records are copied into the existing arena. */
 typedef struct {
@@ -1010,6 +1085,8 @@ int main(int argc, char **argv) {
         return argument_error("--format requires --filter");
     if (output_format && output_index)
         return argument_error("--format cannot be combined with -t");
+    if (delimiter_seen && !nth_delimiter_regex_prepare(field_delimiter))
+        return EXIT_FAILURE;
 
     /* Faster buffered input for huge pipes. */
     setvbuf(stdin, NULL, _IOFBF, 64 * 1024);

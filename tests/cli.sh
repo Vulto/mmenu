@@ -145,7 +145,7 @@ printf 'one two three\n' > "$TmpDir/expected"
 "$Bin" --filter 'one three' --nth '1,-1' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth supports negative field indexes and joins selected fields' "$TmpDir/expected" "$TmpDir/actual"
 printf 'id:src/mmenu.c:42\n' > "$TmpDir/input"
-printf 'id:src/mmmenu.c:42\n' > "$TmpDir/expected"
+printf 'id:src/mmenu.c:42\n' > "$TmpDir/expected"
 "$Bin" --exact --filter src/mmenu.c --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth field selection applies to exact matching' "$TmpDir/expected" "$TmpDir/actual"
 if "$Bin" --filter x --nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then

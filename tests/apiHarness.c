@@ -136,6 +136,15 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "fuzzy-no-sort") == 0) {
+        const char *order_options[] = {"zzab", "abzz", "acb"};
+        mmenu_config config = {.initial_query = "ab"};
+        int result = mmenuConfigured(order_options, 3, prompt,
+                                     MMENU_FUZZY | MMENU_NO_SORT, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "case-sensitive") == 0) {
         const char *case_options[] = {"alpha", "Alpha", "ALPHA"};
         mmenu_config config = {.initial_query = "Alpha"};
@@ -242,7 +251,11 @@ int main(int argc, char **argv)
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-flags") == 0) {
-        if (mmenuEx(options, 4, prompt, 32u) != -1) return 1;
+        if (mmenuEx(options, 4, prompt, 64u) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-no-sort") == 0) {
+        if (mmenuEx(options, 4, prompt, MMENU_NO_SORT) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-case-flags") == 0) {

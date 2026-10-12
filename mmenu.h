@@ -27,7 +27,7 @@
 #include <stdint.h>
 
 /* MMENU_FUZZY enables subsequence matching and score-ranked results. */
-enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
    Default matching is ASCII-case-insensitive substring matching; non-ASCII
@@ -373,7 +373,8 @@ static int CompareFuzzyMatches(const void *left, const void *right)
     return (a->index > b->index) - (a->index < b->index);
 }
 
-/* Returns score-ranked matching indices; ties retain original input order. */
+/* Returns matching indices; MMENU_NO_SORT preserves input order, otherwise
+   score ranking is stable for equal scores. */
 static int FuzzyCollect(const char *const *options, int n_options,
                         const wchar_t *query, unsigned int flags, FuzzyMatch **result,
                         int *result_count)
@@ -411,7 +412,7 @@ static int FuzzyCollect(const char *const *options, int n_options,
         matches[count++] = (FuzzyMatch){.index = i, .score = score};
     }
 
-    if (count > 1)
+    if (count > 1 && !(flags & MMENU_NO_SORT))
         qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
     *result = matches;
     *result_count = count;
@@ -714,7 +715,7 @@ static int mmenu_extended_collect(const char *const *options, int start, int end
         matches[count++] = (FuzzyMatch){.index = i, .score = score};
     }
 
-    if ((flags & MMENU_FUZZY) && count > 1)
+    if ((flags & MMENU_FUZZY) && !(flags & MMENU_NO_SORT) && count > 1)
         qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
     mmenu_query_free(&query);
     *result = matches;
@@ -1047,7 +1048,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
             }
                 batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
             }
-            if (batch_count > 1)
+            if (batch_count > 1 && !(flags & MMENU_NO_SORT))
                 qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
         }
         if (batch_count == 0) {
@@ -1094,6 +1095,16 @@ static int mmenu_filter_stream_batch(const char *const *options,
         if (!mmenu_scores_reserve(scores, scores_cap, total)) {
             free(batch);
             return 0;
+        }
+
+        if (flags & MMENU_NO_SORT) {
+            for (int i = 0; i < batch_count; i++) {
+                filtered->indices[old_count + i] = batch[i].index;
+                (*scores)[old_count + i] = batch[i].score;
+            }
+            filtered->count = total;
+            free(batch);
+            return 1;
         }
 
         /* Merge backward in-place: old and batch runs are both score-sorted. */
@@ -1162,8 +1173,9 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE)) ||
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT)) ||
         ((flags & MMENU_CASE_SENSITIVE) && (flags & MMENU_SMART_CASE)) ||
+        ((flags & MMENU_NO_SORT) && !(flags & MMENU_FUZZY)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
         ((flags & MMENU_EXTENDED) && (flags & MMENU_EXACT))) {
         fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");

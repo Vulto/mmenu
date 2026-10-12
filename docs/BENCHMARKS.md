@@ -79,6 +79,19 @@ records. Peak RSS ratios rounded to 1.000x at both sizes. The detailed run artif
 the actual per-sample times, memory values, tool versions, and host metadata. These timing
 numbers describe that runner only and are not portable performance guarantees.
 
+## Interactive first paint
+
+`tests/interactive-benchmark.sh` records wall-clock time from launching the CLI until
+the unique prompt marker is observed in its pseudo-terminal output, for 1k, 10k, and
+100k options with three samples per size. The harness fixes the terminal at 80x24 and
+accepts the first option after detecting the prompt. It records the raw samples and
+environment metadata in the CI artifact.
+
+This is an informational startup measurement, not a pass/fail latency threshold. It
+includes input loading, filtering, ncurses startup, initial rendering, and the harness's
+polling granularity; it is not a pure renderer benchmark. Compare only runs with their
+recorded environment, and do not interpret small changes as regressions.
+
 ## Throughput and memory
 
 `tests/benchmark.sh` measures 1k, 10k, 100k, and 1m records with five samples per size.

@@ -27,15 +27,18 @@
 #include <stdint.h>
 
 /* MMENU_FUZZY enables subsequence matching and score-ranked results. */
-enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
    Default matching is ASCII-case-insensitive substring matching; non-ASCII
-   characters are matched exactly. MMENU_FUZZY enables ranked subsequence
-   matching and MMENU_EXACT enables byte-exact equality matching. These modes
-   are mutually exclusive. MMENU_EXTENDED enables AND/OR terms, inverse terms,
-   exact substring terms, and prefix/suffix anchors; it cannot be combined with
-   MMENU_EXACT. Invalid multibyte strings return -1 before terminal initialization. */
+   characters are matched exactly. MMENU_CASE_SENSITIVE disables ASCII case
+   folding; MMENU_SMART_CASE enables case-sensitive matching when the query
+   contains an ASCII uppercase letter. These two flags are mutually exclusive.
+   MMENU_FUZZY enables ranked subsequence matching and MMENU_EXACT enables
+   byte-exact equality matching. MMENU_EXTENDED enables AND/OR terms, inverse
+   terms, exact substring terms, and prefix/suffix anchors; it cannot be
+   combined with MMENU_EXACT. Invalid multibyte strings return -1 before
+   terminal initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags);
@@ -211,11 +214,34 @@ static unsigned char MmenuFoldAsciiByte(unsigned char ch)
     return ch >= 'A' && ch <= 'Z' ? (unsigned char)(ch + ('a' - 'A')) : ch;
 }
 
-static int MmenuAsciiNcasecmp(const char *left, const char *right, size_t length)
+static int MmenuCaseSensitiveBytes(unsigned int flags, const char *query)
+{
+    if (flags & MMENU_CASE_SENSITIVE) return 1;
+    if (!(flags & MMENU_SMART_CASE) || !query) return 0;
+    for (const unsigned char *p = (const unsigned char *)query; *p; p++)
+        if (*p >= 'A' && *p <= 'Z') return 1;
+    return 0;
+}
+
+static int MmenuCaseSensitiveWide(unsigned int flags, const wchar_t *query)
+{
+    if (flags & MMENU_CASE_SENSITIVE) return 1;
+    if (!(flags & MMENU_SMART_CASE) || !query) return 0;
+    for (const wchar_t *p = query; *p; p++)
+        if (*p >= L'A' && *p <= L'Z') return 1;
+    return 0;
+}
+
+static int MmenuAsciiNcmpPolicy(const char *left, const char *right,
+                                size_t length, int case_sensitive)
 {
     for (size_t i = 0; i < length; i++) {
-        unsigned char a = MmenuFoldAsciiByte((unsigned char)left[i]);
-        unsigned char b = MmenuFoldAsciiByte((unsigned char)right[i]);
+        unsigned char a = (unsigned char)left[i];
+        unsigned char b = (unsigned char)right[i];
+        if (!case_sensitive) {
+            a = MmenuFoldAsciiByte(a);
+            b = MmenuFoldAsciiByte(b);
+        }
         if (a != b) return a < b ? -1 : 1;
         if (a == '\0') return 0;
     }
@@ -227,10 +253,18 @@ static char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
     if (!*needle) return (char *)haystack;
     size_t needleLength = strlen(needle);
     for (const char *cursor = haystack; *cursor; cursor++) {
-        if (MmenuAsciiNcasecmp(cursor, needle, needleLength) == 0)
+        if (MmenuAsciiNcmpPolicy(cursor, needle, needleLength, 0) == 0)
             return (char *)cursor;
     }
     return NULL;
+}
+
+static char *MmenuStrstrPolicy(const char *haystack, const char *needle,
+                               unsigned int flags)
+{
+    if (MmenuCaseSensitiveBytes(flags, needle))
+        return strstr(haystack, needle);
+    return MmenuAsciiStrcasestr(haystack, needle);
 }
 
 static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
@@ -246,11 +280,12 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 /* Greedy subsequence score: reward early, word-boundary, and adjacent matches;
    penalize leading and internal gaps. Invalid multibyte candidates do not match. */
 static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
-                            size_t query_len, long long *result)
+                            size_t query_len, unsigned int flags, long long *result)
 {
     size_t query_pos = 0;
     size_t candidate_pos = 0;
     size_t last_match = SIZE_MAX;
+    int case_sensitive = MmenuCaseSensitiveWide(flags, query);
     wchar_t previous = 0;
     long long score = 0;
     mbstate_t state = {0};
@@ -263,7 +298,7 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
             return 0;
 
         if (query_pos < query_len &&
-            FoldAscii(current) == FoldAscii(query[query_pos])) {
+            (case_sensitive ? current == query[query_pos] : FoldAscii(current) == FoldAscii(query[query_pos]))) {
             score += 10;
             if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
                 score += 8;
@@ -294,17 +329,18 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
 }
 
 static int FuzzyScore(const char *candidate, const wchar_t *query,
-                      long long *result)
+                      unsigned int flags, long long *result)
 {
-    return FuzzyScoreLength(candidate, query, wcslen(query), result);
+    return FuzzyScoreLength(candidate, query, wcslen(query), flags, result);
 }
 
 /* Highlight the same greedy subsequence used by FuzzyScore, clipping by
    terminal display cells so wide Unicode characters do not overrun the row. */
 static void RenderFuzzyOption(const wchar_t *option, int columns,
-                              const wchar_t *query)
+                              const wchar_t *query, unsigned int flags)
 {
     size_t query_pos = 0;
+    int case_sensitive = MmenuCaseSensitiveWide(flags, query);
     int used_columns = 0;
 
     for (size_t i = 0; option[i] && used_columns < columns; i++) {
@@ -317,7 +353,7 @@ static void RenderFuzzyOption(const wchar_t *option, int columns,
         if (width > 0 && used_columns + width > columns) break;
 
         int matched = query[query_pos] != L'\0' &&
-                      FoldAscii(ch) == FoldAscii(query[query_pos]);
+                      (case_sensitive ? ch == query[query_pos] : FoldAscii(ch) == FoldAscii(query[query_pos]));
         if (matched) {
             query_pos++;
             attron(A_BOLD | A_UNDERLINE);
@@ -339,7 +375,7 @@ static int CompareFuzzyMatches(const void *left, const void *right)
 
 /* Returns score-ranked matching indices; ties retain original input order. */
 static int FuzzyCollect(const char *const *options, int n_options,
-                        const wchar_t *query, FuzzyMatch **result,
+                        const wchar_t *query, unsigned int flags, FuzzyMatch **result,
                         int *result_count)
 {
     FuzzyMatch *matches = NULL;
@@ -351,7 +387,7 @@ static int FuzzyCollect(const char *const *options, int n_options,
 
     for (int i = 0; i < n_options; i++) {
         long long score;
-        if (!FuzzyScore(options[i], query, &score)) continue;
+        if (!FuzzyScore(options[i], query, flags, &score)) continue;
 
         if (count == capacity) {
             int new_capacity;
@@ -553,30 +589,29 @@ static int mmenu_query_term_match(const char *candidate,
 
     switch (term->kind) {
     case MMENU_QUERY_EXACT:
-        matched = MmenuAsciiStrcasestr(candidate, term->bytes) != NULL;
+        matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
         if (matched && (flags & MMENU_FUZZY)) *score = 10;
         break;
     case MMENU_QUERY_PREFIX:
         matched = candidate_len >= term->bytes_len &&
-                  MmenuAsciiNcasecmp(candidate, term->bytes, term->bytes_len) == 0;
+                  MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 20;
         break;
     case MMENU_QUERY_SUFFIX:
         matched = candidate_len >= term->bytes_len &&
-                  MmenuAsciiNcasecmp(candidate + candidate_len - term->bytes_len,
-                              term->bytes, term->bytes_len) == 0;
+                  MmenuAsciiNcmpPolicy(candidate + candidate_len - term->bytes_len, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 15;
         break;
     case MMENU_QUERY_EQUAL:
         matched = candidate_len == term->bytes_len &&
-                  MmenuAsciiNcasecmp(candidate, term->bytes, term->bytes_len) == 0;
+                  MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 30;
         break;
     case MMENU_QUERY_NORMAL:
         if (flags & MMENU_FUZZY)
-            matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, score);
+            matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, flags, score);
         else
-            matched = MmenuAsciiStrcasestr(candidate, term->bytes) != NULL;
+            matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
         break;
     }
     return matched;
@@ -593,6 +628,15 @@ static int mmenu_query_match(const mmenu_query *query, const char *candidate,
 
     int found = 0;
     long long best_score = LLONG_MIN;
+    unsigned int effective_flags = flags;
+    if (flags & MMENU_SMART_CASE) {
+        int has_uppercase = 0;
+        for (int i = 0; i < query->count && !has_uppercase; i++)
+            for (const wchar_t *p = query->terms[i].wide; *p; p++)
+                if (*p >= L'A' && *p <= L'Z') { has_uppercase = 1; break; }
+        effective_flags &= ~MMENU_SMART_CASE;
+        if (has_uppercase) effective_flags |= MMENU_CASE_SENSITIVE;
+    }
     for (int group = 0; group < query->groups; group++) {
         int has_terms = 0;
         int group_matches = 1;
@@ -602,7 +646,7 @@ static int mmenu_query_match(const mmenu_query *query, const char *candidate,
             if (term->group != group) continue;
             has_terms = 1;
             long long term_score = 0;
-            int matched = mmenu_query_term_match(candidate, term, flags,
+            int matched = mmenu_query_term_match(candidate, term, effective_flags,
                                                   &term_score);
             if (term->inverse) {
                 if (matched) group_matches = 0;
@@ -982,7 +1026,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
         } else {
             for (int i = start; i < end; i++) {
                 long long score;
-                if (!FuzzyScore(options[i], query, &score)) continue;
+                if (!FuzzyScore(options[i], query, flags, &score)) continue;
             if (batch_count == batch_cap) {
                 int new_cap;
                 if (!mmenu_next_capacity(batch_cap, INITIAL_CAP,
@@ -1089,7 +1133,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
     for (int i = start; i < end; i++) {
         int matches = (flags & MMENU_EXACT)
                     ? strcmp(options[i], q) == 0
-                    : MmenuAsciiStrcasestr(options[i], q) != NULL;
+                    : MmenuStrstrPolicy(options[i], q, flags) != NULL;
         if (matches && !filt_push(filtered, i)) {
             free(q);
             return 0;
@@ -1118,7 +1162,8 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED)) ||
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE)) ||
+        ((flags & MMENU_CASE_SENSITIVE) && (flags & MMENU_SMART_CASE)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
         ((flags & MMENU_EXTENDED) && (flags & MMENU_EXACT))) {
         fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");
@@ -1308,7 +1353,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!FuzzyCollect(current_options, n_options, input, &matches, &match_count))
+        if (!FuzzyCollect(current_options, n_options, input, flags, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next) {
             if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
@@ -1334,7 +1379,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         if (q) {
             for (int i = 0; i < n_options; i++) {
                 if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                     MmenuAsciiStrcasestr(current_options[i], q) != NULL) &&
+                     MmenuStrstrPolicy(current_options[i], q, flags) != NULL) &&
                     !filt_push(&filtered, i)) {
                     free(q);
                     goto cleanup;
@@ -1372,7 +1417,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                 option_cols = menu_cols - 4;
             }
-            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
+            if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input, flags);
             else printw("%.*ls", option_cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
             clrtoeol();
@@ -1494,7 +1539,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!FuzzyCollect(current_options, n_options, input, &matches, &match_count))
+                if (!FuzzyCollect(current_options, n_options, input, flags, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
@@ -1538,7 +1583,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                     for (int k = 0; k < filtered.count; k++) {
                         int oidx = filtered.indices[k];
                         if ((flags & MMENU_EXACT) ? strcmp(current_options[oidx], q) == 0 :
-                            MmenuAsciiStrcasestr(current_options[oidx], q) != NULL) {
+                            MmenuStrstrPolicy(current_options[oidx], q, flags) != NULL) {
                             if (newf.count == newf.cap) {
                                 int new_cap;
                                 if (!mmenu_next_capacity(newf.cap, INITIAL_CAP,
@@ -1580,7 +1625,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 } else {
                     for (int i = 0; i < n_options; i++) {
                         if (((flags & MMENU_EXACT) ? strcmp(current_options[i], q) == 0 :
-                         MmenuAsciiStrcasestr(current_options[i], q) != NULL) &&
+                         MmenuStrstrPolicy(current_options[i], q, flags) != NULL) &&
                         !filt_push(&filtered, i)) {
                             free(q);
                             goto cleanup;
@@ -1681,7 +1726,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                     printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                     option_cols = menu_cols - 4;
                 }
-                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input);
+                if (flags & MMENU_FUZZY) RenderFuzzyOption(w, option_cols, input, flags);
                 else printw("%.*ls", option_cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
                 clrtoeol();

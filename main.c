@@ -1346,7 +1346,7 @@ int main(int argc, char **argv) {
                 int matched;
                 if (fuzzy_mode) {
                     long long score;
-                    matched = FuzzyScore(match_lines[i], wide_query, match_flags, &score);
+                    matched = FuzzyScoreMetrics(match_lines[i], wide_query, match_flags, &score, NULL);
                 } else if (exact_mode) {
                     matched = strcmp(match_lines[i], filter_query) == 0;
                 } else {
@@ -1377,7 +1377,7 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < opts.count; i++) {
                 long long score;
-                if (FuzzyScore(match_lines[i], query, match_flags, &score)) {
+                if (FuzzyScoreMetrics(match_lines[i], query, match_flags, &score, NULL)) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }

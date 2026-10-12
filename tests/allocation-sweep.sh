@@ -44,6 +44,10 @@ ProbeCli() {
         if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" --nth 2 --delimiter ':' < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
             Fail "CLI probe failed for $Name"
         fi
+    elif [ "$Mode" = accept-nth-regex ]; then
+        if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" --accept-nth 2 --delimiter ':' < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
+            Fail "CLI probe failed for $Name"
+        fi
     elif ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
         Fail "CLI probe failed for $Name"
     fi
@@ -87,6 +91,12 @@ SweepCli() {
             fi
         elif [ "$Mode" = nth-regex ]; then
             if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" --nth 2 --delimiter ':' < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
+                Status=0
+            else
+                Status=$?
+            fi
+        elif [ "$Mode" = accept-nth-regex ]; then
+            if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" --accept-nth 2 --delimiter ':' < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
                 Status=0
             else
                 Status=$?
@@ -200,6 +210,7 @@ SweepCli extended-query "$TmpDir/small.input" 'needle second' extended
 SweepCli extended-fuzzy "$TmpDir/small.input" ndl extended-fuzzy
 SweepCli nth-fields "$TmpDir/nth.input" needle nth
 SweepCli nth-regex-delimiter "$TmpDir/nth-regex.input" needle nth-regex
+SweepCli accept-nth-regex "$TmpDir/nth-regex.input" needle accept-nth-regex
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 SweepPreview "$TmpDir/small.input"

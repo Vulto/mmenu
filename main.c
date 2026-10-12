@@ -339,7 +339,9 @@ static void print_nth_fields(const char *record, const char *spec,
 typedef struct {
     lines_t *lines;
     lines_t *search_lines;
+    lines_t *display_lines;
     const char *nth_spec;
+    const char *with_nth_spec;
     const char *field_delimiter;
     int fd;
     int delimiter;
@@ -360,6 +362,15 @@ static const char *input_stream_search_text(const char *option, int index,
     if (!stream || !stream->search_lines || index < 0 ||
         index >= stream->search_lines->count) return NULL;
     return stream->search_lines->lines[index];
+}
+
+static const char *input_stream_display_text(const char *option, int index,
+                                             void *userdata) {
+    (void)option;
+    input_stream_t *stream = userdata;
+    if (!stream || !stream->display_lines || index < 0 ||
+        index >= stream->display_lines->count) return NULL;
+    return stream->display_lines->lines[index];
 }
 
 static int stream_record_reserve(input_stream_t *stream, size_t needed) {
@@ -424,6 +435,18 @@ static int stream_emit_record(input_stream_t *stream, const char **record) {
                                               strlen(selected));
         free(selected);
         lines_push(stream->search_lines, search_record);
+    }
+    if (stream->with_nth_spec) {
+        char *selected = select_nth_fields(stored, stream->with_nth_spec,
+                                           stream->field_delimiter);
+        if (!selected) {
+            stream->error = 1;
+            return MMENU_STREAM_ERROR;
+        }
+        char *display_record = lines_arena_dup(stream->display_lines, selected,
+                                               strlen(selected));
+        free(selected);
+        lines_push(stream->display_lines, display_record);
     }
     stream->record_len = 0;
     *record = stored;
@@ -692,7 +715,8 @@ static void print_usage(FILE *out) {
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
-        "--nth SPEC searches selected 1-based fields/ranges; --delimiter/-d sets a literal separator.\n"
+        "--nth SPEC searches selected 1-based fields/ranges; --with-nth SPEC changes interactive display fields.\n"
+        "--delimiter/-d sets a literal separator for field options.\n"
         "--accept-nth SPEC outputs selected fields from each accepted record.\n"
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
@@ -805,9 +829,11 @@ int main(int argc, char **argv) {
     int bind_cancel_seen = 0, bind_toggle_seen = 0, bind_backspace_seen = 0;
     const char *output_format = NULL;
     const char *nth_spec = NULL;
+    const char *with_nth_spec = NULL;
     const char *accept_nth = NULL;
     const char *field_delimiter = NULL;
     int nth_seen = 0;
+    int with_nth_seen = 0;
     int accept_nth_seen = 0;
     int delimiter_seen = 0;
     const char *prompt = "> ";
@@ -940,6 +966,18 @@ int main(int argc, char **argv) {
             nth_seen = 1;
             continue;
         }
+        if (!strcmp(arg, "--with-nth")) {
+            if (with_nth_seen || i + 1 >= argc) return argument_error("--with-nth requires one field expression");
+            with_nth_spec = argv[++i];
+            with_nth_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--with-nth=", 11)) {
+            if (with_nth_seen) return argument_error("--with-nth may only be specified once");
+            with_nth_spec = arg + 11;
+            with_nth_seen = 1;
+            continue;
+        }
         if (!strcmp(arg, "--accept-nth")) {
             if (accept_nth_seen || i + 1 >= argc) return argument_error("--accept-nth requires one field expression");
             accept_nth = argv[++i];
@@ -1027,11 +1065,15 @@ int main(int argc, char **argv) {
         return argument_error("--disabled is only available in interactive mode");
     if (nth_seen && !nth_spec_valid(nth_spec))
         return argument_error("--nth must be a comma-separated list of fields or ranges");
+    if (with_nth_seen && !nth_spec_valid(with_nth_spec))
+        return argument_error("--with-nth must be a comma-separated list of fields or ranges");
+    if (with_nth_seen && filter_seen)
+        return argument_error("--with-nth is only available in interactive mode");
     if (delimiter_seen && (!field_delimiter || !*field_delimiter))
         return argument_error("--delimiter must not be empty");
     if (accept_nth_seen && !nth_spec_valid(accept_nth))
         return argument_error("--accept-nth must be a comma-separated list of fields or ranges");
-    if (delimiter_seen && !nth_seen && !accept_nth_seen)
+    if (delimiter_seen && !nth_seen && !with_nth_seen && !accept_nth_seen)
         return argument_error("--delimiter requires --nth or --accept-nth");
     if (accept_nth_seen && (output_index || output_format))
         return argument_error("--accept-nth cannot be combined with --index or --format");
@@ -1082,16 +1124,21 @@ int main(int argc, char **argv) {
 
     lines_t opts = {0};
     lines_t search_opts = {0};
+    lines_t display_opts = {0};
     input_stream_t input_stream = {
         .lines = &opts,
         .search_lines = nth_seen ? &search_opts : NULL,
+        .display_lines = with_nth_seen ? &display_opts : NULL,
         .nth_spec = nth_seen ? nth_spec : NULL,
+        .with_nth_spec = with_nth_seen ? with_nth_spec : NULL,
         .field_delimiter = delimiter_seen ? field_delimiter : NULL,
         .fd = STDIN_FILENO,
         .delimiter = input_nul ? '\0' : '\n'
     };
     menu_config.search_text = nth_seen ? input_stream_search_text : NULL;
     menu_config.search_text_userdata = &input_stream;
+    menu_config.display_text = with_nth_seen ? input_stream_display_text : NULL;
+    menu_config.display_text_userdata = &input_stream;
 
     if (filter_query != NULL) {
         char *buf = NULL;
@@ -1103,6 +1150,8 @@ int main(int argc, char **argv) {
             if (!input_nul && memchr(buf, '\0', len) != NULL) {
                 fprintf(stderr, "mmenu: input record contains an embedded NUL byte\n");
                 free(buf);
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1114,7 +1163,9 @@ int main(int argc, char **argv) {
         free(buf);
         if (ferror(stdin)) {
             perror("mmenu: reading stdin");
-            lines_free(&search_opts);
+            lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
         }
@@ -1131,6 +1182,8 @@ int main(int argc, char **argv) {
                                                delimiter_seen ? field_delimiter : NULL);
             if (!selected) {
                 perror("mmenu: selecting searchable fields");
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1151,6 +1204,8 @@ int main(int argc, char **argv) {
             if (!wide_query) {
                 if (errno == ENOMEM) perror("mmenu: converting extended query");
                 else fprintf(stderr, "mmenu: extended query is not valid in the current locale\n");
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1164,7 +1219,9 @@ int main(int argc, char **argv) {
                     else
                         perror("mmenu: compiling extended query");
                     free(wide_query);
-                    lines_free(&search_opts);
+                    lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
                 }
@@ -1184,7 +1241,9 @@ int main(int argc, char **argv) {
                                             opts.count, wide_query, match_flags,
                                             &matches, &match_count)) {
                     free(wide_query);
-                    lines_free(&search_opts);
+                    lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
                 }
@@ -1205,7 +1264,9 @@ int main(int argc, char **argv) {
                 if (!wide_query) {
                     if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                     else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
-                    lines_free(&search_opts);
+                    lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
                 }
@@ -1238,6 +1299,8 @@ int main(int argc, char **argv) {
             if (!query) {
                 if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                 else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1256,6 +1319,8 @@ int main(int argc, char **argv) {
             if (!query) {
                 if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                 else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1264,6 +1329,8 @@ int main(int argc, char **argv) {
             int match_count = 0;
             if (!FuzzyCollect(match_lines, opts.count, query, match_flags, &matches, &match_count)) {
                 free(query);
+                lines_free(&display_opts);
+                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1281,7 +1348,9 @@ int main(int argc, char **argv) {
                 }
             }
         }
-        lines_free(&search_opts);
+        lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
         return flush_stdout();
     }
@@ -1294,7 +1363,9 @@ int main(int argc, char **argv) {
         if (input_stream.error) {
             free(selected);
             free(input_stream.record);
-            lines_free(&search_opts);
+            lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
         }
@@ -1310,7 +1381,9 @@ int main(int argc, char **argv) {
                                      match_flags, &menu_config);
         if (input_stream.error) {
             free(input_stream.record);
-            lines_free(&search_opts);
+            lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
         }
@@ -1322,7 +1395,9 @@ int main(int argc, char **argv) {
     }
 
     free(input_stream.record);
-    lines_free(&search_opts);
+    lines_free(&display_opts);
+                lines_free(&display_opts);
+                lines_free(&search_opts);
                 lines_free(&opts);
     return flush_stdout();
 }

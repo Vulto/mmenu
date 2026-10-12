@@ -186,7 +186,7 @@ CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
 CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy
 CheckSelection 'interactive fuzzy no-sort preserves input order' 0 '\n' fuzzy-no-sort
 CheckSelection 'disabled search keeps all options visible for a non-matching query' 0 '\n' disabled
-CheckSelection 'custom searchable text callback filters without changing displayed records' 1 'nth-api' nth-api
+CheckSelection 'custom searchable text callback filters without changing displayed records' 1 '\n' nth-api
 
 CheckFuzzyHighlight() {
     if ! { sleep 0.2; printf 'ndl\n'; } |

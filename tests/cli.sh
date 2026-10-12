@@ -159,8 +159,8 @@ else
 fi
 
 # ASCII case folding is deterministic and never folds non-ASCII bytes.
-printf 'Alpha\\nalpha\\nALPHA\\n' > "$TmpDir/input"
-printf 'Alpha\\nalpha\\nALPHA\\n' > "$TmpDir/expected"
+printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/input"
+printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/expected"
 LC_ALL=C "$Bin" --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'ASCII-insensitive substring matching works in the C locale' "$TmpDir/expected" "$TmpDir/actual"
 

@@ -26,7 +26,9 @@
 #include <limits.h>
 #include <stdint.h>
 
-/* MMENU_FUZZY enables subsequence matching and score-ranked results. */
+/* MMENU_FUZZY enables subsequence matching and score-ranked results unless
+   MMENU_NO_SORT is set; MMENU_NO_SORT requires MMENU_FUZZY. MMENU_DISABLED
+   keeps all options visible regardless of the query. */
 enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u, MMENU_DISABLED = 64u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.

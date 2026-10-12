@@ -148,6 +148,20 @@ printf 'id:src/mmenu.c:42\n' > "$TmpDir/input"
 printf 'id:src/mmenu.c:42\n' > "$TmpDir/expected"
 "$Bin" --exact --filter src/mmenu.c --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'nth field selection applies to exact matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/input"
+printf 'id\nid\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --accept-nth 1 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'accept-nth changes output independently of search fields' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/mmenu.c\n' > "$TmpDir/expected"
+"$Bin" --filter mmenu --accept-nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'accept-nth selects output fields from matched records' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --filter x --accept-nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid accept-nth expression must fail'
+elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; then
+    Fail 'invalid accept-nth expression must explain the error'
+else
+    Pass 'invalid accept-nth expressions are rejected'
+fi
 if "$Bin" --filter x --nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'invalid nth expression must fail'
 elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; then

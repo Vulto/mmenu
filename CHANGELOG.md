@@ -7,6 +7,7 @@
 - Interactive fuzzy `--no-sort` mode to preserve input order, including while streaming new records.
 - Interactive `--disabled` mode keeps all options visible while queries are edited.
 - `--nth` field selection for batch and interactive matching, with literal custom delimiters and raw-record output preservation.
+- `--accept-nth` output-field selection for batch and interactive accepted records.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
 - Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
 

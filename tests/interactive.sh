@@ -12,7 +12,21 @@ CheckSelection() {
     Name=$1
     Expected=$2
     Keys=$3
-    if ! { sleep 0.2; printf '%b' "$Keys"; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+    SecondKey=${8:-}
+    if [ -n "$SecondKey" ]; then
+        if { sleep 0.5; printf '%b' "$Keys"; sleep 0.1; printf '%b' "$SecondKey"; sleep 0.1; printf '\n'; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+            InputStatus=0
+        else
+            InputStatus=$?
+        fi
+    else
+        if { sleep 0.2; printf '%b' "$Keys"; } | LC_ALL="${7:-C.UTF-8}" TERM=xterm timeout 5s script -q -e -c "$Bin ${4:-}" /dev/null > "$TmpDir/output" 2> "$TmpDir/error"; then
+            InputStatus=0
+        else
+            InputStatus=$?
+        fi
+    fi
+    if [ "$InputStatus" -ne 0 ]; then
         printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
         cat "$TmpDir/error" >&2
         Failures=$((Failures + 1))
@@ -118,7 +132,7 @@ CheckUnicodePreviewClipping() {
 }
 CheckUnicodePreviewClipping
 
-CheckSelection 'backspacing an initial query broadens the match set' 1 "\177$(TERM=xterm tput kcud1)\n" configured-query-edit
+CheckSelection 'backspacing an initial query broadens the match set' 1 '\177' configured-query-edit '' '' C.UTF-8 "$(TERM=xterm tput kcud1)"
 CheckSelection 'custom navigation and accept keys work as aliases' 1 'jx' configured-keys
 CheckSelection 'exact matching remains correct while typing a multi-character query' 0 'alpha\n' exact-typing
 CheckMultiSelection() {

@@ -501,12 +501,6 @@ static int FuzzyScoreLengthMetrics(const char *candidate, const wchar_t *query,
     return 1;
 }
 
-static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
-                            size_t query_len, unsigned int flags, long long *result)
-{
-    return FuzzyScoreLengthMetrics(candidate, query, query_len, flags, result, NULL);
-}
-
 static int FuzzyScoreMetrics(const char *candidate, const wchar_t *query,
                              unsigned int flags, long long *result, FuzzyMetrics *metrics)
 {
@@ -588,15 +582,6 @@ static int MmenuCompareFuzzyMatches(const FuzzyMatch *a, const FuzzyMatch *b,
             if (comparison) return comparison;
         }
     }
-    return (a->index > b->index) - (a->index < b->index);
-}
-
-static int CompareFuzzyMatches(const void *left, const void *right)
-{
-    const FuzzyMatch *a = left;
-    const FuzzyMatch *b = right;
-    if (a->score > b->score) return -1;
-    if (a->score < b->score) return 1;
     return (a->index > b->index) - (a->index < b->index);
 }
 

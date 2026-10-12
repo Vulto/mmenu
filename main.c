@@ -650,7 +650,7 @@ static void print_usage(FILE *out) {
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
-        "--nth SPEC searches selected 1-based fields/ranges; --delimiter TEXT sets a literal separator.\n"
+        "--nth SPEC searches selected 1-based fields/ranges; --delimiter/-d sets a literal separator.\n"
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
         "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
@@ -890,7 +890,7 @@ int main(int argc, char **argv) {
             nth_seen = 1;
             continue;
         }
-        if (!strcmp(arg, "--delimiter")) {
+        if (!strcmp(arg, "--delimiter") || !strcmp(arg, "-d")) {
             if (delimiter_seen || i + 1 >= argc) return argument_error("--delimiter requires one literal delimiter");
             field_delimiter = argv[++i];
             delimiter_seen = 1;

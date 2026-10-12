@@ -169,6 +169,13 @@ elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; the
 else
     Pass 'invalid nth expressions are rejected'
 fi
+if "$Bin" --with-nth 2 --filter needle < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'with-nth must not be silently ignored in batch mode'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail 'with-nth batch restriction must explain the error'
+else
+    Pass 'with-nth is restricted to interactive display mode'
+fi
 if "$Bin" --delimiter : --filter x < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'delimiter without nth must fail'
 elif ! grep -Fq 'requires --nth' "$TmpDir/stderr"; then

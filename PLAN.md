@@ -19,6 +19,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Search and matching
 
+- [ ] Extended query mode (--extended / -x) — partial — no full extended-query parser exists.
 - [ ] Extended query syntax, including whitespace-separated terms — partial — current matching is simpler and does not implement the complete query grammar.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [ ] Extended-search disable (--no-extended / +x) — missing — no extended-search parser exists.
@@ -89,6 +90,10 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] List border (--list-border) — missing.
 - [ ] List label and position (--list-label, --list-label-pos) — missing.
 - [ ] Header/footer/input/preview borders and labels — missing.
+- [ ] Header label (--header-label) — missing.
+- [ ] Header label position (--header-label-pos) — missing.
+- [ ] Footer label (--footer-label) — missing.
+- [ ] Footer label position (--footer-label-pos) — missing.
 - [ ] Header/footer label positioning — missing.
 - [ ] Multi-selection limit (--multi[=MAX]) — partial — unlimited multi-select exists; limits do not.
 - [ ] Highlight selected/current line (--highlight-line) — missing.
@@ -131,6 +136,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Preview border styles and placement (--preview-border) — missing.
 - [ ] Preview label and label position (--preview-label, --preview-label-pos) — missing.
 - [ ] Preview wrapping, word wrapping, and wrap sign (--preview-window wrap options) — missing.
+- [ ] Preview wrap sign (--preview-wrap-sign) — missing.
 - [ ] Preview follow and cycle modes — missing.
 - [ ] Preview hidden/visible initial state and runtime toggles — partial — no complete fzf-equivalent state/action surface.
 - [ ] Preview info display and suppression — missing.

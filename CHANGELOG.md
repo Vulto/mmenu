@@ -2,12 +2,15 @@
 
 ## Unreleased
 
+## 1.0.0 - 2026-10-11
+
 ### Added
 - Exact and fuzzy matching modes, inverse filtering, and unsorted fuzzy batch output.
 - NUL-delimited batch input/output and configurable batch output templates using `{}`, `{index}`, and `{query}`.
 - Interactive multi-selection through Tab toggles and a public C API that returns selected original indexes.
 - Prefilled interactive queries and configurable key aliases, with configured C API entry points.
 - Interactive preview panes with record/index/query placeholders and a generic C API preview callback.
+- Informational interactive first-paint measurements alongside batch performance and ranking-quality baselines.
 
 ### Fixed
 - Long input records and records following records larger than the input arena slab are preserved.
@@ -16,6 +19,7 @@
 - Allocation failures in interactive filtering are handled safely, including incremental-filter fallback.
 - Exact-mode interactive query edits recompute results correctly for multi-character queries.
 - Interactive query cursor positioning clamps safely at terminal boundaries and accounts for wide Unicode prompt display columns.
+- Checked size arithmetic prevents overflow in conversion-buffer allocations and input-capacity growth.
 
 ### Quality
-- Expanded GCC/Clang strict-build and sanitizer CI, static analysis, Valgrind, allocation-failure sweeps, matcher fuzzing, performance comparisons, and ranking-quality baselines.
+- GCC and Clang strict-build and sanitizer CI, GCC static analysis, CLI and interactive API regression suites, Valgrind, allocation-failure sweeps, matcher fuzzing, performance comparisons, and ranking-quality baselines.

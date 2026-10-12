@@ -70,6 +70,9 @@ typedef int (*mmenu_stream_next_callback)(void *userdata, const char **record);
    returned string must remain valid until the configured menu call returns. */
 typedef const char *(*mmenu_search_text_callback)(const char *option, int index,
                                                    void *userdata);
+/* Return stable display text for an option; NULL signals an error. */
+typedef const char *(*mmenu_display_text_callback)(const char *option, int index,
+                                                    void *userdata);
 
 /* Optional interactive query, key aliases, preview, and input-stream callback.
    Zero-valued key fields preserve the built-in keys; stream_userdata and
@@ -88,6 +91,8 @@ typedef struct {
     void *stream_userdata;
     mmenu_search_text_callback search_text;
     void *search_text_userdata;
+    mmenu_display_text_callback display_text;
+    void *display_text_userdata;
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1168,9 +1173,13 @@ static int mmenu_internal(const char *const *options, int n_options,
                           int **selected_indices, int *selected_count) {
     const char *const *current_options = options;
     const char *const *current_match_options = options;
+    const char *const *current_display_options = options;
     const char **match_options = NULL;
+    const char **display_options = NULL;
     int match_options_cap = 0;
+    int display_options_cap = 0;
     int use_search_text = config && config->search_text;
+    int use_display_text = config && config->display_text;
     const char **stream_options = NULL;
     int stream_options_cap = 0;
     int stream_finished = 0;
@@ -1352,6 +1361,36 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else {
         current_match_options = current_options;
     }
+    if (use_display_text) {
+        display_options_cap = n_options > INITIAL_CAP ? n_options : INITIAL_CAP;
+        size_t display_bytes;
+        if (!mmenu_size_mul((size_t)display_options_cap, sizeof(*display_options),
+                            &display_bytes)) {
+            perror("mmenu: display option vector size");
+            goto cleanup;
+        }
+        display_options = malloc(display_bytes);
+        if (!display_options) {
+            if (errno == 0) errno = ENOMEM;
+            perror("mmenu: allocating display option vector");
+            goto cleanup;
+        }
+        for (int i = 0; i < n_options; i++) {
+            display_options[i] = config->display_text(current_options[i], i,
+                                                       config->display_text_userdata);
+            if (!display_options[i]) {
+                fprintf(stderr, "mmenu: display text callback failed for option %d\n", i);
+                goto cleanup;
+            }
+            if (mbstowcs(NULL, display_options[i], 0) == (size_t)-1) {
+                fprintf(stderr, "mmenu: display text for option %d is not valid in the current locale\n", i);
+                goto cleanup;
+            }
+        }
+        current_display_options = (const char *const *)display_options;
+    } else {
+        current_display_options = current_options;
+    }
     if (multi) {
         size_t selected_capacity = config && config->stream_next
                                  ? (size_t)stream_options_cap : (size_t)n_options;
@@ -1458,7 +1497,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
         errno = 0;
-        wchar_t *w = mb_to_wc(current_options[oidx]);
+        wchar_t *w = mb_to_wc(current_display_options[oidx]);
         if (!w && errno == ENOMEM) {
             perror("mmenu: rendering option");
             goto cleanup;
@@ -1471,7 +1510,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                 option_cols = menu_cols - 4;
             }
-            if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text)
+            if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text && !use_display_text)
             RenderFuzzyOption(w, option_cols, input, flags);
             else printw("%.*ls", option_cols, w);
             if (fidx == selection) attroff(A_STANDOUT);
@@ -1545,6 +1584,45 @@ static int mmenu_internal(const char *const *options, int n_options,
                 current_match_options = (const char *const *)match_options;
             } else {
                 current_match_options = current_options;
+            }
+            if (use_display_text) {
+                if (n_options > display_options_cap) {
+                    int new_cap;
+                    if (!mmenu_next_capacity(display_options_cap, INITIAL_CAP,
+                                             sizeof(*display_options), &new_cap)) {
+                        perror("mmenu: display option capacity");
+                        goto cleanup;
+                    }
+                    size_t display_bytes;
+                    if (!mmenu_size_mul((size_t)new_cap, sizeof(*display_options),
+                                        &display_bytes)) {
+                        perror("mmenu: display option capacity");
+                        goto cleanup;
+                    }
+                    const char **grown = realloc(display_options, display_bytes);
+                    if (!grown) {
+                        if (errno == 0) errno = ENOMEM;
+                        perror("mmenu: growing display options");
+                        goto cleanup;
+                    }
+                    display_options = grown;
+                    display_options_cap = new_cap;
+                }
+                for (int i = stream_start_count; i < n_options; i++) {
+                    display_options[i] = config->display_text(current_options[i], i,
+                                                               config->display_text_userdata);
+                    if (!display_options[i]) {
+                        fprintf(stderr, "mmenu: display text callback failed for option %d\n", i);
+                        goto cleanup;
+                    }
+                    if (mbstowcs(NULL, display_options[i], 0) == (size_t)-1) {
+                        fprintf(stderr, "mmenu: display text for option %d is not valid in the current locale\n", i);
+                        goto cleanup;
+                    }
+                }
+                current_display_options = (const char *const *)display_options;
+            } else {
+                current_display_options = current_options;
             }
         }
         if (kc == ERR && !resized && !stream_changed) continue;
@@ -1811,7 +1889,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             int fidx = top + v;
             int oidx = filtered.indices[fidx];
             errno = 0;
-            wchar_t *w = mb_to_wc(current_options[oidx]);
+            wchar_t *w = mb_to_wc(current_display_options[oidx]);
             if (!w && errno == ENOMEM) {
                 perror("mmenu: rendering option");
                 goto cleanup;
@@ -1824,7 +1902,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                     printw("%s", selected_options[oidx] ? "[x] " : "[ ] ");
                     option_cols = menu_cols - 4;
                 }
-                if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text)
+                if ((flags & MMENU_FUZZY) && !(flags & MMENU_DISABLED) && !use_search_text && !use_display_text)
             RenderFuzzyOption(w, option_cols, input, flags);
                 else printw("%.*ls", option_cols, w);
                 if (fidx == selection) attroff(A_STANDOUT);
@@ -1837,6 +1915,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     }
 
 cleanup:
+    free(display_options);
     free(match_options);
     free(filtered_scores);
     free(stream_options);

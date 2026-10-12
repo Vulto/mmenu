@@ -2028,12 +2028,16 @@ static int mmenu_internal(const char *const *options, int n_options,
                     goto cleanup;
                 if (config && config->stream_next && (flags & MMENU_FUZZY)) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
-                                              match_count)) {
+                                              match_count) ||
+                        !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap,
+                                               match_count)) {
                         free(matches);
                         goto cleanup;
                     }
-                    for (int i = 0; i < match_count; i++)
+                    for (int i = 0; i < match_count; i++) {
                         filtered_scores[i] = matches[i].score;
+                        filtered_metrics[i] = matches[i].metrics;
+                    }
                 }
                 filt_clear(&filtered);
                 for (int i = 0; i < match_count; i++) {
@@ -2050,12 +2054,16 @@ static int mmenu_internal(const char *const *options, int n_options,
                     goto cleanup;
                 if (config && config->stream_next) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
-                                              match_count)) {
+                                              match_count) ||
+                        !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap,
+                                               match_count)) {
                         free(matches);
                         goto cleanup;
                     }
-                    for (int i = 0; i < match_count; i++)
+                    for (int i = 0; i < match_count; i++) {
                         filtered_scores[i] = matches[i].score;
+                        filtered_metrics[i] = matches[i].metrics;
+                    }
                 }
                 filt_clear(&filtered);
                 for (int i = 0; i < match_count; i++) {

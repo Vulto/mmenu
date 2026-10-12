@@ -333,7 +333,7 @@ static void MmenuTextMetrics(const char *text, FuzzyMetrics *metrics)
             ch = (unsigned char)*cursor;
             bytes = 1;
         }
-        if (ch == L'/' || ch == L'\\\\') last_separator = position;
+        if (ch == L'/' || ch == L'\\') last_separator = position;
         position++;
         cursor += bytes;
     }
@@ -1285,6 +1285,7 @@ static int mmenu_scores_reserve(long long **scores, int *capacity, int needed) {
 static int mmenu_filter_stream_batch(const char *const *options,
                                      int start, int end,
                                      const wchar_t *query, unsigned int flags,
+                                     const mmenu_tiebreak_spec *tiebreak,
                                      filt *filtered, long long **scores,
                                      int *scores_cap) {
     if ((flags & MMENU_DISABLED) || !query[0]) {
@@ -1296,7 +1297,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
         FuzzyMatch *batch = NULL;
         int batch_count = 0;
         if (!mmenu_extended_collect(options, start, end, query, flags,
-                                    &batch, &batch_count))
+                                    tiebreak, &batch, &batch_count))
             return 0;
         for (int i = 0; i < batch_count; i++) {
             if (!filt_push(filtered, batch[i].index)) {
@@ -1314,13 +1315,14 @@ static int mmenu_filter_stream_batch(const char *const *options,
         int batch_cap = 0;
         if (flags & MMENU_EXTENDED) {
             if (!mmenu_extended_collect(options, start, end, query, flags,
-                                        &batch, &batch_count))
+                                        tiebreak, &batch, &batch_count))
                 return 0;
             batch_cap = batch_count;
         } else {
             for (int i = start; i < end; i++) {
                 long long score;
-                if (!FuzzyScore(options[i], query, flags, &score)) continue;
+                FuzzyMetrics metrics = {0};
+                if (!FuzzyScoreMetrics(options[i], query, flags, &score, &metrics)) continue;
             if (batch_count == batch_cap) {
                 int new_cap;
                 if (!mmenu_next_capacity(batch_cap, INITIAL_CAP,
@@ -1339,10 +1341,10 @@ static int mmenu_filter_stream_batch(const char *const *options,
                 batch = grown;
                 batch_cap = new_cap;
             }
-                batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
+                batch[batch_count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
             }
             if (batch_count > 1 && !(flags & MMENU_NO_SORT))
-                qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
+                MmenuFuzzySort(batch, batch_count, tiebreak);
         }
         if (batch_count == 0) {
             free(batch);
@@ -1451,6 +1453,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,
                           const mmenu_config *config,
                           int **selected_indices, int *selected_count) {
+    mmenu_tiebreak_spec tiebreak;
+    char tiebreak_error[256];
     const char *const *current_options = options;
     const char *const *current_match_options = options;
     const char *const *current_display_options = options;
@@ -1480,6 +1484,15 @@ static int mmenu_internal(const char *const *options, int n_options,
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
         ((flags & MMENU_EXTENDED) && (flags & MMENU_EXACT))) {
         fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");
+        return -1;
+    }
+    if (config && config->tiebreak && !(flags & MMENU_FUZZY)) {
+        fprintf(stderr, "mmenu: tiebreak requires fuzzy matching\n");
+        return -1;
+    }
+    if (!MmenuTieBreakParse(config ? config->tiebreak : NULL, &tiebreak,
+                            tiebreak_error, sizeof(tiebreak_error))) {
+        fprintf(stderr, "mmenu: %s\n", tiebreak_error);
         return -1;
     }
     if (n_options < 0) {
@@ -1706,7 +1719,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         FuzzyMatch *matches = NULL;
         int match_count = 0;
         if (!mmenu_extended_collect(current_match_options, 0, n_options, input, flags,
-                                    &matches, &match_count))
+                                    &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next && (flags & MMENU_FUZZY)) {
             if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
@@ -1726,7 +1739,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
+        if (!FuzzyCollect(current_match_options, n_options, input, flags, &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next) {
             if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
@@ -1966,14 +1979,14 @@ static int mmenu_internal(const char *const *options, int n_options,
                     if (!filt_push(&filtered, i)) goto cleanup;
             } else if (stream_changed && !query_edited) {
                 if (!mmenu_filter_stream_batch(current_match_options, stream_start_count,
-                                               n_options, input, flags, &filtered,
+                                               n_options, input, flags, &tiebreak, &filtered,
                                                &filtered_scores, &filtered_scores_cap))
                     goto cleanup;
             } else if (flags & MMENU_EXTENDED) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
                 if (!mmenu_extended_collect(current_match_options, 0, n_options, input,
-                                            flags, &matches, &match_count))
+                                            flags, &tiebreak, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next && (flags & MMENU_FUZZY)) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,

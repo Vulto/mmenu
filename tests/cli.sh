@@ -112,6 +112,13 @@ CheckEqual 'fuzzy no-sort preserves input order while filtering subsequences' "$
 printf '0\n1\n2\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --no-sort --filter ab -t < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'fuzzy no-sort preserves original indexes' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --disabled --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'disabled mode must not be accepted in batch filter mode'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail 'disabled mode must explain its interactive-only restriction'
+else
+    Pass 'disabled mode is restricted to interactive use'
+fi
 if "$Bin" --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'no-sort without fuzzy mode must fail'
 elif ! grep -Fq 'requires --fuzzy' "$TmpDir/stderr"; then

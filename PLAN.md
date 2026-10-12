@@ -439,7 +439,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Make `--delimiter`/`-d` accept POSIX extended regular expressions, including character classes, alternation, and repetitions.
 - [x] Preserve `^` and `$` as anchors to the full record during repeated delimiter searches.
 - [x] Reject invalid regular expressions and expressions that match an empty string, preventing non-progressing splits.
-- [x] Cover delimiter alternatives/runs, malformed expressions, and empty-width expressions with CLI regressions.
+- [x] Cover delimiter alternatives/runs, anchored behavior, malformed expressions, and empty-width expressions with CLI regressions.
+- [x] Include field-selection and regex-delimiter allocations in the exhaustive CLI allocation-failure sweeps.
 - [x] Run the full GCC/Clang release and sanitizer matrix before merging.
 
 ## Measurement notes

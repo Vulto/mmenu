@@ -51,6 +51,11 @@ jobs:
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c main.c -o build/main-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail.o
           $CC $CFLAGS -o build/mmenu-allocfail build/main-allocfail.o build/allocFail.o -lncursesw
+      - name: C23 language-mode smoke build
+        if: matrix.mode == 'release' && steps.compile.outcome == 'success'
+        env:
+          CC: ${{ matrix.compiler }}
+        run: sh tests/c23-smoke.sh
       - name: Install pinned skim reference binary
         if: matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: |
@@ -67,7 +72,7 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh
       - name: Clean release smoke and public-header build
         if: always() && steps.compile.outcome == 'success'
         env:
@@ -112,6 +117,9 @@ jobs:
           CC: gcc
           BENCHMARK_CFLAGS: -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE
         run: sh tests/benchmark.sh build/mmenu build/performance.csv
+      - name: Matcher throughput measurements
+        if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
+        run: sh tests/matcher-throughput.sh build/mmenu build/matcher-throughput.csv
       - name: Interactive first-paint measurements
         if: always() && steps.compile.outcome == 'success' && matrix.compiler == 'gcc' && matrix.mode == 'release'
         run: sh tests/interactive-benchmark.sh build/mmenu build/interactive-first-paint.csv

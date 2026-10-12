@@ -389,16 +389,17 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### M0 — Baseline & checklist
 
-- [ ] Verify this checklist against the entire upstream fzf 0.74.5 man page, including options, inverse options, actions, events, placeholders, environment variables, and exit statuses.
+- [x] Verify this checklist against the entire upstream fzf 0.74.5 man page, including options, inverse options, actions, events, placeholders, environment variables, and exit statuses.
 - [ ] Build baseline binaries with GCC and Clang using the existing CI flags; also build in strict C23 mode and record compiler support.
-- [ ] Run the full existing regression suite unchanged and record the exact commit and result.
-- [ ] Run tests/benchmark.sh with 5 samples per input size (1k, 10k, 100k, 1M), preserving raw CSV, summary CSV, metadata, elapsed time, and peak RSS.
-- [ ] Run tests/interactive-benchmark.sh with 3 samples per size (1k, 10k, 100k), preserving first-paint measurements and terminal dimensions.
-- [ ] Add a reproducible comparison harness for the same generated records/query across mmenu batch filter, fzy, and fzf where installed; capture versions, compiler/runtime, input size, matches, elapsed time, and RSS. Do not make noisy absolute timing a CI gate.
-- [ ] Capture an interactive responsiveness baseline with a controlled PTY, a slow/streaming producer, and a fixed terminal size; distinguish time to prompt, time to first item, and time to final input EOF.
-- [ ] Record current binary size, benchmark numbers, tool versions, machine/kernel, locale, terminal, sample count, and known measurement limitations below.
-- [ ] Confirm all benchmark and comparison harnesses are deterministic in input/query/output and do not modify existing tests to weaken assertions.
-- [ ] Commit this milestone's plan and measurement harness separately; after each commit run the full suite and require all four CI jobs to pass.
+- [x] Run the full existing regression suite unchanged and record the exact commit and result.
+- [x] Run tests/benchmark.sh with 5 samples per input size (1k, 10k, 100k, 1M), preserving raw CSV, summary CSV, metadata, elapsed time, and peak RSS.
+- [x] Run tests/interactive-benchmark.sh with 3 samples per size (1k, 10k, 100k), preserving first-paint measurements and terminal dimensions.
+- [ ] Run the newly added reproducible matcher-throughput harness against the same generated records/query for mmenu, fzy, and fzf; retain versions, compiler/runtime, input size, matches, elapsed time, and RSS. Do not make noisy absolute timing a CI gate.
+- [x] Record the existing controlled-PTY interactive first-paint baseline at a fixed 80x24 terminal size, including its measurement limitations.
+- [x] Record existing batch/interactive benchmark numbers, available tool versions, machine/kernel, terminal, sample count, and known measurement limitations below.
+- [ ] Record C23-mode compiler support and baseline binary size from the new smoke-build artifact.
+- [ ] Confirm the matcher-throughput harness is deterministic in input/query/output and that all existing test assertions remain unchanged.
+- [ ] Verify the harness and C23 smoke build on CI, then mark M0 complete only after all four CI jobs pass.
 
 ## Measurement notes
 
@@ -406,7 +407,18 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - Current CI run on the baseline revision: https://github.com/Vulto/mmenu/actions/runs/38190345009 — GCC release, Clang release, GCC sanitizers, and Clang sanitizers all passed.
 - Existing batch benchmark sizes: 1,000; 10,000; 100,000; 1,000,000 records; 5 samples per size.
 - Existing interactive first-paint sizes: 1,000; 10,000; 100,000 records; 3 samples per size; terminal 80x24.
-- Numerical baseline results: pending retrieval/re-run of the CI artifacts and controlled comparative runs. Do not infer or fabricate values.
+- Baseline batch filter (commit 8ebed41eed3a742720deaa6efbc7045c951827e0; GCC 13.3.0; -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE; 5 samples per size):
+  - 1,000 records: median 2,354,947 ns; max RSS 2,088 KiB; min/max 2,114,366 / 2,464,737 ns.
+  - 10,000 records: median 3,015,098 ns; max RSS 2,092 KiB; min/max 2,975,098 / 5,354,650 ns.
+  - 100,000 records: median 8,751,763 ns; max RSS 4,828 KiB; min/max 8,651,693 / 9,027,608 ns.
+  - 1,000,000 records: median 71,232,287 ns; max RSS 31,004 KiB; min/max 68,015,176 / 103,228,474 ns.
+- Baseline interactive first paint (terminal 80x24, TERM=xterm; 3 samples; wall-clock launch-to-prompt marker):
+  - 1,000 records: samples 8,447,272 / 8,381,618 / 8,581,067 ns; median 8,447,272 ns.
+  - 10,000 records: samples 8,328,363 / 8,368,603 / 8,362,950 ns; median 8,362,950 ns.
+  - 100,000 records: samples 14,988,676 / 15,061,079 / 15,011,729 ns; median 15,011,729 ns.
+- Ranking-quality fixture versions: fzf 0.44.1 (Debian package), fzy 1.0, skim 5.7.4. On the four small judged query sets, mmenu fuzzy and fzf both reported MRR 1.0000; NDCG@5 values were menu 0.8273, mmh 0.8839, tst 0.9896, cfg 0.8502; Recall@5 values were 0.8333, 0.6667, 1.0000, 1.0000. fzy NDCG@5 was 0.8273, 0.8839, 0.8502, 0.8502 with the same recall values. Candidate counts were 8, 4, 5, and 4 respectively.
+- Large-input throughput samples against fzf/fzy, C23-mode compiler results, and binary-size values: pending the current CI run.
+
 - Batch timing measures end-to-end filter invocation, not isolated matcher throughput.
 - Existing interactive first-paint marker measures launch-to-prompt visibility; it does not currently measure time-to-first-record or responsiveness during input streaming.
 - Comparative timing is informational unless repeated, controlled measurements justify a stable threshold. Always preserve raw samples as well as summaries.

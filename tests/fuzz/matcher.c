@@ -57,9 +57,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
     if (option_count == 0) options[option_count++] = "";
 
+    mmenu_tiebreak_spec tiebreak;
+    if (!MmenuTieBreakParse(NULL, &tiebreak, NULL, 0)) return 0;
+
     FuzzyMatch *matches = NULL;
     int match_count = 0;
-    if (!FuzzyCollect(options, option_count, query, 0u, &matches, &match_count))
+    if (!FuzzyCollect(options, option_count, query, 0u, &tiebreak,
+                      &matches, &match_count))
         return 0;
 
     for (int i = 0; i < match_count; i++) {
@@ -67,7 +71,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             abort();
 
         long long verified_score = 0;
-        if (!FuzzyScore(options[matches[i].index], query, 0u, &verified_score) ||
+        if (!FuzzyScoreMetrics(options[matches[i].index], query, 0u, &verified_score, NULL) ||
             verified_score != matches[i].score)
             abort();
 

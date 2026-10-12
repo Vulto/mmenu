@@ -99,7 +99,7 @@ mmenu is now optimized for large piped inputs (hundreds of thousands to millions
 - Chunked arena loader in the CLI (one or two large allocations instead of millions of tiny `malloc`s per line).
 - Byte-oriented `strcasestr` matching (case-insensitive) on the original UTF-8 strings — no more per-candidate `mbstowcs` + `wcsstr` + malloc/free in the hot path.
 - Incremental refinement: typing more characters only scans the shrinking set of previous matches (O(M) instead of O(N) per keystroke).
-- Batch latency and peak RSS are measured by CI. Interactive first-paint latency is not yet included in the automated timing gate.
+- Batch latency and peak RSS are measured by CI. Interactive first-paint latency is recorded separately as an informational metric, not a timing gate, because pseudo-terminal startup and shared-runner timing are noisy.
 
 Options (in addition to the legacy positional prompt and `t`/`true` index argument):
 

@@ -768,7 +768,7 @@ static void print_usage(FILE *out) {
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
         "--nth SPEC searches selected 1-based fields/ranges; --with-nth SPEC changes interactive display fields.\n"
-        "--delimiter/-d sets a literal separator for field options.\n"
+        "--delimiter/-d sets a POSIX extended regular expression for field options.\n"
         "--accept-nth SPEC outputs selected fields from each accepted record.\n"
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
@@ -1043,7 +1043,7 @@ int main(int argc, char **argv) {
             continue;
         }
         if (!strcmp(arg, "--delimiter") || !strcmp(arg, "-d")) {
-            if (delimiter_seen || i + 1 >= argc) return argument_error("--delimiter requires one literal delimiter");
+            if (delimiter_seen || i + 1 >= argc) return argument_error("--delimiter requires one regular expression");
             field_delimiter = argv[++i];
             delimiter_seen = 1;
             continue;

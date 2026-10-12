@@ -1066,7 +1066,6 @@ int main(int argc, char **argv) {
             if (!selected) {
                 perror("mmenu: selecting searchable fields");
                 lines_free(&search_opts);
-                lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
             }

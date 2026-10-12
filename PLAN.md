@@ -7,7 +7,7 @@
 - Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
 - Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
 - Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
-- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. M1 was merged in commit 049181285dd8523d5e5f60ff468525fbcd36558e after CI run 38274839266 passed all four jobs; push-triggered CI run 38275615623 also passed all four jobs on the exact master commit. The CLI batch filter remains a complete-input path.
 - The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
 - Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
 - No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
@@ -348,13 +348,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 #### Search expression and placeholder inventory
 
-- [ ] Unanchored fuzzy query terms — partial — basic subsequence matching exists.
-- [ ] Exact query term syntax (single-quoted terms) — missing.
-- [ ] Prefix/anchored query terms (caret syntax) — missing.
-- [ ] Suffix/ending query terms (dollar syntax) — missing.
-- [ ] Exact-boundary terms (both ends anchored) — missing.
-- [ ] Inverse/negative terms — missing.
-- [ ] OR expression syntax — missing.
+- [x] Unanchored fuzzy query terms — present — --extended uses fuzzy subsequence matching for ordinary terms when combined with --fuzzy.
+- [x] Exact query term syntax (single-quoted terms) — present — 'term forces contiguous substring matching.
+- [x] Prefix/anchored query terms (caret syntax) — present — ^term matches at the start.
+- [x] Suffix/ending query terms (dollar syntax) — present — term$ matches at the end.
+- [x] Exact-boundary terms (both ends anchored) — present — ^term$ matches the whole record.
+- [x] Inverse/negative terms — present — !term excludes candidates matching that term.
+- [x] OR expression syntax — present — | separates OR groups; terms within each group are ANDed.
 - [ ] Field index expressions (positive/negative indices and ranges) — missing.
 - [ ] Item placeholder {} and escaped literal placeholder — partial — narrow preview placeholder handling exists.
 - [ ] Index placeholder {n} — missing.
@@ -368,7 +368,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 - [ ] Preserve ABI/source behavior of mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured — present — compatibility is a hard invariant.
 - [ ] Keep the existing arena loader and batch modes unchanged by default — present — compatibility is a hard invariant.
-- [ ] Add new configuration fields only additively and with documented defaults — missing — no broad configuration model yet.
+- [ ] Add new configuration fields only additively and with documented defaults — partial — MMENU_EXTENDED is an additive flag; broader configuration remains future work.
 - [ ] Expose new interactive options through configured API without leaking ncurses types — partial — current API has only a small config structure.
 - [ ] Provide C API configuration for match mode, case policy, scorer, layout, selection, bindings, preview, streaming, and output — missing.
 - [ ] Stable ownership/lifetime rules for selections, callback data, streamed records, and preview jobs — partial — existing multi-select ownership is documented; new facilities need contracts.
@@ -414,6 +414,16 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Cover empty records, final unterminated records, both delimiters, long records, invalid input, and stream errors without weakening existing assertions.
 - [x] Verify preview output remains visible and its callback refreshes when additional records arrive.
 - [x] Run the full regression suite, allocation-failure tests/sweeps, static analysis, sanitizer/fuzz jobs, and performance artifacts on the current revision before merge.
+
+### M2a — Extended query grammar
+
+- [x] Add opt-in --extended/-x and --no-extended/+x CLI flags and additive MMENU_EXTENDED C API flag; preserve legacy query semantics when disabled.
+- [x] Parse whitespace-separated AND terms, |-separated OR groups, ! inverse terms, ' contiguous terms, ^ prefix terms, $ suffix terms, and ^term$ whole-record terms.
+- [x] Support the grammar with substring and fuzzy matchers in batch, interactive, and streaming paths; keep fuzzy result ordering score-based and stable.
+- [x] Define the combination rule: extended mode rejects whole-record --exact/MMENU_EXACT, while --fuzzy remains supported.
+- [x] Add CLI and interactive C API regressions for every operator, OR/AND composition, inversion, fuzzy mode, and legacy behavior.
+- [x] Document the new syntax and record it in the Unreleased changelog.
+- [x] Run the full four-job CI matrix and resolve all failures before merging.
 
 ## Measurement notes
 

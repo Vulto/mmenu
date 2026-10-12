@@ -19,10 +19,54 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Search and matching
 
-- [ ] Extended query mode (--extended / -x) — partial — no full extended-query parser exists.
-- [ ] Extended query syntax, including whitespace-separated terms — partial — current matching is simpler and does not implement the complete query grammar.
+- [x] Extended query mode (--extended / -x) — present — opt-in grammar is implemented in batch, interactive, and streaming paths.
+- [x] Extended query syntax — present — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [x] Extended query mode (--extended / -x) — present — opt-in grammar is implemented in batch, interactive, and streaming paths.
+ suffix, and `^term# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [x] Extended query mode (--extended / -x) — present — opt-in grammar is implemented in batch, interactive, and streaming paths.
+ whole-record terms; broader upstream fzf syntax remains tracked separately.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
-- [ ] Extended-search disable (--no-extended / +x) — missing — no extended-search parser exists.
+- [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
 - [x] Case-sensitive matching (--no-ignore-case / +i) — present — ASCII case-sensitive matching in substring, fuzzy, extended, and interactive paths.
 - [x] Smart-case matching (--smart-case) — present — query-wide ASCII uppercase detection with CLI/API coverage.
@@ -37,7 +81,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Tail-limited input (--tail) — missing.
 - [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
 - [ ] Configurable tie-breaking (--tiebreak) — missing.
-- [ ] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — missing — no fzf extended-search grammar.
+- [x] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — present — covered by CLI and interactive API regressions.
 - [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.
 - [ ] Ranking-quality fixtures and stable ranking baseline — partial — a baseline exists; the current matcher still needs comprehensive quality comparison.
 
@@ -355,7 +399,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Exact-boundary terms (both ends anchored) — present — ^term$ matches the whole record.
 - [x] Inverse/negative terms — present — !term excludes candidates matching that term.
 - [x] OR expression syntax — present — | separates OR groups; terms within each group are ANDed.
-- [ ] Field index expressions (positive/negative indices and ranges) — missing.
+- [x] Field index expressions (positive/negative indices and ranges) — present — `--nth` supports single indexes, negative indexes, and inclusive ranges.
 - [ ] Item placeholder {} and escaped literal placeholder — partial — narrow preview placeholder handling exists.
 - [ ] Index placeholder {n} — missing.
 - [ ] Query placeholder {q} — missing.
@@ -368,8 +412,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 - [ ] Preserve ABI/source behavior of mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured — present — compatibility is a hard invariant.
 - [ ] Keep the existing arena loader and batch modes unchanged by default — present — compatibility is a hard invariant.
-- [ ] Add new configuration fields only additively and with documented defaults — partial — MMENU_EXTENDED is an additive flag; broader configuration remains future work.
-- [ ] Expose new interactive options through configured API without leaking ncurses types — partial — current API has only a small config structure.
+- [x] Add new configuration fields only additively and with documented defaults — present for implemented extensions; MMENU_EXTENDED and searchable-text callback are additive, while broader configuration remains future work.
+- [x] Expose new interactive matching options through configured API without leaking ncurses types — present for extended queries, searchable-text callback, streaming, preview, and key aliases; broader configuration remains future work.
 - [ ] Provide C API configuration for match mode, case policy, scorer, layout, selection, bindings, preview, streaming, and output — missing.
 - [ ] Stable ownership/lifetime rules for selections, callback data, streamed records, and preview jobs — partial — existing multi-select ownership is documented; new facilities need contracts.
 - [x] C23 compiler mode and portable C23 implementation — present — strict builds, static analysis, fuzzing, benchmarks, release checks, and documented source builds use -std=c2x.

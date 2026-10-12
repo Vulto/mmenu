@@ -766,7 +766,7 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
-        "--tiebreak=KEYS orders equal-score fuzzy matches (length,begin,end,index,chunk,pathname,score).\n"
+        "--tiebreak=KEYS orders equal-score fuzzy matches (length,begin,end,chunk,pathname,index).\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
         "--nth SPEC searches selected 1-based fields/ranges; --with-nth SPEC changes interactive display fields.\n"
         "--delimiter/-d sets a POSIX extended regular expression for field options.\n"

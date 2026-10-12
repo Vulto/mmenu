@@ -13,6 +13,12 @@
 #define MMENU_IMPLEMENTATION
 #include "../mmenu.h"
 
+static const char *test_search_text(const char *option, int index, void *userdata) {
+    (void)option;
+    const char *const *search_text = userdata;
+    return search_text[index];
+}
+
 static int test_preview_callback(const char *option, int index,
                                 const wchar_t *query, char *output,
                                 size_t output_size, void *userdata) {
@@ -133,6 +139,19 @@ int main(int argc, char **argv)
     if (argc > 1 && strcmp(argv[1], "no-tty") == 0) {
         if (mmenu(options, count, prompt) != -1) return 1;
         puts("MMENU_API_RESULT=terminal-unavailable");
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "nth-api") == 0) {
+        const char *field_options[] = {"first alpha", "second needle", "third other"};
+        const char *search_text[] = {"alpha", "needle", "other"};
+        mmenu_config config = {
+            .initial_query = "needle",
+            .search_text = test_search_text,
+            .search_text_userdata = (void *)search_text
+        };
+        int result = mmenuConfigured(field_options, 3, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
         return 0;
     }
 

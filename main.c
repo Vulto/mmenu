@@ -446,7 +446,7 @@ static int run_preview_command(const char *record, int index,
 static void print_usage(FILE *out) {
     fprintf(out,
         "Usage: mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--preview COMMAND]\n"
-        "       mmenu [--fuzzy | --exact] [PROMPT] [-t] [--multi] [--query QUERY] [--preview COMMAND]\n"
+        "       mmenu [--fuzzy | --exact] [--extended] [PROMPT] [-t] [--multi] [--query QUERY] [--preview COMMAND]\n"
         "       mmenu [--bind-ACTION KEY] ...\n"
         "       mmenu [--fuzzy | --exact] [--invert-match] --filter QUERY [-t] [--print0]\n"
         "       mmenu [--filter QUERY | --filter=QUERY | -f QUERY] [-t | --format FORMAT] [--read0] [--print0]\n"
@@ -461,6 +461,7 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--extended enables AND/OR, inverse, exact-substring, prefix (^), and suffix ($) terms.\n"
         "--invert-match or -v emits records that do not match the batch query.\n"
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
 }
@@ -545,6 +546,7 @@ int main(int argc, char **argv) {
     int filter_seen = 0;
     int fuzzy_mode = 0;
     int exact_mode = 0;
+    int extended_mode = 0;
     int invert_mode = 0;
     int no_sort = 0;
     int input_nul = 0;
@@ -574,6 +576,14 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--exact")) {
             exact_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--extended") || !strcmp(arg, "-x")) {
+            extended_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--no-extended") || !strcmp(arg, "+x")) {
+            extended_mode = 0;
             continue;
         }
         if (!strcmp(arg, "--invert-match") || !strcmp(arg, "-v")) {
@@ -708,6 +718,8 @@ int main(int argc, char **argv) {
 
     if (fuzzy_mode && exact_mode)
         return argument_error("--fuzzy and --exact are mutually exclusive");
+    if (extended_mode && exact_mode)
+        return argument_error("--extended cannot be combined with whole-record --exact");
     if (invert_mode && !filter_seen)
         return argument_error("--invert-match requires --filter");
     if (no_sort && (!fuzzy_mode || !filter_seen))
@@ -729,6 +741,9 @@ int main(int argc, char **argv) {
                 return argument_error("a custom key cannot be assigned to multiple actions");
     if (preview_seen && (!preview_command || !*preview_command))
         return argument_error("--preview command must not be empty");
+    unsigned int match_flags = (fuzzy_mode ? MMENU_FUZZY : 0u) |
+                               (exact_mode ? MMENU_EXACT : 0u) |
+                               (extended_mode ? MMENU_EXTENDED : 0u);
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;
@@ -787,7 +802,56 @@ int main(int argc, char **argv) {
 
     /* Non-interactive fast path: outputs matching lines or original indexes. */
     if (filter_query != NULL) {
-        if (invert_mode) {
+        if (extended_mode) {
+            setlocale(LC_ALL, "");
+            errno = 0;
+            wchar_t *wide_query = mb_to_wc(filter_query);
+            if (!wide_query) {
+                if (errno == ENOMEM) perror("mmenu: converting extended query");
+                else fprintf(stderr, "mmenu: extended query is not valid in the current locale\n");
+                lines_free(&opts);
+                return EXIT_FAILURE;
+            }
+
+            if (invert_mode || no_sort || !fuzzy_mode) {
+                mmenu_query query;
+                if (!mmenu_query_compile(wide_query, &query)) {
+                    if (errno == EILSEQ)
+                        fprintf(stderr, "mmenu: extended query is not valid in the current locale\n");
+                    else
+                        perror("mmenu: compiling extended query");
+                    free(wide_query);
+                    lines_free(&opts);
+                    return EXIT_FAILURE;
+                }
+                for (int i = 0; i < opts.count; i++) {
+                    long long score = 0;
+                    int matched = mmenu_query_match(&query, opts.lines[i],
+                                                    match_flags, &score);
+                    if (invert_mode ? !matched : matched)
+                        print_batch_match(opts.lines[i], i, output_index, output_nul,
+                                          output_format, filter_query);
+                }
+                mmenu_query_free(&query);
+            } else {
+                FuzzyMatch *matches = NULL;
+                int match_count = 0;
+                if (!mmenu_extended_collect((const char *const *)opts.lines, 0,
+                                            opts.count, wide_query, match_flags,
+                                            &matches, &match_count)) {
+                    free(wide_query);
+                    lines_free(&opts);
+                    return EXIT_FAILURE;
+                }
+                for (int i = 0; i < match_count; i++) {
+                    int index = matches[i].index;
+                    print_batch_match(opts.lines[index], index, output_index,
+                                      output_nul, output_format, filter_query);
+                }
+                free(matches);
+            }
+            free(wide_query);
+        } else if (invert_mode) {
             wchar_t *wide_query = NULL;
             if (fuzzy_mode) {
                 setlocale(LC_ALL, "");
@@ -877,9 +941,7 @@ int main(int argc, char **argv) {
         int *selected = NULL;
         int selected_count = 0;
         int status = mmenuMultiConfigured((const char *const *)opts.lines, opts.count, prompt,
-                                          fuzzy_mode ? MMENU_FUZZY :
-                                          exact_mode ? MMENU_EXACT : 0,
-                                          &menu_config, &selected, &selected_count);
+                                          match_flags, &menu_config, &selected, &selected_count);
         if (input_stream.error) {
             free(selected);
             free(input_stream.record);
@@ -895,9 +957,7 @@ int main(int argc, char **argv) {
         free(selected);
     } else {
         int chosen = mmenuConfigured((const char *const *)opts.lines, opts.count, prompt,
-                                     fuzzy_mode ? MMENU_FUZZY :
-                                     exact_mode ? MMENU_EXACT : 0,
-                                     &menu_config);
+                                     match_flags, &menu_config);
         if (input_stream.error) {
             free(input_stream.record);
             lines_free(&opts);

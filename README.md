@@ -109,9 +109,10 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching records (or indices with `-t`), without initializing ncurses.
 - `--read0`: read NUL-delimited input records instead of newline-delimited records.
 - `--print0`: terminate each output record with NUL instead of newline.
-- `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode.
+- `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode. It cannot be combined with `--extended`.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
+- `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, prefix terms prefixed by `^`, and suffix terms ending in `$`. `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.
 - `--no-sort`: with `--fuzzy --filter`, keep matching records in original input order instead of ranking by score; requires both flags.
 - `--format FORMAT`: in batch mode, expand `{}` to the matched record, `{index}` to its original zero-based input index, and `{query}` to the query. It can be combined with `--print0`, but not `-t`; requires `--filter`.
 - `--multi`: interactive multi-selection; Tab toggles the highlighted option and Enter emits all selected records (or indexes with `-t`). It cannot be combined with `--filter`.

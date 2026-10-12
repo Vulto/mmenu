@@ -4,6 +4,7 @@
 
 ### Added
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
+- Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
 
 ## 1.0.0 - 2026-10-11
 

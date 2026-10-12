@@ -42,6 +42,46 @@ printf '1:beta needle\n' > "$TmpDir/expected"
 "$Bin" --fuzzy --filter bn --format '{index}:{}' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'format works with fuzzy output and original indexes' "$TmpDir/expected" "$TmpDir/actual"
 
+# Extended query grammar is opt-in and leaves legacy matching unchanged.
+printf 'src/main.c\nsrc/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/input"
+printf 'src/main.c\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended whitespace terms are ANDed' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
+"$Bin" -x --filter 'src/main.c | other.c' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended OR groups preserve input order' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nsrc/README.md\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^src' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended caret terms match prefixes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '.c$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended dollar terms match suffixes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^src/main.c$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended caret and dollar anchor both ends' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '!README' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended inverse terms exclude matching records' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/README.md\nREADME.md\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "'README" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended single quote forces contiguous matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\n' > "$TmpDir/expected"
+"$Bin" --extended --fuzzy --filter 'smc' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended fuzzy terms use subsequence matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --invert-match --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended inverse filtering inverts the full expression' "$TmpDir/expected" "$TmpDir/actual"
+: > "$TmpDir/expected"
+"$Bin" --no-extended --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'no-extended keeps legacy literal substring behavior' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --extended --exact --filter foo < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'extended mode must reject whole-record exact mode'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'extended/exact conflict must explain the restriction'
+else
+    Pass 'extended and whole-record exact modes are rejected together'
+fi
+
 # Inverse filtering preserves original input order and supports all matcher modes.
 printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/input"
 printf 'beta\n' > "$TmpDir/expected"

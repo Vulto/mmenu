@@ -28,6 +28,14 @@ ProbeCli() {
         if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
             Fail "CLI probe failed for $Name"
         fi
+    elif [ "$Mode" = extended ]; then
+        if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --extended --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
+            Fail "CLI probe failed for $Name"
+        fi
+    elif [ "$Mode" = extended-fuzzy ]; then
+        if ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --extended --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
+            Fail "CLI probe failed for $Name"
+        fi
     elif ! MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-probe.err"; then
         Fail "CLI probe failed for $Name"
     fi
@@ -47,6 +55,18 @@ SweepCli() {
     while [ "$At" -le "$Total" ]; do
         if [ "$Mode" = fuzzy ]; then
             if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
+                Status=0
+            else
+                Status=$?
+            fi
+        elif [ "$Mode" = extended ]; then
+            if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --extended --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
+                Status=0
+            else
+                Status=$?
+            fi
+        elif [ "$Mode" = extended-fuzzy ]; then
+            if MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 "$CliBin" --extended --fuzzy --filter "$Query" < "$Input" > /dev/null 2> "$TmpDir/cli-error"; then
                 Status=0
             else
                 Status=$?
@@ -154,6 +174,8 @@ awk 'BEGIN { for (i = 0; i < 230000; i++) printf "src/module-%06d-needle-padding
 
 SweepCli small "$TmpDir/small.input"
 SweepCli fuzzy "$TmpDir/small.input" ndl fuzzy
+SweepCli extended-query "$TmpDir/small.input" 'needle second' extended
+SweepCli extended-fuzzy "$TmpDir/small.input" ndl extended-fuzzy
 SweepCli large-record "$TmpDir/large-record.input"
 SweepCli arena-and-list-growth "$TmpDir/arena-growth.input"
 SweepPreview "$TmpDir/small.input"
@@ -166,5 +188,6 @@ SweepApi incremental-realloc many-edit 'a\177\n'
 SweepApi unicode-query '' 'café\n'
 SweepApi fuzzy fuzzy 'ndl\n'
 SweepApi fuzzy-result-growth fuzzy-many 'a\n'
+SweepApi extended-query extended '\n'
 
 printf 'All exhaustive allocation-failure sweeps passed.\n'

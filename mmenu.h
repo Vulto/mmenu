@@ -27,13 +27,15 @@
 #include <stdint.h>
 
 /* MMENU_FUZZY enables subsequence matching and score-ranked results. */
-enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
    Default matching is ASCII-case-insensitive substring matching; non-ASCII
    characters are matched exactly. MMENU_FUZZY enables ranked subsequence
    matching and MMENU_EXACT enables byte-exact equality matching. These modes
-   are mutually exclusive. Invalid multibyte strings return -1 before terminal initialization. */
+   are mutually exclusive. MMENU_EXTENDED enables AND/OR terms, inverse terms,
+   exact substring terms, and prefix/suffix anchors; it cannot be combined with
+   MMENU_EXACT. Invalid multibyte strings return -1 before terminal initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags);
@@ -214,10 +216,9 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 
 /* Greedy subsequence score: reward early, word-boundary, and adjacent matches;
    penalize leading and internal gaps. Invalid multibyte candidates do not match. */
-static int FuzzyScore(const char *candidate, const wchar_t *query,
-                      long long *result)
+static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
+                            size_t query_len, long long *result)
 {
-    size_t query_len = wcslen(query);
     size_t query_pos = 0;
     size_t candidate_pos = 0;
     size_t last_match = SIZE_MAX;
@@ -261,6 +262,12 @@ static int FuzzyScore(const char *candidate, const wchar_t *query,
     if (query_pos != query_len) return 0;
     *result = score;
     return 1;
+}
+
+static int FuzzyScore(const char *candidate, const wchar_t *query,
+                      long long *result)
+{
+    return FuzzyScoreLength(candidate, query, wcslen(query), result);
 }
 
 /* Highlight the same greedy subsequence used by FuzzyScore, clipping by
@@ -341,6 +348,302 @@ static int FuzzyCollect(const char *const *options, int n_options,
 
     if (count > 1)
         qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+    *result = matches;
+    *result_count = count;
+    return 1;
+}
+
+typedef enum {
+    MMENU_QUERY_NORMAL,
+    MMENU_QUERY_EXACT,
+    MMENU_QUERY_PREFIX,
+    MMENU_QUERY_SUFFIX,
+    MMENU_QUERY_EQUAL
+} mmenu_query_kind;
+
+typedef struct {
+    const wchar_t *wide;
+    size_t wide_len;
+    const char *bytes;
+    size_t bytes_len;
+    int group;
+    int inverse;
+    mmenu_query_kind kind;
+} mmenu_query_term;
+
+typedef struct {
+    mmenu_query_term *terms;
+    int count;
+    int groups;
+    wchar_t *wide_storage;
+    char *byte_storage;
+} mmenu_query;
+
+static void mmenu_query_free(mmenu_query *query)
+{
+    if (!query) return;
+    free(query->terms);
+    free(query->wide_storage);
+    free(query->byte_storage);
+    memset(query, 0, sizeof(*query));
+}
+
+/* Compile the extended expression once per filtering pass. Terms within a
+   group are ANDed; groups separated by | are ORed. */
+static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
+{
+    if (!source || !query) {
+        errno = EINVAL;
+        return 0;
+    }
+    memset(query, 0, sizeof(*query));
+
+    size_t length = wcslen(source);
+    size_t term_capacity, term_bytes, wide_capacity, wide_bytes;
+    size_t byte_capacity, per_character;
+    if (!mmenu_size_add(length, 1, &term_capacity) ||
+        !mmenu_size_mul(term_capacity, sizeof(*query->terms), &term_bytes) ||
+        !mmenu_size_mul(length, 2, &wide_capacity) ||
+        !mmenu_size_add(wide_capacity, 1, &wide_capacity) ||
+        !mmenu_size_mul(wide_capacity, sizeof(*query->wide_storage), &wide_bytes) ||
+        !mmenu_size_add((size_t)MB_LEN_MAX, 1, &per_character) ||
+        !mmenu_size_mul(length, per_character, &byte_capacity) ||
+        !mmenu_size_add(byte_capacity, 1, &byte_capacity)) {
+        errno = ENOMEM;
+        return 0;
+    }
+
+    query->terms = malloc(term_bytes);
+    query->wide_storage = malloc(wide_bytes);
+    query->byte_storage = malloc(byte_capacity);
+    if (!query->terms || !query->wide_storage || !query->byte_storage) {
+        if (errno == 0) errno = ENOMEM;
+        mmenu_query_free(query);
+        return 0;
+    }
+
+    size_t wide_used = 0;
+    size_t byte_used = 0;
+    size_t pos = 0;
+    int group = 0;
+    int group_has_terms = 0;
+
+    while (pos < length) {
+        if (iswspace(source[pos])) {
+            pos++;
+            continue;
+        }
+        if (source[pos] == L'|') {
+            if (group_has_terms) {
+                group++;
+                group_has_terms = 0;
+            }
+            pos++;
+            continue;
+        }
+
+        int inverse = 0;
+        mmenu_query_kind kind = MMENU_QUERY_NORMAL;
+        if (source[pos] == L'!') {
+            inverse = 1;
+            pos++;
+        }
+        if (pos < length && source[pos] == L'\'') {
+            kind = MMENU_QUERY_EXACT;
+            pos++;
+        } else if (pos < length && source[pos] == L'^') {
+            kind = MMENU_QUERY_PREFIX;
+            pos++;
+        }
+
+        size_t start = pos;
+        while (pos < length && !iswspace(source[pos]) && source[pos] != L'|')
+            pos++;
+        size_t end = pos;
+        if (end > start && source[end - 1] == L'$') {
+            end--;
+            if (kind == MMENU_QUERY_PREFIX) kind = MMENU_QUERY_EQUAL;
+            else if (kind == MMENU_QUERY_NORMAL) kind = MMENU_QUERY_SUFFIX;
+        }
+        if (end == start) continue;
+
+        size_t term_len = end - start;
+        if (term_len + 1 > wide_capacity - wide_used) {
+            errno = ENOMEM;
+            mmenu_query_free(query);
+            return 0;
+        }
+        wchar_t *wide_term = query->wide_storage + wide_used;
+        memcpy(wide_term, source + start, term_len * sizeof(*wide_term));
+        wide_term[term_len] = L'\0';
+        wide_used += term_len + 1;
+
+        errno = 0;
+        size_t bytes_len = wcstombs(NULL, wide_term, 0);
+        if (bytes_len == (size_t)-1) {
+            errno = EILSEQ;
+            mmenu_query_free(query);
+            return 0;
+        }
+        if (bytes_len >= byte_capacity - byte_used) {
+            errno = ENOMEM;
+            mmenu_query_free(query);
+            return 0;
+        }
+        size_t converted = wcstombs(query->byte_storage + byte_used, wide_term,
+                                    byte_capacity - byte_used);
+        if (converted == (size_t)-1 || converted != bytes_len) {
+            errno = EILSEQ;
+            mmenu_query_free(query);
+            return 0;
+        }
+
+        query->terms[query->count++] = (mmenu_query_term){
+            .wide = wide_term,
+            .wide_len = term_len,
+            .bytes = query->byte_storage + byte_used,
+            .bytes_len = bytes_len,
+            .group = group,
+            .inverse = inverse,
+            .kind = kind
+        };
+        byte_used += bytes_len + 1;
+        if (query->groups < group + 1) query->groups = group + 1;
+        group_has_terms = 1;
+    }
+    return 1;
+}
+
+static int mmenu_query_term_match(const char *candidate,
+                                  const mmenu_query_term *term,
+                                  unsigned int flags, long long *score)
+{
+    *score = 0;
+    size_t candidate_len = strlen(candidate);
+    int matched = 0;
+
+    switch (term->kind) {
+    case MMENU_QUERY_EXACT:
+        matched = strcasestr(candidate, term->bytes) != NULL;
+        if (matched && (flags & MMENU_FUZZY)) *score = 10;
+        break;
+    case MMENU_QUERY_PREFIX:
+        matched = candidate_len >= term->bytes_len &&
+                  strncasecmp(candidate, term->bytes, term->bytes_len) == 0;
+        if (matched && (flags & MMENU_FUZZY)) *score = 20;
+        break;
+    case MMENU_QUERY_SUFFIX:
+        matched = candidate_len >= term->bytes_len &&
+                  strncasecmp(candidate + candidate_len - term->bytes_len,
+                              term->bytes, term->bytes_len) == 0;
+        if (matched && (flags & MMENU_FUZZY)) *score = 15;
+        break;
+    case MMENU_QUERY_EQUAL:
+        matched = candidate_len == term->bytes_len &&
+                  strncasecmp(candidate, term->bytes, term->bytes_len) == 0;
+        if (matched && (flags & MMENU_FUZZY)) *score = 30;
+        break;
+    case MMENU_QUERY_NORMAL:
+        if (flags & MMENU_FUZZY)
+            matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, score);
+        else
+            matched = strcasestr(candidate, term->bytes) != NULL;
+        break;
+    }
+    return matched;
+}
+
+static int mmenu_query_match(const mmenu_query *query, const char *candidate,
+                             unsigned int flags, long long *result_score)
+{
+    if (!query || !candidate || !result_score) return 0;
+    if (query->count == 0) {
+        *result_score = 0;
+        return 1;
+    }
+
+    int found = 0;
+    long long best_score = LLONG_MIN;
+    for (int group = 0; group < query->groups; group++) {
+        int has_terms = 0;
+        int group_matches = 1;
+        long long group_score = 0;
+        for (int i = 0; i < query->count; i++) {
+            const mmenu_query_term *term = &query->terms[i];
+            if (term->group != group) continue;
+            has_terms = 1;
+            long long term_score = 0;
+            int matched = mmenu_query_term_match(candidate, term, flags,
+                                                  &term_score);
+            if (term->inverse) {
+                if (matched) group_matches = 0;
+            } else if (!matched) {
+                group_matches = 0;
+            } else if (flags & MMENU_FUZZY) {
+                if (term_score > 0 && group_score > LLONG_MAX - term_score)
+                    group_score = LLONG_MAX;
+                else if (term_score < 0 && group_score < LLONG_MIN - term_score)
+                    group_score = LLONG_MIN;
+                else
+                    group_score += term_score;
+            }
+        }
+        if (has_terms && group_matches &&
+            (!found || group_score > best_score)) {
+            found = 1;
+            best_score = group_score;
+        }
+    }
+    *result_score = found ? best_score : 0;
+    return found;
+}
+
+static int mmenu_extended_collect(const char *const *options, int start, int end,
+                                  const wchar_t *source, unsigned int flags,
+                                  FuzzyMatch **result, int *result_count)
+{
+    FuzzyMatch *matches = NULL;
+    int count = 0;
+    int capacity = 0;
+    mmenu_query query;
+
+    *result = NULL;
+    *result_count = 0;
+    if (!mmenu_query_compile(source, &query)) {
+        perror("mmenu: compiling extended query");
+        return 0;
+    }
+
+    for (int i = start; i < end; i++) {
+        long long score = 0;
+        if (!mmenu_query_match(&query, options[i], flags, &score)) continue;
+        if (count == capacity) {
+            int new_capacity;
+            if (!mmenu_next_capacity(capacity, INITIAL_CAP, sizeof(*matches),
+                                     &new_capacity)) {
+                perror("mmenu: extended result capacity");
+                free(matches);
+                mmenu_query_free(&query);
+                return 0;
+            }
+            FuzzyMatch *grown = realloc(matches,
+                                        (size_t)new_capacity * sizeof(*matches));
+            if (!grown) {
+                if (errno == 0) errno = ENOMEM;
+                perror("mmenu: growing extended results");
+                free(matches);
+                mmenu_query_free(&query);
+                return 0;
+            }
+            matches = grown;
+            capacity = new_capacity;
+        }
+        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+    }
+
+    if ((flags & MMENU_FUZZY) && count > 1)
+        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+    mmenu_query_free(&query);
     *result = matches;
     *result_count = count;
     return 1;
@@ -622,13 +925,35 @@ static int mmenu_filter_stream_batch(const char *const *options,
             if (!filt_push(filtered, i)) return 0;
         return 1;
     }
+    if ((flags & MMENU_EXTENDED) && !(flags & MMENU_FUZZY)) {
+        FuzzyMatch *batch = NULL;
+        int batch_count = 0;
+        if (!mmenu_extended_collect(options, start, end, query, flags,
+                                    &batch, &batch_count))
+            return 0;
+        for (int i = 0; i < batch_count; i++) {
+            if (!filt_push(filtered, batch[i].index)) {
+                free(batch);
+                return 0;
+            }
+        }
+        free(batch);
+        return 1;
+    }
+
     if (flags & MMENU_FUZZY) {
         FuzzyMatch *batch = NULL;
         int batch_count = 0;
         int batch_cap = 0;
-        for (int i = start; i < end; i++) {
-            long long score;
-            if (!FuzzyScore(options[i], query, &score)) continue;
+        if (flags & MMENU_EXTENDED) {
+            if (!mmenu_extended_collect(options, start, end, query, flags,
+                                        &batch, &batch_count))
+                return 0;
+            batch_cap = batch_count;
+        } else {
+            for (int i = start; i < end; i++) {
+                long long score;
+                if (!FuzzyScore(options[i], query, &score)) continue;
             if (batch_count == batch_cap) {
                 int new_cap;
                 if (!mmenu_next_capacity(batch_cap, INITIAL_CAP,
@@ -647,10 +972,11 @@ static int mmenu_filter_stream_batch(const char *const *options,
                 batch = grown;
                 batch_cap = new_cap;
             }
-            batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
+                batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
+            }
+            if (batch_count > 1)
+                qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
         }
-        if (batch_count > 1)
-            qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
         if (batch_count == 0) {
             free(batch);
             return 1;
@@ -763,8 +1089,9 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT)) ||
-        ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT))) {
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED)) ||
+        ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
+        ((flags & MMENU_EXTENDED) && (flags & MMENU_EXACT))) {
         fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");
         return -1;
     }
@@ -928,6 +1255,27 @@ static int mmenu_internal(const char *const *options, int n_options,
         for (int i = 0; i < n_options; i++) {
             if (!filt_push(&filtered, i)) goto cleanup;
         }
+    } else if (flags & MMENU_EXTENDED) {
+        FuzzyMatch *matches = NULL;
+        int match_count = 0;
+        if (!mmenu_extended_collect(current_options, 0, n_options, input, flags,
+                                    &matches, &match_count))
+            goto cleanup;
+        if (config && config->stream_next && (flags & MMENU_FUZZY)) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+                free(matches);
+                goto cleanup;
+            }
+            for (int i = 0; i < match_count; i++)
+                filtered_scores[i] = matches[i].score;
+        }
+        for (int i = 0; i < match_count; i++) {
+            if (!filt_push(&filtered, matches[i].index)) {
+                free(matches);
+                goto cleanup;
+            }
+        }
+        free(matches);
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
@@ -1091,6 +1439,29 @@ static int mmenu_internal(const char *const *options, int n_options,
                                                n_options, input, flags, &filtered,
                                                &filtered_scores, &filtered_scores_cap))
                     goto cleanup;
+            } else if (flags & MMENU_EXTENDED) {
+                FuzzyMatch *matches = NULL;
+                int match_count = 0;
+                if (!mmenu_extended_collect(current_options, 0, n_options, input,
+                                            flags, &matches, &match_count))
+                    goto cleanup;
+                if (config && config->stream_next && (flags & MMENU_FUZZY)) {
+                    if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
+                                              match_count)) {
+                        free(matches);
+                        goto cleanup;
+                    }
+                    for (int i = 0; i < match_count; i++)
+                        filtered_scores[i] = matches[i].score;
+                }
+                filt_clear(&filtered);
+                for (int i = 0; i < match_count; i++) {
+                    if (!filt_push(&filtered, matches[i].index)) {
+                        free(matches);
+                        goto cleanup;
+                    }
+                }
+                free(matches);
             } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;

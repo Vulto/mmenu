@@ -420,6 +420,8 @@ CheckInvalidLocaleText C.UTF-8 invalid-utf8 'option 0 is not valid in the curren
 CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current locale'
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
 
+CheckSelection 'extended query AND terms work in the interactive C API' 1 '\n' extended
+
 CheckStreamApi
 
 if [ "$Failures" -ne 0 ]; then

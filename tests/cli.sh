@@ -183,6 +183,15 @@ else
     Pass 'zero-width delimiter regular expressions are rejected'
 fi
 
+# Regex anchors stay relative to the original record, not each remaining suffix.
+printf ':first:second\n' > "$TmpDir/input"
+printf ':first:second\n' > "$TmpDir/expected"
+"$Bin" --filter second --nth 2 --delimiter '^:' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex start anchor is not reapplied after the first split' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha:beta:\n' > "$TmpDir/input"
+"$Bin" --filter 'beta:' --nth 1 --delimiter ':$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex end anchor splits only at the end of the original record' /dev/null "$TmpDir/actual"
+
 # NUL-delimited records support both terminated and final unterminated input.
 printf 'alpha\000beta\000alpha beta' > "$TmpDir/input0"
 printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"

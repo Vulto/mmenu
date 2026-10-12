@@ -627,8 +627,9 @@ static void MmenuFuzzySort(FuzzyMatch *matches, int count,
 /* Returns matching indices; MMENU_NO_SORT preserves input order, otherwise
    score ranking is stable for equal scores. */
 static int FuzzyCollect(const char *const *options, int n_options,
-                        const wchar_t *query, unsigned int flags, FuzzyMatch **result,
-                        int *result_count)
+                        const wchar_t *query, unsigned int flags,
+                        const mmenu_tiebreak_spec *tiebreak,
+                        FuzzyMatch **result, int *result_count)
 {
     FuzzyMatch *matches = NULL;
     int count = 0;
@@ -639,7 +640,8 @@ static int FuzzyCollect(const char *const *options, int n_options,
 
     for (int i = 0; i < n_options; i++) {
         long long score;
-        if (!FuzzyScore(options[i], query, flags, &score)) continue;
+        FuzzyMetrics metrics = {0};
+        if (!FuzzyScoreMetrics(options[i], query, flags, &score, &metrics)) continue;
 
         if (count == capacity) {
             int new_capacity;
@@ -660,11 +662,11 @@ static int FuzzyCollect(const char *const *options, int n_options,
             matches = new_matches;
             capacity = new_capacity;
         }
-        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+        matches[count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
     }
 
     if (count > 1 && !(flags & MMENU_NO_SORT))
-        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+        MmenuFuzzySort(matches, count, tiebreak);
     *result = matches;
     *result_count = count;
     return 1;
@@ -833,53 +835,70 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
 
 static int mmenu_query_term_match(const char *candidate,
                                   const mmenu_query_term *term,
-                                  unsigned int flags, long long *score)
+                                  unsigned int flags, long long *score,
+                                  FuzzyMetrics *metrics)
 {
     *score = 0;
+    if (metrics) MmenuTextMetrics(candidate, metrics);
     size_t candidate_len = strlen(candidate);
     int matched = 0;
+    const char *match_at = NULL;
 
     switch (term->kind) {
     case MMENU_QUERY_EXACT:
-        matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
+        match_at = MmenuStrstrPolicy(candidate, term->bytes, flags);
+        matched = match_at != NULL;
         if (matched && (flags & MMENU_FUZZY)) *score = 10;
+        if (matched && metrics)
+            MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
         break;
     case MMENU_QUERY_PREFIX:
         matched = candidate_len >= term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 20;
+        if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
     case MMENU_QUERY_SUFFIX:
         matched = candidate_len >= term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate + candidate_len - term->bytes_len, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 15;
+        if (matched && metrics)
+            MmenuSubstringMetrics(candidate, candidate + candidate_len - term->bytes_len, term->wide_len, metrics);
         break;
     case MMENU_QUERY_EQUAL:
         matched = candidate_len == term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 30;
+        if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
     case MMENU_QUERY_NORMAL:
         if (flags & MMENU_FUZZY)
-            matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, flags, score);
-        else
-            matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
+            matched = FuzzyScoreLengthMetrics(candidate, term->wide, term->wide_len, flags, score, metrics);
+        else {
+            match_at = MmenuStrstrPolicy(candidate, term->bytes, flags);
+            matched = match_at != NULL;
+            if (matched && metrics)
+                MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
+        }
         break;
     }
     return matched;
 }
 
 static int mmenu_query_match(const mmenu_query *query, const char *candidate,
-                             unsigned int flags, long long *result_score)
+                             unsigned int flags, long long *result_score,
+                             FuzzyMetrics *result_metrics)
 {
     if (!query || !candidate || !result_score) return 0;
     if (query->count == 0) {
         *result_score = 0;
+        if (result_metrics) MmenuTextMetrics(candidate, result_metrics);
         return 1;
     }
 
     int found = 0;
     long long best_score = LLONG_MIN;
+    FuzzyMetrics best_metrics = {0};
     unsigned int effective_flags = flags;
     if (flags & MMENU_SMART_CASE) {
         int has_uppercase = 0;
@@ -893,38 +912,61 @@ static int mmenu_query_match(const mmenu_query *query, const char *candidate,
         int has_terms = 0;
         int group_matches = 1;
         long long group_score = 0;
+        FuzzyMetrics group_metrics;
+        MmenuTextMetrics(candidate, &group_metrics);
+        group_metrics.begin = SIZE_MAX;
+        group_metrics.end = 0;
+        group_metrics.chunks = 0;
+        group_metrics.has_match = 0;
         for (int i = 0; i < query->count; i++) {
             const mmenu_query_term *term = &query->terms[i];
             if (term->group != group) continue;
             has_terms = 1;
             long long term_score = 0;
+            FuzzyMetrics term_metrics = {0};
             int matched = mmenu_query_term_match(candidate, term, effective_flags,
-                                                  &term_score);
+                                                  &term_score, &term_metrics);
             if (term->inverse) {
                 if (matched) group_matches = 0;
             } else if (!matched) {
                 group_matches = 0;
-            } else if (flags & MMENU_FUZZY) {
-                if (term_score > 0 && group_score > LLONG_MAX - term_score)
-                    group_score = LLONG_MAX;
-                else if (term_score < 0 && group_score < LLONG_MIN - term_score)
-                    group_score = LLONG_MIN;
-                else
-                    group_score += term_score;
+            } else {
+                if (term_metrics.has_match) {
+                    if (!group_metrics.has_match || term_metrics.begin < group_metrics.begin)
+                        group_metrics.begin = term_metrics.begin;
+                    if (!group_metrics.has_match || term_metrics.end > group_metrics.end)
+                        group_metrics.end = term_metrics.end;
+                    if (UINT_MAX - group_metrics.chunks < term_metrics.chunks)
+                        group_metrics.chunks = UINT_MAX;
+                    else group_metrics.chunks += term_metrics.chunks;
+                    group_metrics.has_match = 1;
+                }
+                if (flags & MMENU_FUZZY) {
+                    if (term_score > 0 && group_score > LLONG_MAX - term_score)
+                        group_score = LLONG_MAX;
+                    else if (term_score < 0 && group_score < LLONG_MIN - term_score)
+                        group_score = LLONG_MIN;
+                    else
+                        group_score += term_score;
+                }
             }
         }
         if (has_terms && group_matches &&
             (!found || group_score > best_score)) {
             found = 1;
             best_score = group_score;
+            best_metrics = group_metrics;
+            if (!best_metrics.has_match) best_metrics.begin = 0;
         }
     }
     *result_score = found ? best_score : 0;
+    if (found && result_metrics) *result_metrics = best_metrics;
     return found;
 }
 
 static int mmenu_extended_collect(const char *const *options, int start, int end,
                                   const wchar_t *source, unsigned int flags,
+                                  const mmenu_tiebreak_spec *tiebreak,
                                   FuzzyMatch **result, int *result_count)
 {
     FuzzyMatch *matches = NULL;
@@ -941,7 +983,8 @@ static int mmenu_extended_collect(const char *const *options, int start, int end
 
     for (int i = start; i < end; i++) {
         long long score = 0;
-        if (!mmenu_query_match(&query, options[i], flags, &score)) continue;
+        FuzzyMetrics metrics = {0};
+        if (!mmenu_query_match(&query, options[i], flags, &score, &metrics)) continue;
         if (count == capacity) {
             int new_capacity;
             if (!mmenu_next_capacity(capacity, INITIAL_CAP, sizeof(*matches),
@@ -963,17 +1006,16 @@ static int mmenu_extended_collect(const char *const *options, int start, int end
             matches = grown;
             capacity = new_capacity;
         }
-        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+        matches[count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
     }
 
     if ((flags & MMENU_FUZZY) && !(flags & MMENU_NO_SORT) && count > 1)
-        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+        MmenuFuzzySort(matches, count, tiebreak);
     mmenu_query_free(&query);
     *result = matches;
     *result_count = count;
     return 1;
 }
-
 static int filt_init(filt *f) {
     f->cap = INITIAL_CAP;
     f->count = 0;

@@ -1498,6 +1498,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     int stream_finished = 0;
     long long *filtered_scores = NULL;
     int filtered_scores_cap = 0;
+    FuzzyMetrics *filtered_metrics = NULL;
+    int filtered_metrics_cap = 0;
     if (multi) {
         if (!selected_indices || !selected_count) {
             fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
@@ -2009,7 +2011,8 @@ static int mmenu_internal(const char *const *options, int n_options,
             } else if (stream_changed && !query_edited) {
                 if (!mmenu_filter_stream_batch(current_match_options, stream_start_count,
                                                n_options, input, flags, &tiebreak, &filtered,
-                                               &filtered_scores, &filtered_scores_cap))
+                                               &filtered_scores, &filtered_scores_cap,
+                                               &filtered_metrics, &filtered_metrics_cap))
                     goto cleanup;
             } else if (flags & MMENU_EXTENDED) {
                 FuzzyMatch *matches = NULL;
@@ -2240,6 +2243,7 @@ cleanup:
     free(display_options);
     free(match_options);
     free(filtered_scores);
+    free(filtered_metrics);
     free(stream_options);
     free(selected_options);
     free(filtered.indices);

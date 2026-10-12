@@ -17,4 +17,7 @@ Flags='-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE'
     size build/mmenu
     printf 'binary_size_c2x:\n'
     size build/mmenu-c23
+    printf 'binary_file_bytes_c11=%s\n' "$(wc -c < build/mmenu | tr -d '[:space:]')"
+    printf 'binary_file_bytes_c2x=%s\n' "$(wc -c < build/mmenu-c23 | tr -d '[:space:]')"
 } > build/c23-smoke.txt
+cat build/c23-smoke.txt

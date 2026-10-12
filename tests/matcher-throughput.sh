@@ -29,6 +29,10 @@ command -v fzy >/dev/null 2>&1 || Fail "fzy is required for the measurement run"
 mkdir -p "$(dirname "$Out")"
 
 MmenuVersion=$Revision
+CompilerVersion=unknown
+if [ -n "${CC:-}" ]; then
+    CompilerVersion=$("$CC" --version | sed -n '1p')
+fi
 FzfVersion=$(fzf --version 2>&1 | head -n 1 || true)
 FzyVersion=$(fzy --version 2>&1 | head -n 1 || true)
 FzfVersion=$(printf '%s' "$FzfVersion" | tr ',' ';' | tr '\n' ' ')
@@ -37,7 +41,7 @@ FzyVersion=$(printf '%s' "$FzyVersion" | tr ',' ';' | tr '\n' ' ')
 {
     printf 'revision=%s\n' "$Revision"
     printf 'host=%s\n' "$(uname -a)"
-    printf 'compiler=%s\n' "${CC:-unknown}"
+    printf 'compiler=%s\n' "$CompilerVersion"
     printf 'flags=-O2 -g -std=c11 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE\n'
     printf 'query=%s\n' "$Query"
     printf 'samples_per_size=%s\n' "$Samples"

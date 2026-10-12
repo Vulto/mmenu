@@ -394,11 +394,11 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Run the full existing regression suite unchanged and record the exact commit and result.
 - [x] Run tests/benchmark.sh with 5 samples per input size (1k, 10k, 100k, 1M), preserving raw CSV, summary CSV, metadata, elapsed time, and peak RSS.
 - [x] Run tests/interactive-benchmark.sh with 3 samples per size (1k, 10k, 100k), preserving first-paint measurements and terminal dimensions.
-- [ ] Run the newly added reproducible matcher-throughput harness against the same generated records/query for mmenu, fzy, and fzf; retain versions, compiler/runtime, input size, matches, elapsed time, and RSS. Do not make noisy absolute timing a CI gate.
+- [x] Run the newly added reproducible matcher-throughput harness against the same generated records/query for mmenu, fzy, and fzf; retain versions, compiler/runtime, input size, matches, elapsed time, and RSS. Do not make noisy absolute timing a CI gate.
 - [x] Record the existing controlled-PTY interactive first-paint baseline at a fixed 80x24 terminal size, including its measurement limitations.
 - [x] Record existing batch/interactive benchmark numbers, available tool versions, machine/kernel, terminal, sample count, and known measurement limitations below.
 - [ ] Record C23-mode compiler support and baseline binary size from the new smoke-build artifact.
-- [ ] Confirm the matcher-throughput harness is deterministic in input/query/output and that all existing test assertions remain unchanged.
+- [x] Confirm the matcher-throughput harness is deterministic in input/query/output and that all existing test assertions remain unchanged.
 - [ ] Verify the harness and C23 smoke build on CI, then mark M0 complete only after all four CI jobs pass.
 
 ## Measurement notes
@@ -417,7 +417,14 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
   - 10,000 records: samples 8,328,363 / 8,368,603 / 8,362,950 ns; median 8,362,950 ns.
   - 100,000 records: samples 14,988,676 / 15,061,079 / 15,011,729 ns; median 15,011,729 ns.
 - Ranking-quality fixture versions: fzf 0.44.1 (Debian package), fzy 1.0, skim 5.7.4. On the four small judged query sets, mmenu fuzzy and fzf both reported MRR 1.0000; NDCG@5 values were menu 0.8273, mmh 0.8839, tst 0.9896, cfg 0.8502; Recall@5 values were 0.8333, 0.6667, 1.0000, 1.0000. fzy NDCG@5 was 0.8273, 0.8839, 0.8502, 0.8502 with the same recall values. Candidate counts were 8, 4, 5, and 4 respectively.
-- Large-input throughput samples against fzf/fzy, C23-mode compiler results, and binary-size values: pending the current CI run.
+- Matcher-throughput run 38191917923 (same GCC release job as the performance artifact; GCC 13.3.0 per that job's compiler metadata; query "ndl"; 3 samples; one in ten records contains "needle"; all tools returned the same exact set):
+  - 1,000 records — mmenu 3,000,323 ns / 1,900 KiB; fzf 4,361,185 ns / 11,028 KiB; fzy 2,643,567 ns / 2,052 KiB (median time / maximum RSS).
+  - 10,000 records — mmenu 7,397,665 ns / 2,080 KiB; fzf 9,284,398 ns / 15,816 KiB; fzy 3,376,936 ns / 2,308 KiB.
+  - 100,000 records — mmenu 50,176,892 ns / 5,344 KiB; fzf 36,425,782 ns / 26,204 KiB; fzy 9,123,756 ns / 5,764 KiB.
+  - 1,000,000 records — mmenu 480,676,231 ns / 38,584 KiB; fzf 318,311,756 ns / 132,360 KiB; fzy 59,030,097 ns / 43,252 KiB.
+- C23 smoke build passed in both GCC and Clang release jobs using -std=c2x. GCC version was 13.3.0. GCC loaded section totals from `size`: 37,128 bytes for both the existing C11 binary and C2x smoke binary. Exact Clang version and executable file byte counts are pending the next smoke-build artifact.
+- The throughput artifact's own compiler field was initially unset; this is being corrected by passing CC=gcc and recording the compiler version directly.
+
 
 - Batch timing measures end-to-end filter invocation, not isolated matcher throughput.
 - Existing interactive first-paint marker measures launch-to-prompt visibility; it does not currently measure time-to-first-record or responsiveness during input streaming.

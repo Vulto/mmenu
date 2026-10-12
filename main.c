@@ -232,7 +232,7 @@ static int nth_delimiter_regex_prepare(const char *pattern) {
     if (code != 0) {
         char message[256];
         regerror(code, &nth_delimiter_regex, message, sizeof(message));
-        fprintf(stderr, "mmenu: invalid --delimiter regex '%s': %s\\n",
+        fprintf(stderr, "mmenu: invalid --delimiter regex '%s': %s\n",
                 pattern, message);
         return 0;
     }
@@ -242,19 +242,19 @@ static int nth_delimiter_regex_prepare(const char *pattern) {
     regmatch_t match;
     code = regexec(&nth_delimiter_regex, "", 1, &match, 0);
     if (code == 0 && match.rm_so == match.rm_eo) {
-        fprintf(stderr, "mmenu: --delimiter regex must not match an empty string\\n");
+        fprintf(stderr, "mmenu: --delimiter regex must not match an empty string\n");
         nth_delimiter_regex_cleanup();
         return 0;
     }
     if (code != 0 && code != REG_NOMATCH) {
         char message[256];
         regerror(code, &nth_delimiter_regex, message, sizeof(message));
-        fprintf(stderr, "mmenu: could not validate --delimiter regex: %s\\n", message);
+        fprintf(stderr, "mmenu: could not validate --delimiter regex: %s\n", message);
         nth_delimiter_regex_cleanup();
         return 0;
     }
     if (atexit(nth_delimiter_regex_cleanup) != 0) {
-        fprintf(stderr, "mmenu: could not register delimiter cleanup\\n");
+        fprintf(stderr, "mmenu: could not register delimiter cleanup\n");
         nth_delimiter_regex_cleanup();
         return 0;
     }
@@ -364,7 +364,7 @@ static char *select_nth_fields(const char *record, const char *spec,
             field++;
         }
     }
-    selected[output_len] = '\\0';
+    selected[output_len] = '\0';
     return selected;
 }
 /* Nonblocking stdin source. The reusable record buffer grows only for unusually

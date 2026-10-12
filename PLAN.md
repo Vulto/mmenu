@@ -19,10 +19,10 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Search and matching
 
-- [ ] Extended query mode (--extended / -x) — partial — no full extended-query parser exists.
-- [ ] Extended query syntax, including whitespace-separated terms — partial — current matching is simpler and does not implement the complete query grammar.
+- [x] Extended query mode (--extended / -x) — present — opt-in grammar is implemented in batch, interactive, and streaming paths.
+- [x] Extended query syntax — present — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, and `^term$` whole-record terms; broader upstream fzf syntax remains tracked separately.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
-- [ ] Extended-search disable (--no-extended / +x) — missing — no extended-search parser exists.
+- [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
 - [x] Case-sensitive matching (--no-ignore-case / +i) — present — ASCII case-sensitive matching in substring, fuzzy, extended, and interactive paths.
 - [x] Smart-case matching (--smart-case) — present — query-wide ASCII uppercase detection with CLI/API coverage.
@@ -31,13 +31,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Fuzzy algorithms (--algo=v1|v2) — missing — only the existing matcher is available.
 - [x] Search field selection (--nth) — present — 1-based field indexes, negative indexes, and ranges apply to batch and interactive matching while raw records remain displayed/output.
 - [ ] Display field transformation (--with-nth) — missing.
-- [ ] Accepted-output field selection/template (--accept-nth) — missing.
+- [x] Accepted-output field selection/template (--accept-nth) — present — supports selected fields and ranges while preserving the raw record for matching/display.
 - [x] Unsorted matching (--no-sort / +s) — present — fuzzy batch, interactive, extended, and streaming results preserve input order.
-- [ ] Custom field delimiter (--delimiter / -d) — partial — literal delimiter strings work with --nth; regex delimiter semantics remain unimplemented.
+- [x] Custom field delimiter (--delimiter / -d) — present — POSIX extended regular expressions support alternatives, repetitions, and character classes; invalid and empty-width expressions are rejected.
 - [ ] Tail-limited input (--tail) — missing.
 - [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
 - [ ] Configurable tie-breaking (--tiebreak) — missing.
-- [ ] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — missing — no fzf extended-search grammar.
+- [x] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — present — covered by CLI and interactive API regressions.
 - [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.
 - [ ] Ranking-quality fixtures and stable ranking baseline — partial — a baseline exists; the current matcher still needs comprehensive quality comparison.
 
@@ -355,7 +355,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Exact-boundary terms (both ends anchored) — present — ^term$ matches the whole record.
 - [x] Inverse/negative terms — present — !term excludes candidates matching that term.
 - [x] OR expression syntax — present — | separates OR groups; terms within each group are ANDed.
-- [ ] Field index expressions (positive/negative indices and ranges) — missing.
+- [x] Field index expressions (positive/negative indices and ranges) — present — `--nth` and `--accept-nth` support single indexes, negative indexes, and inclusive ranges.
 - [ ] Item placeholder {} and escaped literal placeholder — partial — narrow preview placeholder handling exists.
 - [ ] Index placeholder {n} — missing.
 - [ ] Query placeholder {q} — missing.
@@ -368,8 +368,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 - [ ] Preserve ABI/source behavior of mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured — present — compatibility is a hard invariant.
 - [ ] Keep the existing arena loader and batch modes unchanged by default — present — compatibility is a hard invariant.
-- [ ] Add new configuration fields only additively and with documented defaults — partial — MMENU_EXTENDED is an additive flag; broader configuration remains future work.
-- [ ] Expose new interactive options through configured API without leaking ncurses types — partial — current API has only a small config structure.
+- [x] Add new configuration fields only additively and with documented defaults — present for implemented extensions; MMENU_EXTENDED and searchable-text callback are additive, while broader configuration remains future work.
+- [x] Expose new interactive matching options through configured API without leaking ncurses types — present for extended queries, searchable-text callback, streaming, preview, and key aliases; broader configuration remains future work.
 - [ ] Provide C API configuration for match mode, case policy, scorer, layout, selection, bindings, preview, streaming, and output — missing.
 - [ ] Stable ownership/lifetime rules for selections, callback data, streamed records, and preview jobs — partial — existing multi-select ownership is documented; new facilities need contracts.
 - [x] C23 compiler mode and portable C23 implementation — present — strict builds, static analysis, fuzzing, benchmarks, release checks, and documented source builds use -std=c2x.
@@ -425,6 +425,24 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Include extended query parsing and fuzzy-result allocations in the exhaustive CLI/API allocation-failure sweeps.
 - [x] Document the new syntax and record it in the Unreleased changelog.
 - [x] Run the full four-job CI matrix and resolve all failures before merging.
+
+### M2b — Searchable and accepted field expressions
+
+- [x] Add `--nth` field indexes and ranges, including negative indexes, to batch and interactive matching.
+- [x] Add an additive searchable-text callback so the C API and interactive stream can search derived fields without changing displayed or returned records.
+- [x] Add `--accept-nth` output field selection while keeping matching and display based on the original record unless `--nth` is separately supplied.
+- [x] Apply field selection to substring, exact, fuzzy, and extended-query matching while preserving original record indexes and raw display.
+- [x] Validate malformed field expressions and incompatible output options.
+- [x] Add batch, interactive, and streaming regression coverage and run the full GCC/Clang release/sanitizer matrix (PRs #39 and #41, merged).
+
+### M2c — Regex field delimiters
+
+- [x] Make `--delimiter`/`-d` accept POSIX extended regular expressions, including character classes, alternation, and repetitions.
+- [x] Preserve `^` and `$` as anchors to the full record during repeated delimiter searches.
+- [x] Reject invalid regular expressions and expressions that match an empty string, preventing non-progressing splits.
+- [x] Cover regex delimiters across search fields and accepted-output fields, anchored behavior, malformed expressions, and empty-width expressions with CLI regressions.
+- [x] Include `--nth`, regex-delimiter, and `--accept-nth` allocations in exhaustive CLI allocation-failure sweeps.
+- [x] Run the full GCC/Clang release and sanitizer matrix before merging.
 
 ## Measurement notes
 

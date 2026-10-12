@@ -217,7 +217,7 @@ static int MmenuAsciiNcasecmp(const char *left, const char *right, size_t length
         unsigned char a = MmenuFoldAsciiByte((unsigned char)left[i]);
         unsigned char b = MmenuFoldAsciiByte((unsigned char)right[i]);
         if (a != b) return a < b ? -1 : 1;
-        if (a == '\\0') return 0;
+        if (a == '\0') return 0;
     }
     return 0;
 }

@@ -348,24 +348,24 @@ RunFuzzyNoSortStreaming() {
     export MMENU_BIN="$Bin" MMENU_FIFO="$TmpDir/input" MMENU_EOF="$TmpDir/eof"
     export MMENU_RESULT="$TmpDir/result" MMENU_RESULT_TMP="$TmpDir/result.tmp"
     # shellcheck disable=SC2016
-    Command='mkfifo "$MMENU_FIFO"; ( { printf "zzab\\n"; sleep 0.3; printf "abzz\\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --fuzzy --no-sort --query ab < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
-    { sleep 0.65; printf "$(TERM=xterm tput kcud1)\\n"; } |
+    Command='mkfifo "$MMENU_FIFO"; ( { printf "zzab\n"; sleep 0.3; printf "abzz\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --fuzzy --no-sort --query ab < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
+    { sleep 0.65; printf "$(TERM=xterm tput kcud1)\n"; } |
         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "sh -c '$Command'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/script-error" &
     SessionPid=$!
     sleep 0.85
     if [ -e "$TmpDir/eof" ] || [ ! -f "$TmpDir/result" ]; then
-        printf 'FAIL: interactive fuzzy no-sort did not accept before EOF\\n' >&2
+        printf 'FAIL: interactive fuzzy no-sort did not accept before EOF\n' >&2
         kill "$SessionPid" 2>/dev/null || :
         wait "$SessionPid" 2>/dev/null || :
         return 1
     fi
     wait "$SessionPid"
     grep -aFxq abzz "$TmpDir/result" || {
-        printf 'FAIL: streaming fuzzy no-sort did not preserve input order\\n' >&2
+        printf 'FAIL: streaming fuzzy no-sort did not preserve input order\n' >&2
         od -An -tx1c "$TmpDir/result" >&2
         return 1
     }
-    printf 'PASS: interactive fuzzy no-sort preserves order as records arrive\\n'
+    printf 'PASS: interactive fuzzy no-sort preserves order as records arrive\n'
 }
 
 RunStreamingEarlyToggle

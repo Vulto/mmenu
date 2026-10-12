@@ -49,10 +49,9 @@ typedef int (*mmenu_preview_callback)(const char *option, int index,
                                       const wchar_t *query, char *output,
                                       size_t output_size, void *userdata);
 
-/* Optional interactive query, key aliases, and preview callback.
-   A zero key keeps its default. */
 /* Stream callbacks return one record, temporary no-data, EOF, or error.
-   Returned record strings must remain valid until the menu call returns. */
+   For RECORD, *record must point to a NUL-terminated string that remains valid
+   until the configured menu call returns. */
 enum {
     MMENU_STREAM_ERROR = -1,
     MMENU_STREAM_EOF = 0,
@@ -61,6 +60,9 @@ enum {
 };
 typedef int (*mmenu_stream_next_callback)(void *userdata, const char **record);
 
+/* Optional interactive query, key aliases, preview, and input-stream callback.
+   Zero-valued key fields preserve the built-in keys; stream_userdata is passed
+   unchanged to stream_next. */
 typedef struct {
     const char *initial_query;
     wint_t key_up;

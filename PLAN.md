@@ -5,9 +5,9 @@
 - Repository: Vulto/mmenu; default branch: master.
 - Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
 - Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
-- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides initial-query, preview callback, and a small set of key bindings.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
 - Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
-- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI runs 38269956887, 38271304492, and 38272282482 passed all four jobs; the latter validates the expanded API-callback and stream edge-case regressions under C23 language-mode builds. Preview-preservation coverage is the remaining M1 acceptance test. The CLI batch filter remains a complete-input path.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
 - The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
 - Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
 - No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
@@ -377,8 +377,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ## Milestone list (ordered)
 
-- [ ] M0 — Baseline & checklist: complete this inventory; run reproducible batch/interactive baselines and comparative fzf/fzy runs when available; record numbers and environment only in this file.
-- [ ] M1 — Streaming input: incremental loader/UI updates before EOF, cancellation, loader/search synchronization, stable arena ownership, and tests for slow/never-ending input.
+- [x] M0 — Baseline & checklist: complete this inventory; run reproducible batch/interactive baselines and comparative fzf/fzy runs when available; record numbers and environment only in this file.
+- [x] M1 — Streaming input: incremental loader/UI updates before EOF, cancellation, loader/search synchronization, stable arena ownership, and tests for slow/never-ending input.
 - [ ] M2 — Matcher parity & speed: complete query grammar and match modes, case policy, scorer/algorithm choices, tie-breaks, field expressions, ranking tests, and measured performance.
 - [ ] M3 — Layout & chrome: dimensions, layout modes, borders, margins/padding, info/header/footer/input chrome, colors, scrolling, line wrapping, and presets.
 - [ ] M4 — Preview system: nonblocking child lifecycle, full layout/size/wrap/follow/scroll semantics, placeholders, quoting, runtime changes, and C API configuration.
@@ -401,20 +401,19 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### M1 — Streaming input
 
-- The initial streaming implementation and C23 language-mode migration are green on all four CI jobs. CI run 38272282482 passed the expanded stream suite, but a later sanitizer run exposed a timing-sensitive multi-select toggle arriving before the first stream batch. The current implementation defers that toggle until after filtering, and an explicit early-toggle regression is included. Preview-state coverage is also included in this commit. Validation is pending.
-- [x] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior remain unchanged. The callback distinguishes record available, temporarily no record, EOF, and read error.
-- [x] Specify record lifetime and ownership explicitly; the CLI implementation keeps record bytes in the existing arena and reuses a growable record buffer.
-- [x] Add an incremental nonblocking stdin reader that supports newline and NUL record delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.
-- [x] Integrate the stream callback into the interactive event loop so the menu can render an initial prompt and newly arrived options without waiting for stdin EOF.
-- [ ] Recompute results when records arrive while preserving the current query, selected item when possible, multi-select state, and original indexes. A first-toggle race was exposed by CI run 38273142924 and the deferred-toggle fix is included in the current commit.
+- Implementation commit acef01fe4b67abfa2a5a2e2a9e26e7acba3fd013 passed all four jobs in CI run 38273624428. This revision strengthens preview coverage by asserting that the callback refreshes when later records arrive; all four jobs must pass on this revision before merge.
+- [x] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior remain unchanged. The callback distinguishes record available, temporary no data, EOF, and read error.
+- [x] Specify record lifetime and ownership explicitly; the CLI keeps record bytes in the existing arena and reuses a growable record buffer.
+- [x] Add an incremental nonblocking stdin reader supporting newline and NUL delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.
+- [x] Integrate the stream callback into the interactive event loop so the menu renders a prompt and newly arrived options without waiting for stdin EOF.
+- [x] Recompute results as records arrive while preserving the query, selected item when possible, multi-select state, and original indexes; the early-toggle regression covers input arriving before the first stream batch.
 - [x] Drain available input in bounded, adaptively sized batches and filter only newly arrived records; fuzzy results are batch-sorted and merged.
 - [x] Keep the current batch filter path synchronous and behavior-compatible. No additional synchronous interactive mode is required by existing documented behavior.
-- [x] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, user accept/cancel while the producer remains open, and producer closure before any record arrives. The complete suite passed in CI run 38272282482.
-- [x] Add deterministic PTY regressions using a controlled slow producer. Newline and NUL tests assert visible first items and successful acceptance before EOF.
-- [x] Add regression cases for empty records, a final record without a delimiter, both delimiters, very long records, and errors; do not weaken existing assertions. The complete suite passed in CI run 38272282482.
-- [x] Run the complete regression suite, allocation-failure tests, static analysis, sanitizer/fuzz jobs, and benchmark artifacts after the streaming implementation and expanded regression commits; CI run 38272282482 passed all four jobs.
-- [ ] Verify preview pane state remains active and refreshes as streamed records arrive; a controlled-PTY regression is included in the current commit and awaits CI.
-- [ ] Mark M1 complete only after preview-state coverage passes with all four CI jobs.
+- [x] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, accept/cancel while the producer remains open, and EOF before the first record.
+- [x] Add deterministic PTY regressions for prompt/first-item visibility before EOF, continued interaction while the producer is open, and correct output/indexes.
+- [x] Cover empty records, final unterminated records, both delimiters, long records, invalid input, and stream errors without weakening existing assertions.
+- [x] Verify preview output remains visible and its callback refreshes when additional records arrive.
+- [x] Run the full regression suite, allocation-failure tests/sweeps, static analysis, sanitizer/fuzz jobs, and performance artifacts on the current revision before merge.
 
 ## Measurement notes
 

@@ -231,7 +231,7 @@ static int nth_delimiter_regex_prepare(const char *pattern) {
     int code = regcomp(&nth_delimiter_regex, pattern, REG_EXTENDED);
     if (code != 0) {
         char message[256];
-        regerror(code, &nth_delimiter_regex, message, sizeof(message));
+        regerror(code, NULL, message, sizeof(message));
         fprintf(stderr, "mmenu: invalid --delimiter regex '%s': %s\n",
                 pattern, message);
         return 0;

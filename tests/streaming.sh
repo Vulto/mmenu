@@ -425,7 +425,7 @@ RunWithNthStreaming() {
     export MMENU_BIN="$Bin" MMENU_FIFO="$TmpDir/input" MMENU_EOF="$TmpDir/eof"
     export MMENU_RESULT="$TmpDir/result" MMENU_RESULT_TMP="$TmpDir/result.tmp"
     # shellcheck disable=SC2016
-    Command='mkfifo "$MMENU_FIFO"; ( { printf "raw:DISPLAY_ONLY:needle\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --with-nth 2 --delimiter : --query needle < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
+    Command='mkfifo "$MMENU_FIFO"; ( { printf "raw:DISPLAY_ONLY;needle\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --with-nth 2 --delimiter '[:;]+' --query needle < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
     { sleep 0.65; printf '\n'; } |
         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "sh -c '$Command'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/script-error" &
     SessionPid=$!

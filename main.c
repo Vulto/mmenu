@@ -1151,7 +1151,6 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "mmenu: input record contains an embedded NUL byte\n");
                 free(buf);
                 lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1164,7 +1163,6 @@ int main(int argc, char **argv) {
         if (ferror(stdin)) {
             perror("mmenu: reading stdin");
             lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
@@ -1182,7 +1180,6 @@ int main(int argc, char **argv) {
                                                delimiter_seen ? field_delimiter : NULL);
             if (!selected) {
                 perror("mmenu: selecting searchable fields");
-                lines_free(&display_opts);
                 lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
@@ -1205,7 +1202,6 @@ int main(int argc, char **argv) {
                 if (errno == ENOMEM) perror("mmenu: converting extended query");
                 else fprintf(stderr, "mmenu: extended query is not valid in the current locale\n");
                 lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1220,7 +1216,6 @@ int main(int argc, char **argv) {
                         perror("mmenu: compiling extended query");
                     free(wide_query);
                     lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
@@ -1242,7 +1237,6 @@ int main(int argc, char **argv) {
                                             &matches, &match_count)) {
                     free(wide_query);
                     lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
@@ -1265,7 +1259,6 @@ int main(int argc, char **argv) {
                     if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                     else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
                     lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                     return EXIT_FAILURE;
@@ -1300,7 +1293,6 @@ int main(int argc, char **argv) {
                 if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                 else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
                 lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1320,7 +1312,6 @@ int main(int argc, char **argv) {
                 if (errno == ENOMEM) perror("mmenu: converting fuzzy query");
                 else fprintf(stderr, "mmenu: fuzzy query is not valid in the current locale\n");
                 lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
                 return EXIT_FAILURE;
@@ -1329,7 +1320,6 @@ int main(int argc, char **argv) {
             int match_count = 0;
             if (!FuzzyCollect(match_lines, opts.count, query, match_flags, &matches, &match_count)) {
                 free(query);
-                lines_free(&display_opts);
                 lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
@@ -1349,7 +1339,6 @@ int main(int argc, char **argv) {
             }
         }
         lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
         return flush_stdout();
@@ -1364,7 +1353,6 @@ int main(int argc, char **argv) {
             free(selected);
             free(input_stream.record);
             lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
@@ -1382,7 +1370,6 @@ int main(int argc, char **argv) {
         if (input_stream.error) {
             free(input_stream.record);
             lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
             return EXIT_FAILURE;
@@ -1396,7 +1383,6 @@ int main(int argc, char **argv) {
 
     free(input_stream.record);
     lines_free(&display_opts);
-                lines_free(&display_opts);
                 lines_free(&search_opts);
                 lines_free(&opts);
     return flush_stdout();

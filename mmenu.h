@@ -70,7 +70,8 @@ typedef int (*mmenu_stream_next_callback)(void *userdata, const char **record);
    returned string must remain valid until the configured menu call returns. */
 typedef const char *(*mmenu_search_text_callback)(const char *option, int index,
                                                    void *userdata);
-/* Return stable display text for an option; NULL signals an error. */
+/* Return stable display text for an option; NULL signals an error. The
+   returned string must remain valid until the configured menu call returns. */
 typedef const char *(*mmenu_display_text_callback)(const char *option, int index,
                                                     void *userdata);
 

@@ -588,7 +588,7 @@ static void MmenuFuzzySiftDown(FuzzyMatch *matches, size_t root, size_t end,
         if (child + 1 < end &&
             MmenuCompareFuzzyMatches(&matches[child], &matches[child + 1], spec) < 0)
             child++;
-        if (MmenuCompareFuzzyMatches(&matches[root], &matches[child], spec) >= 0)
+        if (MmenuCompareFuzzyMatches(&matches[root], &matches[child], spec) <= 0)
             return;
         FuzzyMatch temporary = matches[root];
         matches[root] = matches[child];

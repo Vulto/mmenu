@@ -14,7 +14,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed files
+        id: filter
+        env:
+          EventName: ${{ github.event_name }}
+          BeforeSha: ${{ github.event.before }}
+          BaseSha: ${{ github.event.pull_request.base.sha }}
+          HeadSha: ${{ github.sha }}
+        run: |
+          set -eu
+          if [ "$EventName" = "pull_request" ]; then
+            Base="$BaseSha"
+          elif [ "$EventName" = "push" ]; then
+            Base="$BeforeSha"
+            if [ "$Base" = "0000000000000000000000000000000000000000" ]; then
+              echo "code=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            Base="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          fi
+
+          ChangedFiles="$(git diff --name-only "$Base" "$HeadSha")"
+          CodeChanged=false
+          while IFS= read -r Path; do
+            [ -n "$Path" ] || continue
+            case "$Path" in
+              *.md|docs/*) ;;
+              *) CodeChanged=true; break ;;
+            esac
+          done <<EOF
+          $ChangedFiles
+          EOF
+          echo "code=$CodeChanged" >> "$GITHUB_OUTPUT"
+          echo "Code changes detected: $CodeChanged"
+
   build-and-test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: ${{ matrix.compiler }} / ${{ matrix.mode }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

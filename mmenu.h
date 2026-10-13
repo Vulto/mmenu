@@ -94,6 +94,7 @@ typedef struct {
     void *search_text_userdata;
     mmenu_display_text_callback display_text;
     void *display_text_userdata;
+    const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -211,15 +212,157 @@ static int mmenu_next_capacity(int current, int initial, size_t element_size,
 
 typedef struct { int *indices; int cap; int count; } filt;
 
+typedef enum {
+    MMENU_TIEBREAK_LENGTH,
+    MMENU_TIEBREAK_BEGIN,
+    MMENU_TIEBREAK_END,
+    MMENU_TIEBREAK_INDEX,
+    MMENU_TIEBREAK_CHUNK,
+    MMENU_TIEBREAK_PATHNAME
+} mmenu_tiebreak_key;
+
+typedef struct {
+    mmenu_tiebreak_key keys[7];
+    int count;
+} mmenu_tiebreak_spec;
+
+typedef struct {
+    size_t length;
+    size_t begin;
+    size_t end;
+    size_t basename_start;
+    unsigned int chunks;
+    int has_match;
+} FuzzyMetrics;
+
 typedef struct {
     int index;
     long long score;
+    FuzzyMetrics metrics;
 } FuzzyMatch;
 
 static wchar_t FoldAscii(wchar_t ch)
 {
     return ch >= L'A' && ch <= L'Z' ? ch + (L'a' - L'A') : ch;
 }
+
+static int MmenuTieBreakParse(const char *source, mmenu_tiebreak_spec *spec,
+                              char *error, size_t error_size)
+{
+    if (!spec) return 0;
+    spec->count = 0;
+    if (source && !*source) {
+        if (error && error_size) snprintf(error, error_size, "--tiebreak must not be empty");
+        return 0;
+    }
+    const char *cursor = source ? source : "length,index";
+    while (*cursor) {
+        const char *end = strchr(cursor, ',');
+        size_t length = end ? (size_t)(end - cursor) : strlen(cursor);
+        if (length == 0) {
+            if (error && error_size) snprintf(error, error_size, "--tiebreak contains an empty key");
+            return 0;
+        }
+        mmenu_tiebreak_key key;
+        if (length == 6 && memcmp(cursor, "length", 6) == 0) key = MMENU_TIEBREAK_LENGTH;
+        else if (length == 5 && memcmp(cursor, "begin", 5) == 0) key = MMENU_TIEBREAK_BEGIN;
+        else if (length == 3 && memcmp(cursor, "end", 3) == 0) key = MMENU_TIEBREAK_END;
+        else if (length == 5 && memcmp(cursor, "index", 5) == 0) key = MMENU_TIEBREAK_INDEX;
+        else if (length == 5 && memcmp(cursor, "chunk", 5) == 0) key = MMENU_TIEBREAK_CHUNK;
+        else if (length == 8 && memcmp(cursor, "pathname", 8) == 0) key = MMENU_TIEBREAK_PATHNAME;
+        else {
+            if (error && error_size)
+                snprintf(error, error_size, "invalid --tiebreak key '%.*s' (expected length,begin,end,chunk,pathname,index)",
+                         (int)(length > INT_MAX ? INT_MAX : length), cursor);
+            return 0;
+        }
+        for (int i = 0; i < spec->count; i++) {
+            if (spec->keys[i] == key) {
+                if (error && error_size)
+                    snprintf(error, error_size, "--tiebreak key '%.*s' is repeated",
+                             (int)(length > INT_MAX ? INT_MAX : length), cursor);
+                return 0;
+            }
+        }
+        if (spec->count >= (int)(sizeof(spec->keys) / sizeof(spec->keys[0]))) {
+            if (error && error_size) snprintf(error, error_size, "too many --tiebreak keys");
+            return 0;
+        }
+        spec->keys[spec->count++] = key;
+        if (!end) break;
+        cursor = end + 1;
+        if (!*cursor) {
+            if (error && error_size) snprintf(error, error_size, "--tiebreak contains an empty key");
+            return 0;
+        }
+    }
+    for (int i = 0; i < spec->count; i++) {
+        if (spec->keys[i] == MMENU_TIEBREAK_INDEX && i != spec->count - 1) {
+            if (error && error_size)
+                snprintf(error, error_size, "--tiebreak index must be the final key");
+            return 0;
+        }
+    }
+    if (spec->keys[spec->count - 1] != MMENU_TIEBREAK_INDEX)
+        spec->keys[spec->count++] = MMENU_TIEBREAK_INDEX;
+    return 1;
+}
+
+static size_t MmenuByteOffsetToCharacterIndex(const char *text, size_t byte_offset)
+{
+    size_t count = 0;
+    size_t consumed = 0;
+    mbstate_t state = {0};
+    while (consumed < byte_offset && text[consumed]) {
+        wchar_t ch;
+        size_t bytes = mbrtowc(&ch, text + consumed, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+            memset(&state, 0, sizeof(state));
+            consumed++;
+        } else {
+            consumed += bytes;
+        }
+        count++;
+    }
+    return count;
+}
+
+static void MmenuTextMetrics(const char *text, FuzzyMetrics *metrics)
+{
+    if (!metrics) return;
+    memset(metrics, 0, sizeof(*metrics));
+    size_t last_separator = SIZE_MAX;
+    size_t position = 0;
+    mbstate_t state = {0};
+    const char *cursor = text;
+    while (*cursor) {
+        wchar_t ch;
+        size_t bytes = mbrtowc(&ch, cursor, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+            memset(&state, 0, sizeof(state));
+            ch = (unsigned char)*cursor;
+            bytes = 1;
+        }
+        if (ch == L'/' || ch == L'\\') last_separator = position;
+        position++;
+        cursor += bytes;
+    }
+    metrics->length = position;
+    metrics->basename_start = last_separator == SIZE_MAX ? 0 : last_separator + 1;
+}
+
+static void MmenuSubstringMetrics(const char *candidate, const char *matched_at,
+                                  size_t term_length, FuzzyMetrics *metrics)
+{
+    MmenuTextMetrics(candidate, metrics);
+    if (!matched_at || !metrics) return;
+    metrics->begin = MmenuByteOffsetToCharacterIndex(candidate,
+                                                     (size_t)(matched_at - candidate));
+    metrics->end = metrics->begin + (term_length ? term_length - 1 : 0);
+    metrics->has_match = term_length != 0;
+    metrics->chunks = metrics->has_match ? 1U : 0U;
+}
+
 
 /* Byte-wise ASCII folding keeps matching independent of the active locale.
    UTF-8 bytes outside ASCII remain unchanged, as documented by the API. */
@@ -293,12 +436,16 @@ static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 
 /* Greedy subsequence score: reward early, word-boundary, and adjacent matches;
    penalize leading and internal gaps. Invalid multibyte candidates do not match. */
-static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
-                            size_t query_len, unsigned int flags, long long *result)
+static int FuzzyScoreLengthMetrics(const char *candidate, const wchar_t *query,
+                                   size_t query_len, unsigned int flags,
+                                   long long *result, FuzzyMetrics *metrics)
 {
     size_t query_pos = 0;
     size_t candidate_pos = 0;
     size_t last_match = SIZE_MAX;
+    size_t first_match = SIZE_MAX;
+    size_t last_separator = SIZE_MAX;
+    unsigned int chunks = 0;
     int case_sensitive = MmenuCaseSensitiveWide(flags, query);
     wchar_t previous = 0;
     long long score = 0;
@@ -311,12 +458,15 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
         if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0)
             return 0;
 
+        if (current == L'/' || current == L'\\') last_separator = candidate_pos;
         if (query_pos < query_len &&
             (case_sensitive ? current == query[query_pos] : FoldAscii(current) == FoldAscii(query[query_pos]))) {
             score += 10;
             if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
                 score += 8;
             if (last_match == SIZE_MAX) {
+                first_match = candidate_pos;
+                chunks = 1;
                 if (candidate_pos > (size_t)LLONG_MAX)
                     score = LLONG_MIN / 2;
                 else
@@ -324,9 +474,12 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
             } else {
                 size_t gap = candidate_pos - last_match - 1;
                 if (gap == 0) score += 15;
-                else if (gap > (size_t)LLONG_MAX / 4)
-                    score = LLONG_MIN / 2;
-                else score -= (long long)gap;
+                else {
+                    if (chunks < UINT_MAX) chunks++;
+                    if (gap > (size_t)LLONG_MAX / 4)
+                        score = LLONG_MIN / 2;
+                    else score -= (long long)gap;
+                }
             }
             last_match = candidate_pos;
             query_pos++;
@@ -339,13 +492,22 @@ static int FuzzyScoreLength(const char *candidate, const wchar_t *query,
 
     if (query_pos != query_len) return 0;
     *result = score;
+    if (metrics) {
+        memset(metrics, 0, sizeof(*metrics));
+        metrics->length = candidate_pos;
+        metrics->begin = first_match == SIZE_MAX ? 0 : first_match;
+        metrics->end = last_match == SIZE_MAX ? 0 : last_match;
+        metrics->basename_start = last_separator == SIZE_MAX ? 0 : last_separator + 1;
+        metrics->chunks = chunks;
+        metrics->has_match = first_match != SIZE_MAX;
+    }
     return 1;
 }
 
-static int FuzzyScore(const char *candidate, const wchar_t *query,
-                      unsigned int flags, long long *result)
+static int FuzzyScoreMetrics(const char *candidate, const wchar_t *query,
+                             unsigned int flags, long long *result, FuzzyMetrics *metrics)
 {
-    return FuzzyScoreLength(candidate, query, wcslen(query), flags, result);
+    return FuzzyScoreLengthMetrics(candidate, query, wcslen(query), flags, result, metrics);
 }
 
 /* Highlight the same greedy subsequence used by FuzzyScore, clipping by
@@ -378,20 +540,84 @@ static void RenderFuzzyOption(const wchar_t *option, int columns,
     }
 }
 
-static int CompareFuzzyMatches(const void *left, const void *right)
+static int MmenuCompareFuzzyMatches(const FuzzyMatch *a, const FuzzyMatch *b,
+                                    const mmenu_tiebreak_spec *spec)
 {
-    const FuzzyMatch *a = left;
-    const FuzzyMatch *b = right;
     if (a->score > b->score) return -1;
     if (a->score < b->score) return 1;
+    if (spec) {
+        for (int i = 0; i < spec->count; i++) {
+            int comparison = 0;
+            switch (spec->keys[i]) {
+            case MMENU_TIEBREAK_LENGTH:
+                comparison = (a->metrics.length > b->metrics.length) -
+                             (a->metrics.length < b->metrics.length);
+                break;
+            case MMENU_TIEBREAK_BEGIN:
+                comparison = (a->metrics.begin > b->metrics.begin) -
+                             (a->metrics.begin < b->metrics.begin);
+                break;
+            case MMENU_TIEBREAK_END:
+                comparison = (a->metrics.end > b->metrics.end) -
+                             (a->metrics.end < b->metrics.end);
+                break;
+            case MMENU_TIEBREAK_INDEX:
+                comparison = (a->index > b->index) - (a->index < b->index);
+                break;
+            case MMENU_TIEBREAK_CHUNK:
+                comparison = (a->metrics.chunks > b->metrics.chunks) -
+                             (a->metrics.chunks < b->metrics.chunks);
+                break;
+            case MMENU_TIEBREAK_PATHNAME: {
+                int a_basename = a->metrics.has_match && a->metrics.begin >= a->metrics.basename_start;
+                int b_basename = b->metrics.has_match && b->metrics.begin >= b->metrics.basename_start;
+                comparison = b_basename - a_basename;
+                break;
+            }
+            }
+            if (comparison) return comparison;
+        }
+    }
     return (a->index > b->index) - (a->index < b->index);
 }
 
+static void MmenuFuzzySiftDown(FuzzyMatch *matches, size_t root, size_t end,
+                               const mmenu_tiebreak_spec *spec)
+{
+    while (root < end / 2) {
+        size_t child = root * 2 + 1;
+        if (child + 1 < end &&
+            MmenuCompareFuzzyMatches(&matches[child], &matches[child + 1], spec) < 0)
+            child++;
+        if (MmenuCompareFuzzyMatches(&matches[root], &matches[child], spec) >= 0)
+            return;
+        FuzzyMatch temporary = matches[root];
+        matches[root] = matches[child];
+        matches[child] = temporary;
+        root = child;
+    }
+}
+
+static void MmenuFuzzySort(FuzzyMatch *matches, int count,
+                           const mmenu_tiebreak_spec *spec)
+{
+    if (!matches || count < 2) return;
+    size_t length = (size_t)count;
+    for (size_t start = length / 2; start > 0; start--)
+        MmenuFuzzySiftDown(matches, start - 1, length, spec);
+    for (size_t end = length; end > 1; end--) {
+        FuzzyMatch temporary = matches[0];
+        matches[0] = matches[end - 1];
+        matches[end - 1] = temporary;
+        MmenuFuzzySiftDown(matches, 0, end - 1, spec);
+    }
+}
 /* Returns matching indices; MMENU_NO_SORT preserves input order, otherwise
    score ranking is stable for equal scores. */
 static int FuzzyCollect(const char *const *options, int n_options,
-                        const wchar_t *query, unsigned int flags, FuzzyMatch **result,
-                        int *result_count)
+                        const wchar_t *query, unsigned int flags,
+                        const mmenu_tiebreak_spec *tiebreak,
+                        FuzzyMatch **result, int *result_count)
 {
     FuzzyMatch *matches = NULL;
     int count = 0;
@@ -402,7 +628,8 @@ static int FuzzyCollect(const char *const *options, int n_options,
 
     for (int i = 0; i < n_options; i++) {
         long long score;
-        if (!FuzzyScore(options[i], query, flags, &score)) continue;
+        FuzzyMetrics metrics = {0};
+        if (!FuzzyScoreMetrics(options[i], query, flags, &score, &metrics)) continue;
 
         if (count == capacity) {
             int new_capacity;
@@ -423,11 +650,13 @@ static int FuzzyCollect(const char *const *options, int n_options,
             matches = new_matches;
             capacity = new_capacity;
         }
-        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+        matches[count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
     }
 
-    if (count > 1 && !(flags & MMENU_NO_SORT))
-        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+    /* An empty query means "show everything"; preserve source order rather than
+       applying match-position tie-breaks to candidates that matched nothing. */
+    if (count > 1 && query[0] != L'\0' && !(flags & MMENU_NO_SORT))
+        MmenuFuzzySort(matches, count, tiebreak);
     *result = matches;
     *result_count = count;
     return 1;
@@ -596,53 +825,70 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
 
 static int mmenu_query_term_match(const char *candidate,
                                   const mmenu_query_term *term,
-                                  unsigned int flags, long long *score)
+                                  unsigned int flags, long long *score,
+                                  FuzzyMetrics *metrics)
 {
     *score = 0;
+    if (metrics) MmenuTextMetrics(candidate, metrics);
     size_t candidate_len = strlen(candidate);
     int matched = 0;
+    const char *match_at = NULL;
 
     switch (term->kind) {
     case MMENU_QUERY_EXACT:
-        matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
+        match_at = MmenuStrstrPolicy(candidate, term->bytes, flags);
+        matched = match_at != NULL;
         if (matched && (flags & MMENU_FUZZY)) *score = 10;
+        if (matched && metrics)
+            MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
         break;
     case MMENU_QUERY_PREFIX:
         matched = candidate_len >= term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 20;
+        if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
     case MMENU_QUERY_SUFFIX:
         matched = candidate_len >= term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate + candidate_len - term->bytes_len, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 15;
+        if (matched && metrics)
+            MmenuSubstringMetrics(candidate, candidate + candidate_len - term->bytes_len, term->wide_len, metrics);
         break;
     case MMENU_QUERY_EQUAL:
         matched = candidate_len == term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
         if (matched && (flags & MMENU_FUZZY)) *score = 30;
+        if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
     case MMENU_QUERY_NORMAL:
         if (flags & MMENU_FUZZY)
-            matched = FuzzyScoreLength(candidate, term->wide, term->wide_len, flags, score);
-        else
-            matched = MmenuStrstrPolicy(candidate, term->bytes, flags) != NULL;
+            matched = FuzzyScoreLengthMetrics(candidate, term->wide, term->wide_len, flags, score, metrics);
+        else {
+            match_at = MmenuStrstrPolicy(candidate, term->bytes, flags);
+            matched = match_at != NULL;
+            if (matched && metrics)
+                MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
+        }
         break;
     }
     return matched;
 }
 
 static int mmenu_query_match(const mmenu_query *query, const char *candidate,
-                             unsigned int flags, long long *result_score)
+                             unsigned int flags, long long *result_score,
+                             FuzzyMetrics *result_metrics)
 {
     if (!query || !candidate || !result_score) return 0;
     if (query->count == 0) {
         *result_score = 0;
+        if (result_metrics) MmenuTextMetrics(candidate, result_metrics);
         return 1;
     }
 
     int found = 0;
     long long best_score = LLONG_MIN;
+    FuzzyMetrics best_metrics = {0};
     unsigned int effective_flags = flags;
     if (flags & MMENU_SMART_CASE) {
         int has_uppercase = 0;
@@ -656,38 +902,61 @@ static int mmenu_query_match(const mmenu_query *query, const char *candidate,
         int has_terms = 0;
         int group_matches = 1;
         long long group_score = 0;
+        FuzzyMetrics group_metrics;
+        MmenuTextMetrics(candidate, &group_metrics);
+        group_metrics.begin = SIZE_MAX;
+        group_metrics.end = 0;
+        group_metrics.chunks = 0;
+        group_metrics.has_match = 0;
         for (int i = 0; i < query->count; i++) {
             const mmenu_query_term *term = &query->terms[i];
             if (term->group != group) continue;
             has_terms = 1;
             long long term_score = 0;
+            FuzzyMetrics term_metrics = {0};
             int matched = mmenu_query_term_match(candidate, term, effective_flags,
-                                                  &term_score);
+                                                  &term_score, &term_metrics);
             if (term->inverse) {
                 if (matched) group_matches = 0;
             } else if (!matched) {
                 group_matches = 0;
-            } else if (flags & MMENU_FUZZY) {
-                if (term_score > 0 && group_score > LLONG_MAX - term_score)
-                    group_score = LLONG_MAX;
-                else if (term_score < 0 && group_score < LLONG_MIN - term_score)
-                    group_score = LLONG_MIN;
-                else
-                    group_score += term_score;
+            } else {
+                if (term_metrics.has_match) {
+                    if (!group_metrics.has_match || term_metrics.begin < group_metrics.begin)
+                        group_metrics.begin = term_metrics.begin;
+                    if (!group_metrics.has_match || term_metrics.end > group_metrics.end)
+                        group_metrics.end = term_metrics.end;
+                    if (UINT_MAX - group_metrics.chunks < term_metrics.chunks)
+                        group_metrics.chunks = UINT_MAX;
+                    else group_metrics.chunks += term_metrics.chunks;
+                    group_metrics.has_match = 1;
+                }
+                if (flags & MMENU_FUZZY) {
+                    if (term_score > 0 && group_score > LLONG_MAX - term_score)
+                        group_score = LLONG_MAX;
+                    else if (term_score < 0 && group_score < LLONG_MIN - term_score)
+                        group_score = LLONG_MIN;
+                    else
+                        group_score += term_score;
+                }
             }
         }
         if (has_terms && group_matches &&
             (!found || group_score > best_score)) {
             found = 1;
             best_score = group_score;
+            best_metrics = group_metrics;
+            if (!best_metrics.has_match) best_metrics.begin = 0;
         }
     }
     *result_score = found ? best_score : 0;
+    if (found && result_metrics) *result_metrics = best_metrics;
     return found;
 }
 
 static int mmenu_extended_collect(const char *const *options, int start, int end,
                                   const wchar_t *source, unsigned int flags,
+                                  const mmenu_tiebreak_spec *tiebreak,
                                   FuzzyMatch **result, int *result_count)
 {
     FuzzyMatch *matches = NULL;
@@ -704,7 +973,8 @@ static int mmenu_extended_collect(const char *const *options, int start, int end
 
     for (int i = start; i < end; i++) {
         long long score = 0;
-        if (!mmenu_query_match(&query, options[i], flags, &score)) continue;
+        FuzzyMetrics metrics = {0};
+        if (!mmenu_query_match(&query, options[i], flags, &score, &metrics)) continue;
         if (count == capacity) {
             int new_capacity;
             if (!mmenu_next_capacity(capacity, INITIAL_CAP, sizeof(*matches),
@@ -726,17 +996,16 @@ static int mmenu_extended_collect(const char *const *options, int start, int end
             matches = grown;
             capacity = new_capacity;
         }
-        matches[count++] = (FuzzyMatch){.index = i, .score = score};
+        matches[count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
     }
 
     if ((flags & MMENU_FUZZY) && !(flags & MMENU_NO_SORT) && count > 1)
-        qsort(matches, (size_t)count, sizeof(*matches), CompareFuzzyMatches);
+        MmenuFuzzySort(matches, count, tiebreak);
     mmenu_query_free(&query);
     *result = matches;
     *result_count = count;
     return 1;
 }
-
 static int filt_init(filt *f) {
     f->cap = INITIAL_CAP;
     f->count = 0;
@@ -1003,11 +1272,44 @@ static int mmenu_scores_reserve(long long **scores, int *capacity, int needed) {
 
 /* Filter only newly arrived records. Fuzzy results are inserted by score while
    preserving input order for ties; substring/exact results naturally append. */
+static int mmenu_metrics_reserve(FuzzyMetrics **metrics, int *capacity, int needed) {
+    if (needed <= *capacity) return 1;
+    int next;
+    if (!mmenu_next_capacity(*capacity, INITIAL_CAP, sizeof(**metrics), &next)) {
+        perror("mmenu: streamed match metrics capacity");
+        return 0;
+    }
+    while (next < needed) {
+        if (next > INT_MAX / 2) {
+            errno = ENOMEM;
+            perror("mmenu: streamed match metrics capacity");
+            return 0;
+        }
+        next *= 2;
+    }
+    size_t bytes;
+    if (!mmenu_size_mul((size_t)next, sizeof(**metrics), &bytes)) {
+        perror("mmenu: streamed match metrics capacity");
+        return 0;
+    }
+    FuzzyMetrics *grown = realloc(*metrics, bytes);
+    if (!grown) {
+        if (errno == 0) errno = ENOMEM;
+        perror("mmenu: growing streamed match metrics");
+        return 0;
+    }
+    *metrics = grown;
+    *capacity = next;
+    return 1;
+}
+
 static int mmenu_filter_stream_batch(const char *const *options,
                                      int start, int end,
                                      const wchar_t *query, unsigned int flags,
+                                     const mmenu_tiebreak_spec *tiebreak,
                                      filt *filtered, long long **scores,
-                                     int *scores_cap) {
+                                     int *scores_cap, FuzzyMetrics **metrics,
+                                     int *metrics_cap) {
     if ((flags & MMENU_DISABLED) || !query[0]) {
         for (int i = start; i < end; i++)
             if (!filt_push(filtered, i)) return 0;
@@ -1017,7 +1319,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
         FuzzyMatch *batch = NULL;
         int batch_count = 0;
         if (!mmenu_extended_collect(options, start, end, query, flags,
-                                    &batch, &batch_count))
+                                    tiebreak, &batch, &batch_count))
             return 0;
         for (int i = 0; i < batch_count; i++) {
             if (!filt_push(filtered, batch[i].index)) {
@@ -1035,13 +1337,14 @@ static int mmenu_filter_stream_batch(const char *const *options,
         int batch_cap = 0;
         if (flags & MMENU_EXTENDED) {
             if (!mmenu_extended_collect(options, start, end, query, flags,
-                                        &batch, &batch_count))
+                                        tiebreak, &batch, &batch_count))
                 return 0;
             batch_cap = batch_count;
         } else {
             for (int i = start; i < end; i++) {
                 long long score;
-                if (!FuzzyScore(options[i], query, flags, &score)) continue;
+                FuzzyMetrics metrics = {0};
+                if (!FuzzyScoreMetrics(options[i], query, flags, &score, &metrics)) continue;
             if (batch_count == batch_cap) {
                 int new_cap;
                 if (!mmenu_next_capacity(batch_cap, INITIAL_CAP,
@@ -1060,10 +1363,10 @@ static int mmenu_filter_stream_batch(const char *const *options,
                 batch = grown;
                 batch_cap = new_cap;
             }
-                batch[batch_count++] = (FuzzyMatch){.index = i, .score = score};
+                batch[batch_count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
             }
             if (batch_count > 1 && !(flags & MMENU_NO_SORT))
-                qsort(batch, (size_t)batch_count, sizeof(*batch), CompareFuzzyMatches);
+                MmenuFuzzySort(batch, batch_count, tiebreak);
         }
         if (batch_count == 0) {
             free(batch);
@@ -1106,7 +1409,8 @@ static int mmenu_filter_stream_batch(const char *const *options,
             filtered->indices = grown;
             filtered->cap = new_cap;
         }
-        if (!mmenu_scores_reserve(scores, scores_cap, total)) {
+        if (!mmenu_scores_reserve(scores, scores_cap, total) ||
+            !mmenu_metrics_reserve(metrics, metrics_cap, total)) {
             free(batch);
             return 0;
         }
@@ -1115,24 +1419,32 @@ static int mmenu_filter_stream_batch(const char *const *options,
             for (int i = 0; i < batch_count; i++) {
                 filtered->indices[old_count + i] = batch[i].index;
                 (*scores)[old_count + i] = batch[i].score;
+                (*metrics)[old_count + i] = batch[i].metrics;
             }
             filtered->count = total;
             free(batch);
             return 1;
         }
 
-        /* Merge backward in-place: old and batch runs are both score-sorted. */
+        /* Merge backward in-place using the same full ordering as batch mode. */
         int old_pos = old_count - 1;
         int batch_pos = batch_count - 1;
         int out_pos = total - 1;
         while (old_pos >= 0 && batch_pos >= 0) {
-            if ((*scores)[old_pos] >= batch[batch_pos].score) {
+            FuzzyMatch old_match = {
+                .index = filtered->indices[old_pos],
+                .score = (*scores)[old_pos],
+                .metrics = (*metrics)[old_pos]
+            };
+            if (MmenuCompareFuzzyMatches(&old_match, &batch[batch_pos], tiebreak) < 0) {
                 filtered->indices[out_pos] = batch[batch_pos].index;
                 (*scores)[out_pos] = batch[batch_pos].score;
+                (*metrics)[out_pos] = batch[batch_pos].metrics;
                 batch_pos--;
             } else {
                 filtered->indices[out_pos] = filtered->indices[old_pos];
                 (*scores)[out_pos] = (*scores)[old_pos];
+                (*metrics)[out_pos] = (*metrics)[old_pos];
                 old_pos--;
             }
             out_pos--;
@@ -1140,6 +1452,7 @@ static int mmenu_filter_stream_batch(const char *const *options,
         while (batch_pos >= 0) {
             filtered->indices[out_pos] = batch[batch_pos].index;
             (*scores)[out_pos] = batch[batch_pos].score;
+            (*metrics)[out_pos] = batch[batch_pos].metrics;
             batch_pos--;
             out_pos--;
         }
@@ -1172,6 +1485,8 @@ static int mmenu_internal(const char *const *options, int n_options,
                           const char *prompt, unsigned int flags, int multi,
                           const mmenu_config *config,
                           int **selected_indices, int *selected_count) {
+    mmenu_tiebreak_spec tiebreak;
+    char tiebreak_error[256];
     const char *const *current_options = options;
     const char *const *current_match_options = options;
     const char *const *current_display_options = options;
@@ -1186,6 +1501,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     int stream_finished = 0;
     long long *filtered_scores = NULL;
     int filtered_scores_cap = 0;
+    FuzzyMetrics *filtered_metrics = NULL;
+    int filtered_metrics_cap = 0;
     if (multi) {
         if (!selected_indices || !selected_count) {
             fprintf(stderr, "mmenu: multi-select output pointers must not be NULL\n");
@@ -1201,6 +1518,15 @@ static int mmenu_internal(const char *const *options, int n_options,
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||
         ((flags & MMENU_EXTENDED) && (flags & MMENU_EXACT))) {
         fprintf(stderr, "mmenu: unsupported API flags or conflicting matching modes\n");
+        return -1;
+    }
+    if (config && config->tiebreak && !(flags & MMENU_FUZZY)) {
+        fprintf(stderr, "mmenu: tiebreak requires fuzzy matching\n");
+        return -1;
+    }
+    if (!MmenuTieBreakParse(config ? config->tiebreak : NULL, &tiebreak,
+                            tiebreak_error, sizeof(tiebreak_error))) {
+        fprintf(stderr, "mmenu: %s\n", tiebreak_error);
         return -1;
     }
     if (n_options < 0) {
@@ -1427,15 +1753,18 @@ static int mmenu_internal(const char *const *options, int n_options,
         FuzzyMatch *matches = NULL;
         int match_count = 0;
         if (!mmenu_extended_collect(current_match_options, 0, n_options, input, flags,
-                                    &matches, &match_count))
+                                    &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next && (flags & MMENU_FUZZY)) {
-            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count) ||
+                !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap, match_count)) {
                 free(matches);
                 goto cleanup;
             }
-            for (int i = 0; i < match_count; i++)
+            for (int i = 0; i < match_count; i++) {
                 filtered_scores[i] = matches[i].score;
+                filtered_metrics[i] = matches[i].metrics;
+            }
         }
         for (int i = 0; i < match_count; i++) {
             if (!filt_push(&filtered, matches[i].index)) {
@@ -1447,15 +1776,18 @@ static int mmenu_internal(const char *const *options, int n_options,
     } else if (flags & MMENU_FUZZY) {
         FuzzyMatch *matches = NULL;
         int match_count = 0;
-        if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
+        if (!FuzzyCollect(current_match_options, n_options, input, flags, &tiebreak, &matches, &match_count))
             goto cleanup;
         if (config && config->stream_next) {
-            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count)) {
+            if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap, match_count) ||
+                !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap, match_count)) {
                 free(matches);
                 goto cleanup;
             }
-            for (int i = 0; i < match_count; i++)
+            for (int i = 0; i < match_count; i++) {
                 filtered_scores[i] = matches[i].score;
+                filtered_metrics[i] = matches[i].metrics;
+            }
         }
         for (int i = 0; i < match_count; i++) {
             if (!filt_push(&filtered, matches[i].index)) {
@@ -1687,23 +2019,28 @@ static int mmenu_internal(const char *const *options, int n_options,
                     if (!filt_push(&filtered, i)) goto cleanup;
             } else if (stream_changed && !query_edited) {
                 if (!mmenu_filter_stream_batch(current_match_options, stream_start_count,
-                                               n_options, input, flags, &filtered,
-                                               &filtered_scores, &filtered_scores_cap))
+                                               n_options, input, flags, &tiebreak, &filtered,
+                                               &filtered_scores, &filtered_scores_cap,
+                                               &filtered_metrics, &filtered_metrics_cap))
                     goto cleanup;
             } else if (flags & MMENU_EXTENDED) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
                 if (!mmenu_extended_collect(current_match_options, 0, n_options, input,
-                                            flags, &matches, &match_count))
+                                            flags, &tiebreak, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next && (flags & MMENU_FUZZY)) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
-                                              match_count)) {
+                                              match_count) ||
+                        !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap,
+                                               match_count)) {
                         free(matches);
                         goto cleanup;
                     }
-                    for (int i = 0; i < match_count; i++)
+                    for (int i = 0; i < match_count; i++) {
                         filtered_scores[i] = matches[i].score;
+                        filtered_metrics[i] = matches[i].metrics;
+                    }
                 }
                 filt_clear(&filtered);
                 for (int i = 0; i < match_count; i++) {
@@ -1716,16 +2053,20 @@ static int mmenu_internal(const char *const *options, int n_options,
             } else if (flags & MMENU_FUZZY) {
                 FuzzyMatch *matches = NULL;
                 int match_count = 0;
-                if (!FuzzyCollect(current_match_options, n_options, input, flags, &matches, &match_count))
+                if (!FuzzyCollect(current_match_options, n_options, input, flags, &tiebreak, &matches, &match_count))
                     goto cleanup;
                 if (config && config->stream_next) {
                     if (!mmenu_scores_reserve(&filtered_scores, &filtered_scores_cap,
-                                              match_count)) {
+                                              match_count) ||
+                        !mmenu_metrics_reserve(&filtered_metrics, &filtered_metrics_cap,
+                                               match_count)) {
                         free(matches);
                         goto cleanup;
                     }
-                    for (int i = 0; i < match_count; i++)
+                    for (int i = 0; i < match_count; i++) {
                         filtered_scores[i] = matches[i].score;
+                        filtered_metrics[i] = matches[i].metrics;
+                    }
                 }
                 filt_clear(&filtered);
                 for (int i = 0; i < match_count; i++) {
@@ -1919,6 +2260,7 @@ cleanup:
     free(display_options);
     free(match_options);
     free(filtered_scores);
+    free(filtered_metrics);
     free(stream_options);
     free(selected_options);
     free(filtered.indices);

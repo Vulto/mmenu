@@ -455,3 +455,32 @@ RunWithNthStreaming
 RunAcceptNthStreaming
 RunNthStreaming
 RunFuzzyNoSortStreaming
+
+RunTiebreakStreaming() {
+    rm -f "$TmpDir/input" "$TmpDir/eof" "$TmpDir/result" "$TmpDir/result.tmp" "$TmpDir/terminal"
+    export MMENU_BIN="$Bin" MMENU_FIFO="$TmpDir/input" MMENU_EOF="$TmpDir/eof"
+    export MMENU_RESULT="$TmpDir/result" MMENU_RESULT_TMP="$TmpDir/result.tmp"
+    UpKey=$(TERM=xterm tput kcuu1)
+    # shellcheck disable=SC2016
+    Command='mkfifo "$MMENU_FIFO"; ( { printf "ab-long\n"; sleep 0.3; printf "ab\n"; sleep 1; : > "$MMENU_EOF"; } > "$MMENU_FIFO" ) & Producer=$!; "$MMENU_BIN" --fuzzy --tiebreak length --query ab -t < "$MMENU_FIFO" > "$MMENU_RESULT_TMP"; Status=$?; if [ "$Status" -eq 0 ]; then mv "$MMENU_RESULT_TMP" "$MMENU_RESULT"; fi; wait "$Producer"; exit "$Status"'
+    { sleep 0.65; printf '%b' "$UpKey"; sleep 0.1; printf '\n'; } |
+        LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "sh -c '$Command'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/script-error" &
+    SessionPid=$!
+    sleep 0.85
+    if [ -e "$TmpDir/eof" ] || [ ! -f "$TmpDir/result" ]; then
+        printf 'FAIL: streamed fuzzy tie-break did not accept before EOF\n' >&2
+        kill "$SessionPid" 2>/dev/null || :
+        wait "$SessionPid" 2>/dev/null || :
+        return 1
+    fi
+    wait "$SessionPid"
+    if grep -aFxq '1' "$TmpDir/result"; then
+        printf 'PASS: streamed fuzzy tie-break uses configured ordering after new records arrive\n'
+    else
+        printf 'FAIL: streamed fuzzy tie-break selected the wrong index\n' >&2
+        od -An -tx1c "$TmpDir/result" >&2
+        tail -c 2000 "$TmpDir/terminal" | od -An -tx1c >&2
+        return 1
+    fi
+}
+RunTiebreakStreaming

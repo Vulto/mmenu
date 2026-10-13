@@ -133,6 +133,24 @@ int main(int argc, char **argv)
     }
     int count = 4;
     const char *prompt = "test> ";
+    if (argc > 1 && strcmp(argv[1], "tiebreak") == 0) {
+        const char *rank_options[] = {"ab-long", "ab"};
+        mmenu_config config = {0};
+        config.initial_query = "ab";
+        config.tiebreak = "length";
+        int result = mmenuConfigured(rank_options, 2, prompt, MMENU_FUZZY, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return result < 0 ? 1 : 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "invalid-tiebreak") == 0) {
+        mmenu_config config = {0};
+        config.tiebreak = "length,length";
+        int result = mmenuConfigured(options, count, prompt, MMENU_FUZZY, &config);
+        if (result != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    }
+
     pid_t resize_child = -1;
     int narrow_mode = 0;
     int many_mode = 0;

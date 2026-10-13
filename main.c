@@ -766,6 +766,7 @@ static void print_usage(FILE *out) {
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
         "--fuzzy enables ranked subsequence matching; --exact matches whole records.\n"
+        "--tiebreak=KEYS orders equal-score fuzzy matches (length,begin,end,chunk,pathname,index).\n"
         "--disabled keeps all options visible without filtering as the query changes.\n"
         "--nth SPEC searches selected 1-based fields/ranges; --with-nth SPEC changes interactive display fields.\n"
         "--delimiter/-d sets a POSIX extended regular expression for field options.\n"
@@ -862,6 +863,10 @@ int main(int argc, char **argv) {
     const char *filter_query = NULL;
     int filter_seen = 0;
     int fuzzy_mode = 0;
+    const char *tiebreak_spec_string = NULL;
+    int tiebreak_seen = 0;
+    mmenu_tiebreak_spec tiebreak;
+    char tiebreak_error[256];
     int exact_mode = 0;
     int extended_mode = 0;
     int disabled_mode = 0;
@@ -899,6 +904,19 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--fuzzy")) {
             fuzzy_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--tiebreak")) {
+            if (tiebreak_seen) return argument_error("--tiebreak may only be specified once");
+            if (i + 1 >= argc) return argument_error("--tiebreak requires a comma-separated key list");
+            tiebreak_spec_string = argv[++i];
+            tiebreak_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--tiebreak=", 11)) {
+            if (tiebreak_seen) return argument_error("--tiebreak may only be specified once");
+            tiebreak_spec_string = arg + 11;
+            tiebreak_seen = 1;
             continue;
         }
         if (!strcmp(arg, "--disabled")) {
@@ -1131,6 +1149,11 @@ int main(int argc, char **argv) {
         return argument_error("--accept-nth cannot be combined with --index or --format");
     if (no_sort && !fuzzy_mode)
         return argument_error("--no-sort requires --fuzzy");
+    if (tiebreak_seen && !fuzzy_mode)
+        return argument_error("--tiebreak requires --fuzzy");
+    if (!MmenuTieBreakParse(tiebreak_spec_string, &tiebreak,
+                            tiebreak_error, sizeof(tiebreak_error)))
+        return argument_error(tiebreak_error);
 
     if (filter_seen && positional_count > 0)
         return argument_error("positional argument is not valid with batch filtering");
@@ -1156,6 +1179,7 @@ int main(int argc, char **argv) {
                                (no_sort ? MMENU_NO_SORT : 0u) |
                                (disabled_mode ? MMENU_DISABLED : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
+    menu_config.tiebreak = tiebreak_seen ? tiebreak_spec_string : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;
     if (initial_query_seen) {
@@ -1277,7 +1301,7 @@ int main(int argc, char **argv) {
                 for (int i = 0; i < opts.count; i++) {
                     long long score = 0;
                     int matched = mmenu_query_match(&query, match_lines[i],
-                                                    match_flags, &score);
+                                                    match_flags, &score, NULL);
                     if (invert_mode ? !matched : matched)
                         print_batch_match(opts.lines[i], i, output_index, output_nul,
                                           output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
@@ -1288,7 +1312,7 @@ int main(int argc, char **argv) {
                 int match_count = 0;
                 if (!mmenu_extended_collect(match_lines, 0,
                                             opts.count, wide_query, match_flags,
-                                            &matches, &match_count)) {
+                                            &tiebreak, &matches, &match_count)) {
                     free(wide_query);
                     lines_free(&display_opts);
                 lines_free(&search_opts);
@@ -1322,7 +1346,7 @@ int main(int argc, char **argv) {
                 int matched;
                 if (fuzzy_mode) {
                     long long score;
-                    matched = FuzzyScore(match_lines[i], wide_query, match_flags, &score);
+                    matched = FuzzyScoreMetrics(match_lines[i], wide_query, match_flags, &score, NULL);
                 } else if (exact_mode) {
                     matched = strcmp(match_lines[i], filter_query) == 0;
                 } else {
@@ -1353,7 +1377,7 @@ int main(int argc, char **argv) {
             }
             for (int i = 0; i < opts.count; i++) {
                 long long score;
-                if (FuzzyScore(match_lines[i], query, match_flags, &score)) {
+                if (FuzzyScoreMetrics(match_lines[i], query, match_flags, &score, NULL)) {
                     print_batch_match(opts.lines[i], i, output_index, output_nul, output_format, filter_query, accept_nth, delimiter_seen ? field_delimiter : NULL);
                 }
             }
@@ -1372,7 +1396,7 @@ int main(int argc, char **argv) {
             }
             FuzzyMatch *matches = NULL;
             int match_count = 0;
-            if (!FuzzyCollect(match_lines, opts.count, query, match_flags, &matches, &match_count)) {
+            if (!FuzzyCollect(match_lines, opts.count, query, match_flags, &tiebreak, &matches, &match_count)) {
                 free(query);
                 lines_free(&display_opts);
                 lines_free(&search_opts);

@@ -258,6 +258,7 @@ CheckFuzzyUnicodeHighlight() {
 CheckFuzzyUnicodeHighlight
 CheckSelection 'fuzzy renderer survives narrow terminals with long candidates' 0 'xxx\n' fuzzy-narrow
 CheckSelection 'fuzzy renderer survives a one-cell terminal' 0 '\n' fuzzy-tiny
+CheckSelection 'C API tiebreak length orders equal-score matches' 1 '\n' tiebreak
 
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
@@ -286,7 +287,7 @@ CheckApiContract() {
     elif ! grep -Fq 'MMENU_API_RESULT=invalid-rejected' "$TmpDir/api-output"; then
         printf 'FAIL: API contract %s was not rejected cleanly\n' "$Mode" >&2
         Failures=$((Failures + 1))
-    elif ! grep -Fq "$Diagnostic" "$TmpDir/api-error"; then
+    elif ! grep -Fq -- "$Diagnostic" "$TmpDir/api-error"; then
         printf 'FAIL: API contract %s omitted diagnostic: %s\n' "$Mode" "$Diagnostic" >&2
         cat "$TmpDir/api-error" >&2
         Failures=$((Failures + 1))
@@ -303,6 +304,7 @@ CheckApiContract invalid-no-sort 'unsupported API flags'
 CheckApiContract invalid-case-flags 'unsupported API flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-query 'initial query exceeds'
+CheckApiContract invalid-tiebreak "--tiebreak key 'length' is repeated"
 
 # A library call without a controlling terminal must return -1, not exit its host process.
 if ! setsid "$Bin" no-tty > "$TmpDir/no-tty-output" 2> "$TmpDir/no-tty-error"; then

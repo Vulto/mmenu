@@ -457,8 +457,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 - [x] Add CLI regression cases for source paths, partial command names, camel-case/underscore identifiers, and ambiguous partial-word matches.
 - [x] Verify subsequence membership and stable input ordering independently of score ranking with `--no-sort`.
-- [ ] Expand the judged ranking-quality dataset beyond the current four query sets and record MRR, NDCG@5, recall, latency, and memory across reference tools.
-- [ ] Run the full GCC/Clang release and sanitizer matrix before merging.
+- [x] Expand the judged ranking-quality dataset from four to twelve query sets and record MRR, NDCG@5, recall, latency, and memory across mmenu, fzf, skim, and fzy (PR #48; CI run 38454243045, all four jobs passed).
+- [x] Run the full GCC/Clang release and sanitizer matrix before merging (PR #48; CI run 38454243045; all four jobs passed).
 
 ## Measurement notes
 
@@ -475,7 +475,8 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
   - 1,000 records: samples 8,447,272 / 8,381,618 / 8,581,067 ns; median 8,447,272 ns.
   - 10,000 records: samples 8,328,363 / 8,368,603 / 8,362,950 ns; median 8,362,950 ns.
   - 100,000 records: samples 14,988,676 / 15,061,079 / 15,011,729 ns; median 15,011,729 ns.
-- Ranking-quality fixture versions: fzf 0.44.1 (Debian package), fzy 1.0, skim 5.7.4. On the four small judged query sets, mmenu fuzzy and fzf both reported MRR 1.0000; NDCG@5 values were menu 0.8273, mmh 0.8839, tst 0.9896, cfg 0.8502; Recall@5 values were 0.8333, 0.6667, 1.0000, 1.0000. fzy NDCG@5 was 0.8273, 0.8839, 0.8502, 0.8502 with the same recall values. Candidate counts were 8, 4, 5, and 4 respectively.
+- Ranking-quality fixture versions: fzf 0.44.1 (Debian package), fzy 1.0, skim 5.7.4.
+- Expanded ranking corpus (PR #48; 12 query sets total): new fuzzy-query MRR / NDCG@5 / Recall@5 — alloc 1.0000 / 0.8988 / 0.6000; stream 1.0000 / 0.5799 / 0.2000; rank 1.0000 / 0.8588 / 0.5000; fuzz 1.0000 / 0.9023 / 0.6000; bench 1.0000 / 0.7813 / 0.6000; cli 1.0000 / 0.4796 / 0.2000; test 1.0000 / 0.9739 / 0.8333; input 1.0000 / 0.5799 / 0.2000. Full per-tool output includes elapsed time and max RSS in CI artifact; scores are corpus-specific and not universal quality claims. On the four small judged query sets, mmenu fuzzy and fzf both reported MRR 1.0000; NDCG@5 values were menu 0.8273, mmh 0.8839, tst 0.9896, cfg 0.8502; Recall@5 values were 0.8333, 0.6667, 1.0000, 1.0000. fzy NDCG@5 was 0.8273, 0.8839, 0.8502, 0.8502 with the same recall values. Candidate counts were 8, 4, 5, and 4 respectively.
 - Matcher-throughput run 38192642023, artifact mmenu-performance-4d8992045b6ca6a25f1c071b8112095327baf45d (GCC 13.3.0; query "ndl"; three samples; one in ten records contains "needle"; all tools returned exactly the same set):
   - 1,000 records — mmenu median 3,058,611 ns / 1,856 KiB max RSS; fzf 4,915,124 ns / 11,044 KiB; fzy 2,669,188 ns / 2,052 KiB.
   - 10,000 records — mmenu 7,625,538 ns / 2,016 KiB; fzf 9,615,558 ns / 17,812 KiB; fzy 3,504,882 ns / 2,308 KiB.

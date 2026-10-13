@@ -28,6 +28,8 @@ printf 'tool,query_id,candidates,matched,relevant,mrr,ndcg_at_5,recall_at_5,elap
     printf 'reference_semantics=fuzzy subsequence matching with tool-specific scoring and ranking; versions recorded per row\n'
 } > "$Out.metadata.txt"
 
+awk -F '\t' '!seen[$1]++ { print $1 }' "$Judgments" > "$TmpDir/query-ids"
+
 for Tool in mmenu mmenu-fuzzy fzf skim fzy; do
     case "$Tool" in
         mmenu|mmenu-fuzzy) Version=${GITHUB_SHA:-unknown} ;;
@@ -38,7 +40,7 @@ for Tool in mmenu mmenu-fuzzy fzf skim fzy; do
     Version=$(printf '%s' "$Version" | tr ',' ';' | tr '\n' ' ')
     printf 'tool_version_%s=%s\n' "$Tool" "$Version" >> "$Out.metadata.txt"
 
-    for QueryId in menu mmh tst cfg; do
+    while IFS= read -r QueryId; do
         Query=$(awk -F '\t' -v q="$QueryId" '$1 == q { print $2; exit }' "$Judgments")
         awk -F '\t' -v q="$QueryId" '$1 == q { print $4 }' "$Judgments" > "$TmpDir/input"
 
@@ -84,7 +86,7 @@ for Tool in mmenu mmenu-fuzzy fzf skim fzy; do
         RSS=$(cat "$TmpDir/rss")
         Metrics=$(awk -v query_id="$QueryId" -v tool="$Tool" -f "$MetricsAwk" "$Judgments" "$TmpDir/result")
         printf '%s,%s,%s,%s\n' "$Metrics" "$Elapsed" "$RSS" "$Version" >> "$Out"
-    done
+    done < "$TmpDir/query-ids"
 done
 
 awk -F, 'BEGIN { OFS = "," } $1 == "mmenu" { print $2, $4, $5, $6, $7, $8 }' "$Out" > "$TmpDir/mmenu.actual"

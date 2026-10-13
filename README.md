@@ -116,7 +116,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, prefix terms prefixed by `^`, and suffix terms ending in `$`. `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.
 - `--no-sort`: with `--fuzzy`, keep matching records in original input order instead of ranking by score in both interactive and batch modes; requires `--fuzzy`.
-- `--tiebreak=KEYS`: order equal-score fuzzy matches using a comma-separated list of `length`, `begin`, `end`, `index`, `chunk`, `pathname`, and `score`. Input index is appended as a stable fallback when omitted; requires `--fuzzy`.
+- `--tiebreak=KEYS`: order equal-score fuzzy matches using a comma-separated list of `length`, `begin`, `end`, `index`, `chunk`, and `pathname`. Input index is appended as a stable fallback when omitted; requires `--fuzzy`.
 - `--disabled`: interactive-only; keep all options visible regardless of the current query.
 - `--nth SPEC`: search only the selected 1-based fields or ranges (for example `1,3`, `2..4`, or `1,-1`). Matching uses the selected fields joined by spaces, while display and output preserve the original record.
 - `--with-nth SPEC`: display only the selected fields in interactive mode; selection and output still refer to the original record. Batch-filter mode rejects it because there is no interactive display.

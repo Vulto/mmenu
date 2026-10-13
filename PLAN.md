@@ -450,6 +450,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Add `--tiebreak` and additive `mmenu_config.tiebreak` support for length, begin, end, index, chunk count, pathname/basename keys.
 - [x] Apply the same tie-break ordering to simple fuzzy queries, extended fuzzy queries, batch filtering, and interactive/streaming filtering.
 - [x] Reject unknown, duplicate, empty, and malformed tie-break keys; require fuzzy mode when configured.
+- [x] Run the full GCC/Clang release and sanitizer matrix before merging (CI run 38439149501; all four jobs passed; merged PR #45).
+
+### M2e — Ranking corpus expansion
+
+- [x] Add CLI regression cases for source paths, partial command names, camel-case/underscore identifiers, and ambiguous partial-word matches.
+- [x] Verify subsequence membership and stable input ordering independently of score ranking with `--no-sort`.
+- [ ] Expand the judged ranking-quality dataset beyond the current four query sets and record MRR, NDCG@5, recall, latency, and memory across reference tools.
 - [ ] Run the full GCC/Clang release and sanitizer matrix before merging.
 
 ## Measurement notes

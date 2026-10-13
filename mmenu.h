@@ -405,19 +405,19 @@ static int MmenuAsciiNcmpPolicy(const char *left, const char *right,
     return 0;
 }
 
-static char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
+static const char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
 {
-    if (!*needle) return (char *)haystack;
+    if (!*needle) return haystack;
     size_t needleLength = strlen(needle);
     for (const char *cursor = haystack; *cursor; cursor++) {
         if (MmenuAsciiNcmpPolicy(cursor, needle, needleLength, 0) == 0)
-            return (char *)cursor;
+            return cursor;
     }
     return NULL;
 }
 
-static char *MmenuStrstrPolicy(const char *haystack, const char *needle,
-                               unsigned int flags)
+static const char *MmenuStrstrPolicy(const char *haystack, const char *needle,
+                                     unsigned int flags)
 {
     if (MmenuCaseSensitiveBytes(flags, needle))
         return strstr(haystack, needle);

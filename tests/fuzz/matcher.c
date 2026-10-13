@@ -75,10 +75,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             verified_score != matches[i].score)
             abort();
 
-        if (i > 0 &&
-            (matches[i - 1].score < matches[i].score ||
-             (matches[i - 1].score == matches[i].score &&
-              matches[i - 1].index >= matches[i].index)))
+        if (i > 0 && query[0] != L'\0' &&
+            MmenuCompareFuzzyMatches(&matches[i - 1], &matches[i],
+                                     &tiebreak) > 0)
             abort();
 
         for (int j = 0; j < i; j++)

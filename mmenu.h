@@ -653,7 +653,9 @@ static int FuzzyCollect(const char *const *options, int n_options,
         matches[count++] = (FuzzyMatch){.index = i, .score = score, .metrics = metrics};
     }
 
-    if (count > 1 && !(flags & MMENU_NO_SORT))
+    /* An empty query means "show everything"; preserve source order rather than
+       applying match-position tie-breaks to candidates that matched nothing. */
+    if (count > 1 && query[0] != L'\0' && !(flags & MMENU_NO_SORT))
         MmenuFuzzySort(matches, count, tiebreak);
     *result = matches;
     *result_count = count;

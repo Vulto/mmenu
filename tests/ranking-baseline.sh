@@ -38,7 +38,7 @@ for Tool in mmenu mmenu-fuzzy fzf skim fzy; do
     Version=$(printf '%s' "$Version" | tr ',' ';' | tr '\n' ' ')
     printf 'tool_version_%s=%s\n' "$Tool" "$Version" >> "$Out.metadata.txt"
 
-    for QueryId in $(awk -F '\\t' '!seen[$1]++ { print $1 }' "$Judgments"); do
+    for QueryId in $(awk -F '\t' '!seen[$1]++ { print $1 }' "$Judgments"); do
         Query=$(awk -F '\t' -v q="$QueryId" '$1 == q { print $2; exit }' "$Judgments")
         awk -F '\t' -v q="$QueryId" '$1 == q { print $4 }' "$Judgments" > "$TmpDir/input"
 

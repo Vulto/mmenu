@@ -339,6 +339,21 @@ printf 'älpha\n' > "$TmpDir/expected"
 "$Bin" --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'non-ASCII case variants remain distinct' "$TmpDir/expected" "$TmpDir/actual"
 
+# Ranking corpus smoke cases: source paths, identifiers, separators, and ambiguous partial words.
+printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\ngit-status\ngit-stash\nHTTPServer\nhttp_server\nfoo bar\nfoo-baz\nfoobar\n' > "$TmpDir/input"
+printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter smc < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches subsequences in source paths' "$TmpDir/expected" "$TmpDir/actual"
+printf 'git-status\ngit-stash\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter gts < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches partial command names across separators' "$TmpDir/expected" "$TmpDir/actual"
+printf 'HTTPServer\nhttp_server\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter hps < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches identifiers with camel-case and underscore boundaries' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foo bar\nfoo-baz\nfoobar\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter fb < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus preserves all ambiguous partial-word matches' "$TmpDir/expected" "$TmpDir/actual"
+
 # Fuzzy mode is opt-in; legacy substring mode must keep its existing contract.
 printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
 printf 'src/mmh.c\nsrc/mmenu.h\nsrc/m-m-h.c\n' > "$TmpDir/expected"

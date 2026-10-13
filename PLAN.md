@@ -451,6 +451,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Apply the same tie-break ordering to simple fuzzy queries, extended fuzzy queries, batch filtering, and interactive/streaming filtering.
 - [x] Reject unknown, duplicate, empty, and malformed tie-break keys; require fuzzy mode when configured.
 - [x] Run the full GCC/Clang release and sanitizer matrix before merging (CI run 38439149501; all four jobs passed; merged PR #45).
+- [x] Fix C23 const-correctness in substring matching: helpers return `const char *` because their inputs are read-only; validate with strict C23 builds.
 
 ### M2e — Ranking corpus expansion
 

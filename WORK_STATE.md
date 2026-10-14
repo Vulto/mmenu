@@ -36,3 +36,4 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-14: Added the missing Unreleased changelog entry for `--cycle` and `mmenu_config.cycle` in commit `ff13a4b11617b9b823094c170e19a8f96a6de30a`.
 - 2026-10-14: CI run 38611917873 passed all four required jobs on `3174c81148cc91ad35972a8d666bf8933d3cbca4`. This run predates the changelog correction; verify CI and QA against the new head before integration.
+- 2026-10-14: Documented the `--cycle` CLI option in `README.md` in commit `ee5bb1e614ad305061123cc8574095870c858f09`; the change is on `m3-cycle-navigation` and requires fresh CI and QA for the resulting head.

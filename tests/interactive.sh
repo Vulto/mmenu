@@ -182,10 +182,10 @@ CheckMultiSelection 'Enter without toggles selects the current option' '0' '\n'
 CheckMultiSelection 'multi-select cancellation returns no selections' '-1' '\003'
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 UpKey=$(TERM=xterm tput kcuu1)
-CheckSelection 'configured C API cycle wraps Down across filtered results' 0 "$(printf '%s%s%s' "$DownKey" "$DownKey" "$DownKey")" cycle
-CheckSelection 'configured C API cycle wraps Up across filtered results' 3 "$UpKey" cycle
-CheckSelection 'configured C API default does not wrap Up at the first result' 0 "$UpKey" cycle-default
-CheckSelection 'configured C API cycle handles an empty filtered result safely' -1 "$(printf '%s%s' "$UpKey" "$DownKey")" cycle-empty
+CheckSelection 'configured C API cycle wraps Down across filtered results' 0 "$(printf '%s%s%s' "$DownKey" "$DownKey" "$DownKey")\\n" cycle
+CheckSelection 'configured C API cycle wraps Up across filtered results' 3 "$UpKey\\n" cycle
+CheckSelection 'configured C API default does not wrap Up at the first result' 0 "$UpKey\\n" cycle-default
+CheckSelection 'configured C API cycle handles an empty filtered result safely' -1 "$(printf '%s%s' "$UpKey" "$DownKey")\\n" cycle-empty
 CheckSelection 'typed query filters to the matching option' 2 'needle\n'
 CheckSelection 'legacy API keeps contiguous-substring semantics' -1 'ndl\n'
 CheckSelection 'fuzzy API matches a subsequence' 2 'ndl\n' fuzzy

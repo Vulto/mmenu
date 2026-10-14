@@ -97,7 +97,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Header/footer label positioning — missing.
 - [ ] Multi-selection limit (--multi[=MAX]) — partial — unlimited multi-select exists; limits do not.
 - [ ] Highlight selected/current line (--highlight-line) — missing.
-- [ ] Cursor wrapping (--cycle) — implementation and PTY regression are on branch `m3-cycle-navigation`; code/test head `f09b650e2998413ac92ce4824781299dd2c9ac7c` passed all four required jobs in CI run 38573572153; pending final handoff documentation CI, exact-head QA marker, and merge.
+- [ ] Cursor wrapping (--cycle) — implementation and PTY/C API regressions are on branch `m3-cycle-navigation`; code/test head `f09b650e2998413ac92ce4824781299dd2c9ac7c` passed all four required jobs in CI run 38573572153, and documentation head `43deca1e2c2f838f7ca9f010a988bb23c52aa931` passed all four required jobs in CI run 38607360475. Awaiting fresh exact-head QA after the handoff update and merge; keep unchecked until integrated.
 - [ ] Multiline wrapping modes and wrap signs (--wrap, --wrap-sign, --no-multi-line) — missing.
 - [ ] Raw mode (--raw) — missing.
 - [ ] Gap between list entries (--gap, --gap-line) — missing.

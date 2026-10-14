@@ -570,16 +570,16 @@ else
     Pass 'multi-select is restricted to interactive mode'
 fi
 # --cycle wraps navigation at both ends without changing the default behavior.
-printf 'alpha\\nbeta\\nneedle\\ncafé-日本語\\n' > "$TmpDir/options"
-printf 'alpha\\n' > "$TmpDir/expected"
-if ! { sleep 0.2; printf '%s%s%s%s\\n' "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)"; } |
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '%s%s%s%s\n' "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)"; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--cycle down-wrap CLI test should exit cleanly'
 else
     CheckEqual '--cycle wraps Down from the last option to the first' "$TmpDir/expected" "$TmpDir/selected"
 fi
-printf 'café-日本語\\n' > "$TmpDir/expected"
-if ! { sleep 0.2; printf '%s\\n' "$(TERM=xterm tput kcuu1)"; } |
+printf 'café-日本語\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '%s\n' "$(TERM=xterm tput kcuu1)"; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--cycle up-wrap CLI test should exit cleanly'
 else

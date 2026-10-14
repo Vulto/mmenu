@@ -17,8 +17,11 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - Documentation head before this handoff update: `43deca1e2c2f838f7ca9f010a988bb23c52aa931`.
 - CI run [38607360475](https://github.com/Vulto/mmenu/actions/runs/38607360475) completed successfully on that documentation head. All four required matrix jobs passed. The run also completed CLI, interactive C API, streaming, allocation-failure, and other jobs according to each job's conditions; skipped optional steps are not counted as executed tests.
 - No local test execution is claimed.
-- The existing QA marker was tied to the previous documentation head. Any new commit makes it stale; Agent 2 must review and mark the resulting exact head again.
-- The PR changed files are PLAN.md, WORK_STATE.md, main.c, mmenu.h, tests/apiHarness.c, tests/cli.sh, and tests/interactive.sh.
+- Existing QA marker: `AUTONOMOUS-QA: PASS 43deca1e2c2f838f7ca9f010a988bb23c52aa931`; it is stale for the current PR head.
+- Current PR head reviewed by Agent 2: `19015ab1e4bc7366c55fd481127aa73b035a889d`.
+- CI run [38640970419](https://github.com/Vulto/mmenu/actions/runs/38640970419) completed successfully on that exact head. The four required jobs (GCC release, Clang release, GCC sanitizers, and Clang sanitizers) all passed. Conditional optional steps were skipped where configured; no local test execution is claimed.
+- This handoff update is documentation-only and creates a new head. CI and QA must be revalidated on the resulting SHA before merge.
+- The PR changed files are CHANGELOG.md, PLAN.md, README.md, WORK_STATE.md, main.c, mmenu.h, tests/apiHarness.c, tests/cli.sh, and tests/interactive.sh.
 
 ## Current action
 
@@ -37,3 +40,5 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-14: Added the missing Unreleased changelog entry for `--cycle` and `mmenu_config.cycle` in commit `ff13a4b11617b9b823094c170e19a8f96a6de30a`.
 - 2026-10-14: CI run 38611917873 passed all four required jobs on `3174c81148cc91ad35972a8d666bf8933d3cbca4`. This run predates the changelog correction; verify CI and QA against the new head before integration.
 - 2026-10-14: Documented the `--cycle` CLI option in `README.md` in commit `ee5bb1e614ad305061123cc8574095870c858f09`; the change is on `m3-cycle-navigation` and requires fresh CI and QA for the resulting head.
+
+- 2026-10-14 19:25 America/Sao_Paulo: Agent 2 reviewed PR #51 head `19015ab1e4bc7366c55fd481127aa73b035a889d` and verified CI run 38640970419 passed all four required matrix jobs on that exact head. This documentation-only update changes the head; fresh CI and QA are required before merge.

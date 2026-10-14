@@ -33,3 +33,6 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-14: Inspected PR #51 review submissions and inline review threads; none were returned.
 - 2026-10-14: Verified CI run 38573572153 passed all four required jobs on code/test head `f09b650e2998413ac92ce4824781299dd2c9ac7c`.
 - 2026-10-14: Verified CI run 38607360475 completed successfully on documentation head `43deca1e2c2f838f7ca9f010a988bb23c52aa931`; all four required matrix jobs concluded successfully.
+
+- 2026-10-14: Added the missing Unreleased changelog entry for `--cycle` and `mmenu_config.cycle` in commit `ff13a4b11617b9b823094c170e19a8f96a6de30a`.
+- 2026-10-14: CI run 38611917873 passed all four required jobs on `3174c81148cc91ad35972a8d666bf8933d3cbca4`. This run predates the changelog correction; verify CI and QA against the new head before integration.

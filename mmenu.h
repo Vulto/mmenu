@@ -95,6 +95,7 @@ typedef struct {
     mmenu_display_text_callback display_text;
     void *display_text_userdata;
     const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
+    int cycle; /* wrap up/down navigation at the ends when nonzero */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1984,9 +1985,21 @@ static int mmenu_internal(const char *const *options, int n_options,
                            (key_backspace && ch == key_backspace);
         if (is_cancel) { ret = -1; goto cleanup; }
         if (is_up) {
-            if (selection > 0) { selection--; preview_dirty = 1; }
+            if (selection > 0) {
+                selection--;
+                preview_dirty = 1;
+            } else if (config && config->cycle && filtered.count > 0) {
+                selection = filtered.count - 1;
+                preview_dirty = 1;
+            }
         } else if (is_down) {
-            if (selection < filtered.count - 1) { selection++; preview_dirty = 1; }
+            if (selection < filtered.count - 1) {
+                selection++;
+                preview_dirty = 1;
+            } else if (config && config->cycle && filtered.count > 0) {
+                selection = 0;
+                preview_dirty = 1;
+            }
         } else if (is_backspace) {
             if (input_len > 0) { input[--input_len] = L'\0'; need_filter = 1; query_edited = 1; }
         } else if (is_toggle) {

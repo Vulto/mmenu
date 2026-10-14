@@ -75,9 +75,11 @@ typedef const char *(*mmenu_search_text_callback)(const char *option, int index,
 typedef const char *(*mmenu_display_text_callback)(const char *option, int index,
                                                     void *userdata);
 
-/* Optional interactive query, key aliases, preview, input-stream, searchable-
-   text, and display-text callbacks. Zero-valued key fields preserve built-in
-   keys; each callback userdata pointer is passed through unchanged. */
+/* Zero-initialize this structure before setting optional fields. Optional
+   query, key aliases, preview, input-stream, searchable/display-text callbacks,
+   fuzzy tie-breaking, and cyclic navigation are configured here. Zero-valued
+   key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
+   Each callback userdata pointer is passed through unchanged. */
 typedef struct {
     const char *initial_query;
     wint_t key_up;

@@ -19,12 +19,13 @@ This file is a handoff record for scheduled runs. GitHub branch/PR state and CI 
 
 ## Next actions
 
-1. Inspect CI for the exact latest PR #51 head and all required jobs.
-2. Fix any failing job on this branch, add a regression test for any defect, and wait for replacement CI.
-3. Have Agent 2 review the current head and post its exact-SHA QA marker only if no defects remain.
+1. Inspect CI for the exact latest PR #51 head after the QA correction.
+2. Confirm the new C API wrap tests pass under GCC/Clang release and sanitizer jobs.
+3. Re-review the exact current head; post the QA marker only if no defects remain.
 4. Merge only after all required checks and the exact-head QA marker are valid; then resume the next incomplete PLAN.md item.
 
 ## Run log
 
 - 2026-10-14: Resolved the stale PR #49 gate by merging its documentation-only change after exact-head CI success and a matching QA marker.
-- 2026-10-14: Opened PR #51 for cyclic navigation with PTY regressions. CI/review remain pending; no local test execution is claimed.
+- 2026-10-14: Opened PR #51 for cyclic navigation. Initial CI passed all four GCC/Clang release and sanitizer jobs.
+- 2026-10-14: QA found that mmenu_config.cycle had no direct C API regression coverage. Added PTY tests for both wrap directions over a filtered result set, default non-wrapping behavior, and empty-result safety. Clarified the public requirement to zero-initialize mmenu_config. This creates a new head; prior CI and review evidence must not be reused.

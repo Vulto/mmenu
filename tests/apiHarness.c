@@ -151,6 +151,20 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 &&
+        (strcmp(argv[1], "cycle") == 0 ||
+         strcmp(argv[1], "cycle-default") == 0 ||
+         strcmp(argv[1], "cycle-empty") == 0)) {
+        mmenu_config config = {0};
+        config.initial_query = strcmp(argv[1], "cycle-empty") == 0
+                                   ? "no-such-option" : "a";
+        config.cycle = strcmp(argv[1], "cycle") == 0 ||
+                       strcmp(argv[1], "cycle-empty") == 0;
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return result < -1 ? 1 : 0;
+    }
+
     pid_t resize_child = -1;
     int narrow_mode = 0;
     int many_mode = 0;

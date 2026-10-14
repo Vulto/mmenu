@@ -97,7 +97,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Header/footer label positioning — missing.
 - [ ] Multi-selection limit (--multi[=MAX]) — partial — unlimited multi-select exists; limits do not.
 - [ ] Highlight selected/current line (--highlight-line) — missing.
-- [ ] Cursor wrapping (--cycle) — missing.
+- [ ] Cursor wrapping (--cycle) — implementation and PTY regression are on branch `m3-cycle-navigation`; pending CI and review.
 - [ ] Multiline wrapping modes and wrap signs (--wrap, --wrap-sign, --no-multi-line) — missing.
 - [ ] Raw mode (--raw) — missing.
 - [ ] Gap between list entries (--gap, --gap-line) — missing.

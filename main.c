@@ -761,7 +761,8 @@ static void print_usage(FILE *out) {
         "--preview COMMAND displays command output for the highlighted option; {}, {index},\n"
         "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
-        "Use --multi for Tab toggling; Enter emits selected records (or indexes with -t).\n"
+        "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
+        "Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"
         "--read0 reads NUL-delimited records; --print0 terminates output records with NUL.\n"
@@ -877,6 +878,7 @@ int main(int argc, char **argv) {
     int output_nul = 0;
     int output_index = 0;
     int multi_mode = 0;
+    int cycle_mode = 0;
     const char *initial_query = NULL;
     int initial_query_seen = 0;
     const char *preview_command = NULL;
@@ -965,6 +967,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--multi")) {
             multi_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--cycle")) {
+            cycle_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--query")) {
@@ -1179,6 +1185,7 @@ int main(int argc, char **argv) {
                                (no_sort ? MMENU_NO_SORT : 0u) |
                                (disabled_mode ? MMENU_DISABLED : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
+    menu_config.cycle = cycle_mode;
     menu_config.tiebreak = tiebreak_seen ? tiebreak_spec_string : NULL;
     menu_config.preview = preview_seen ? run_preview_command : NULL;
     menu_config.preview_userdata = (void *)preview_command;
@@ -1192,6 +1199,8 @@ int main(int argc, char **argv) {
     }
     if (multi_mode && filter_seen)
         return argument_error("--multi is only available in interactive mode");
+    if (cycle_mode && filter_seen)
+        return argument_error("--cycle is only available in interactive mode");
     if (output_format && !filter_seen)
         return argument_error("--format requires --filter");
     if (output_format && output_index)

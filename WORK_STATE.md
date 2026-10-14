@@ -1,31 +1,29 @@
 # Autonomous Work State
 
-This file is a handoff record for scheduled runs. GitHub branch/PR state and CI remain the source of truth.
+This file records verified handoff state. GitHub branch/PR state and CI remain authoritative.
 
 ## Current focus
 
-- Active PR: #51, `feat: add cyclic navigation`.
-- M3 navigation item: opt-in `--cycle` wraps Up/Down at the first/last filtered result; default behavior is unchanged.
+- Active PR: #51, [feat: add cyclic navigation](https://github.com/Vulto/mmenu/pull/51).
 - Branch: `m3-cycle-navigation`.
-- Changes include CLI parsing/help, additive `mmenu_config.cycle`, PTY regressions for both wrap directions, batch-mode validation, and PLAN.md tracking.
-- Do not mark the feature complete or merge until QA and every required CI check pass on the exact current head.
+- Feature: opt-in `--cycle` wraps Up/Down at the first/last filtered result; default navigation remains bounded.
+- Public API adds `mmenu_config.cycle`; callers must zero-initialize `mmenu_config`.
+- Regression coverage includes CLI validation and PTY C API tests for Down-wrap, Up-wrap, default non-wrapping, and empty filtered results.
 
-## Latest verified checkpoint
+## Verified implementation and CI
 
-- PR #51 head before this handoff update: `df49cbb42d23590cb23c6a9cd08fdfc9de8dc6d4`.
-- Source/test commits include `422659e79b36ad72907515dc20e2552113b084ac`, `51bd35988a55969ad46b1f673c6db60961e5c48f`, `a4d2495e35252819185f2d8c7bd028f6c6cefa79`, and `cb67571ea28dd67c83c7f52398c05d54f3c5b2d4`.
-- The PR was opened at `https://github.com/Vulto/mmenu/pull/51`. CI for the latest head must be queried again after this handoff update; no local test execution is claimed because this environment could not resolve github.com for cloning.
-- The docs-only PR #49 was merged at `391c7e17c2ee72062ed2aa46bd9f779288918100`; there are no other open PRs besides #51.
+- Code/test head: `f09b650e2998413ac92ce4824781299dd2c9ac7c`.
+- CI run: [38573572153](https://github.com/Vulto/mmenu/actions/runs/38573572153), completed successfully on that commit.
+- Required jobs passed: GCC release, GCC sanitizers, Clang release, Clang sanitizers. The job logs show the CLI and interactive C API regression suites passed; allocation-failure sweeps, matcher fuzzing, Valgrind, static analysis, and performance checks ran or were skipped according to the workflow's job conditions. No local test execution is claimed.
+- Earlier run 38522534424 on `df49cbb42d23590cb23c6a9cd08fdfc9de8dc6d4` was cancelled and is not used as validation.
+- Review threads and submitted reviews returned empty for PR #51 at the last inspection. The diff changes PLAN.md, WORK_STATE.md, main.c, mmenu.h, tests/apiHarness.c, tests/cli.sh, and tests/interactive.sh.
 
-## Next actions
+## Current action
 
-1. Inspect CI for the exact latest PR #51 head after the QA correction.
-2. Confirm the new C API wrap tests pass under GCC/Clang release and sanitizer jobs.
-3. Re-review the exact current head; post the QA marker only if no defects remain.
-4. Merge only after all required checks and the exact-head QA marker are valid; then resume the next incomplete PLAN.md item.
+Update PLAN.md and this handoff record on this branch, then verify the resulting head and its documentation-only CI. The previous four-job CI result applies only to code head `f09b650e2998413ac92ce4824781299dd2c9ac7c`; after documentation commits, verify that GitHub reports the new head and its workflow outcome before posting an exact-head QA marker and merging.
 
 ## Run log
 
-- 2026-10-14: Resolved the stale PR #49 gate by merging its documentation-only change after exact-head CI success and a matching QA marker.
-- 2026-10-14: Opened PR #51 for cyclic navigation. Initial CI passed all four GCC/Clang release and sanitizer jobs.
-- 2026-10-14: QA found that mmenu_config.cycle had no direct C API regression coverage. Added PTY tests for both wrap directions over a filtered result set, default non-wrapping behavior, and empty-result safety. Clarified the public requirement to zero-initialize mmenu_config. This creates a new head; prior CI and review evidence must not be reused.
+- 2026-10-14: Reviewed AGENTS.md, AUTONOMOUS_WORK.md, WORK_STATE.md, PLAN.md, docs/QUALITY.md, docs/RELEASE.md, and SECURITY.md.
+- 2026-10-14: Inspected PR #51 review submissions and inline review threads; none were returned.
+- 2026-10-14: Inspected CI run 38573572153. All four required GCC/Clang release/sanitizer jobs completed successfully on code head `f09b650e2998413ac92ce4824781299dd2c9ac7c`. The new C API regression cases for cyclic navigation passed in the interactive regression step.

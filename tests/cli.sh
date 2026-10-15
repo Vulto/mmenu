@@ -23,6 +23,14 @@ CheckEqual() {
     fi
 }
 
+# Help output must preserve the percent marker in the height syntax.
+"$Bin" --help > "$TmpDir/help"
+if grep -Fq -- '--height N or PCT% limits visible option rows (interactive only).' "$TmpDir/help"; then
+    Pass 'help prints percentage height syntax literally'
+else
+    Fail '--help must display the height percentage marker literally'
+fi
+
 # Batch output templates substitute records, original indexes, and the query.
 printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
 printf '0:alpha needle [needle]\n1:beta needle [needle]\n2:needle [needle]\n' > "$TmpDir/expected"

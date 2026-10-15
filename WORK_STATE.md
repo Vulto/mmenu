@@ -4,10 +4,10 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current focus
 
-- Active branch: `m3-reverse-list`; proceeding through M3 after completing fixed and percentage height subsets.
+- Active branch: `m3-reverse-list`; continuing M3 after fixed and percentage height subsets.
 - PR #51 cyclic navigation, PR #52 fixed-row height, and PR #53 percentage height are merged.
-- PR #53's percentage-height implementation accepts 1–100%, rounds up to at least one visible option row, and rejects invalid or conflicting C API settings.
-- Current task: opt-in reverse-list layout, with the query row remaining at the top and the first result rendered at the bottom.
+- Fixed height and percentage height are verified; percentages accept 1–100%, round up to at least one visible option row, and reject invalid or conflicting C API settings.
+- Current task adds opt-in `--reverse-list` and `mmenu_config.reverse_list`: keep the query at the top, render the first result at the bottom, and preserve logical selection order.
 - Full reverse-prompt layout, automatic/inverted height, popup positioning, borders, colors, and remaining M3 features remain incomplete.
 - No local test execution is claimed. The container cannot resolve GitHub for cloning; validate through exact-head CI.
 
@@ -16,8 +16,7 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - PR #51 merged after CI run 38770402228 passed all required jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
 - PR #52 merged after CI run 38771951888 passed all required jobs on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`.
 - PR #53 merged after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`.
-- Fixed and percentage height subsets are complete; reverse-list is the current unmerged subtask and requires exact-head CI and QA.
-- Full M3 and full fzf height/layout parity remain incomplete.
+- Reverse-list is the current unmerged subtask and requires exact-head CI and QA. Full M3 remains incomplete.
 
 ## Run log
 
@@ -56,3 +55,6 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-15: Merged PR #53 after CI run 38774063925 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`. Percentage height is now recorded complete.
 - 2026-10-15: Started M3 reverse-list layout on branch `m3-reverse-list`; full reverse-prompt and automatic/inverted height modes remain incomplete.
+
+- 2026-10-15: Merged PR #53 after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`. Percentage height is now recorded complete.
+- 2026-10-15: Started reverse-list layout on branch `m3-reverse-list`; added `--reverse-list`, `mmenu_config.reverse_list`, logical-selection regression coverage, and documentation. Exact-head CI and QA remain required.

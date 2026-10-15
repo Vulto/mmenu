@@ -659,6 +659,34 @@ else
     Pass '--reverse-list is restricted to interactive mode'
 fi
 
+# Reverse prompt places the query below the list and keeps logical selection order.
+printf 'beta\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--reverse CLI test should exit cleanly'
+else
+    CheckEqual '--reverse preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse positions the query row at the bottom of the terminal'
+    else
+        Fail '--reverse did not position the query row at the bottom of the terminal'
+    fi
+fi
+if "$Bin" --reverse --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--reverse/batch conflict must explain the error'
+else
+    Pass '--reverse is restricted to interactive mode'
+fi
+if "$Bin" --reverse --reverse < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --reverse options should be rejected'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --reverse should explain the restriction'
+else
+    Pass 'duplicate --reverse options are rejected'
+fi
+
 # --cycle wraps navigation at both ends without changing the default behavior.
 printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.

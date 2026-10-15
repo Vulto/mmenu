@@ -765,6 +765,7 @@ static void print_usage(FILE *out) {
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
         "--height N or PCT%% limits visible option rows (interactive only).\n"
         "--reverse-list renders the first result at the bottom while keeping the query at the top.\n"
+        "--reverse places the query at the bottom and options above it.\n"
         "Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"
@@ -902,6 +903,7 @@ int main(int argc, char **argv) {
     int cycle_mode = 0;
     int height_seen = 0;
     int reverse_list_seen = 0;
+    int reverse_prompt_seen = 0;
     const char *initial_query = NULL;
     int initial_query_seen = 0;
     const char *preview_command = NULL;
@@ -1000,6 +1002,12 @@ int main(int argc, char **argv) {
             if (reverse_list_seen) return argument_error("--reverse-list may only be specified once");
             menu_config.reverse_list = 1;
             reverse_list_seen = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--reverse")) {
+            if (reverse_prompt_seen) return argument_error("--reverse may only be specified once");
+            menu_config.reverse_prompt = 1;
+            reverse_prompt_seen = 1;
             continue;
         }
         if (!strcmp(arg, "--height")) {
@@ -1187,6 +1195,8 @@ int main(int argc, char **argv) {
         return argument_error("--height is only available in interactive mode");
     if (reverse_list_seen && filter_seen)
         return argument_error("--reverse-list is only available in interactive mode");
+    if (reverse_prompt_seen && filter_seen)
+        return argument_error("--reverse is only available in interactive mode");
     if (nth_seen && !nth_spec_valid(nth_spec))
         return argument_error("--nth must be a comma-separated list of fields or ranges");
     if (with_nth_seen && !nth_spec_valid(with_nth_spec))

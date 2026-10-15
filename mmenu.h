@@ -77,7 +77,7 @@ typedef const char *(*mmenu_display_text_callback)(const char *option, int index
 
 /* Zero-initialize this structure before setting optional fields. Optional
    query, key aliases, preview, input-stream, searchable/display-text callbacks,
-   fuzzy tie-breaking, cyclic navigation, and visible row limits are configured here.
+   fuzzy tie-breaking, cyclic navigation, visible row limits, and layout direction are configured here.
    Zero-valued key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
    Each callback userdata pointer is passed through unchanged. */
 typedef struct {
@@ -101,6 +101,7 @@ typedef struct {
     int height; /* maximum visible option rows; zero leaves this limit unset */
     int height_percent; /* optional 1..100 percent of available option rows; zero unset */
     int reverse_list; /* render first result at the bottom while keeping query at top */
+    int reverse_prompt; /* place query at bottom and options above it */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1147,8 +1148,14 @@ static int mmenu_query_cursor_column(size_t prompt_len, int input_len,
     return (int)(prompt_len + (size_t)input_len);
 }
 
-static void mmenu_position_query_cursor(size_t prompt_len, int input_len, int menu_cols) {
-    move(0, mmenu_query_cursor_column(prompt_len, input_len, menu_cols));
+static void mmenu_position_query_cursor(size_t prompt_len, int input_len, int menu_cols, int row) {
+    move(row, mmenu_query_cursor_column(prompt_len, input_len, menu_cols));
+}
+
+static int mmenu_option_row(int index, int visible, int rows, const mmenu_config *config) {
+    if (config && config->reverse_prompt) return rows - 2 - index;
+    if (config && config->reverse_list) return visible - index;
+    return index + 1;
 }
 
 
@@ -1848,8 +1855,10 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     /* Initial draw */
     clear();
+    int prompt_row = config && config->reverse_prompt ? rows - 1 : 0;
+    move(prompt_row, 0);
     printw("%s%ls", prompt_str, input); clrtoeol();
-    mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
+    mmenu_position_query_cursor(prompt_columns, input_len, menu_cols, prompt_row);
     int visible = mmenu_visible_rows(rows, config);
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
@@ -1861,7 +1870,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             goto cleanup;
         }
         if (w) {
-            move(config && config->reverse_list ? visible - v : v + 1, 0);
+            move(mmenu_option_row(v, visible, rows, config), 0);
             if (fidx == selection) attron(A_STANDOUT);
             int option_cols = menu_cols;
             if (multi && menu_cols >= 4) {
@@ -2263,8 +2272,10 @@ static int mmenu_internal(const char *const *options, int n_options,
 
         /* Redraw */
         clear();
+        prompt_row = config && config->reverse_prompt ? rows - 1 : 0;
+        move(prompt_row, 0);
         printw("%s%ls", prompt_str, input); clrtoeol();
-        mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
+        mmenu_position_query_cursor(prompt_columns, input_len, menu_cols, prompt_row);
         for (int v = 0; v < visible && top + v < filtered.count; v++) {
             int fidx = top + v;
             int oidx = filtered.indices[fidx];
@@ -2275,7 +2286,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 goto cleanup;
             }
             if (w) {
-                move(config && config->reverse_list ? visible - v : v + 1, 0);
+                move(mmenu_option_row(v, visible, rows, config), 0);
                 if (fidx == selection) attron(A_STANDOUT);
                 int option_cols = menu_cols;
                 if (multi && menu_cols >= 4) {

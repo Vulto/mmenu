@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Interactive `--reverse` layout places the query row at the bottom and draws options above it.
 - Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.
 - Interactive `--height N` and `--height PCT%` options with configured C API row limits.
 - Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.

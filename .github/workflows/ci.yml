@@ -88,15 +88,17 @@ jobs:
           else
             CFLAGS="-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror"
           fi
-          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c -lncursesw
-          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/input-capacity-test tests/input-capacity.c -lncursesw
-          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c -lncursesw
+          NCURSES_LIBS="$(sh ./ncurses-link-flags.sh "$CC")"
+          echo "NCURSES_LIBS=$NCURSES_LIBS" >> "$GITHUB_ENV"
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/mmenu main.c $NCURSES_LIBS
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/input-capacity-test tests/input-capacity.c $NCURSES_LIBS
+          $CC $CFLAGS -D_DEFAULT_SOURCE -o build/api-test tests/apiHarness.c $NCURSES_LIBS
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c tests/apiHarness.c -o build/apiHarness-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail-api.o
-          $CC $CFLAGS -o build/api-test-allocfail build/apiHarness-allocfail.o build/allocFail-api.o -lncursesw
+          $CC $CFLAGS -o build/api-test-allocfail build/apiHarness-allocfail.o build/allocFail-api.o $NCURSES_LIBS
           $CC $CFLAGS -D_DEFAULT_SOURCE -Dmalloc=TestMalloc -Drealloc=TestRealloc -c main.c -o build/main-allocfail.o
           $CC $CFLAGS -c tests/allocFail.c -o build/allocFail.o
-          $CC $CFLAGS -o build/mmenu-allocfail build/main-allocfail.o build/allocFail.o -lncursesw
+          $CC $CFLAGS -o build/mmenu-allocfail build/main-allocfail.o build/allocFail.o $NCURSES_LIBS
       - name: C23 language-mode smoke build
         if: matrix.mode == 'release' && steps.compile.outcome == 'success'
         env:
@@ -118,7 +120,9 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-driver.sh tests/streaming.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-driver.sh tests/streaming.sh ncurses-link-flags.sh tests/ncurses-link-probe.sh
+      - name: ncurses linker probe fallback regression
+        run: sh tests/ncurses-link-probe.sh
       - name: Clean release smoke and public-header build
         if: always() && steps.compile.outcome == 'success'
         env:
@@ -131,7 +135,7 @@ jobs:
         run: sh tests/build-driver.sh
       - name: GCC static analyzer
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release' && steps.compile.outcome == 'success'
-        run: gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c -lncursesw
+        run: gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c $NCURSES_LIBS
       - name: Input capacity overflow regression
         if: always() && steps.compile.outcome == 'success'
         run: build/input-capacity-test
@@ -152,7 +156,7 @@ jobs:
         env:
           LC_ALL: C.UTF-8
         run: |
-          clang -O1 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined -D_DEFAULT_SOURCE -o build/fuzz-matcher tests/fuzz/matcher.c -lncursesw
+          clang -O1 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined -D_DEFAULT_SOURCE -o build/fuzz-matcher tests/fuzz/matcher.c $NCURSES_LIBS
           timeout 45s build/fuzz-matcher -max_total_time=15 -max_len=8192 -print_final_stats=1 tests/fuzz/corpus
       - name: Allocation-failure injection
         if: always() && steps.compile.outcome == 'success'
@@ -191,7 +195,7 @@ jobs:
           BaselineDir="$RUNNER_TEMP/mmenu-baseline-src"
           BaselineBin="$RUNNER_TEMP/mmenu-baseline-bin"
           git worktree add --detach "$BaselineDir" "$BASE_SHA"
-          gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o "$BaselineBin" "$BaselineDir/main.c" -lncursesw
+          gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o "$BaselineBin" "$BaselineDir/main.c" $NCURSES_LIBS
           sh tests/performance-regression.sh "$BaselineBin" build/mmenu build/performance-regression.csv
       - name: Upload performance results
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release'

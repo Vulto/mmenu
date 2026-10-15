@@ -3,6 +3,7 @@ set -eu
 
 Root=$(git -C "$(dirname -- "$0")/.." rev-parse --show-toplevel)
 CC=${CC:-cc}
+NCURSES_LIBS="$(sh "$(dirname -- "$0")/../ncurses-link-flags.sh" "$CC")"
 TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM
 Bin="$TmpDir/mmenu-clean"
@@ -18,8 +19,9 @@ Pass() {
 
 git -C "$Root" diff --check HEAD^ HEAD
 
+# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
-    -D_DEFAULT_SOURCE -o "$Bin" "$Root/main.c" -lncursesw
+    -D_DEFAULT_SOURCE -o "$Bin" "$Root/main.c" $NCURSES_LIBS
 Pass 'clean optimized CLI build'
 
 # Compile a standalone consumer using only the public single header.
@@ -52,9 +54,10 @@ int main(void) {
     return 0;
 }
 EOF
+# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
     -D_DEFAULT_SOURCE -I "$Root" -o "$TmpDir/public-api" \
-    "$TmpDir/public-api.c" -lncursesw
+    "$TmpDir/public-api.c" $NCURSES_LIBS
 Pass 'standalone public-header/API consumer build'
 
 "$Bin" --help > "$TmpDir/help"

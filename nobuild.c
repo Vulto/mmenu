@@ -43,8 +43,16 @@ int main(int argc, char **argv)
     if (n < 0 || (size_t)n >= sizeof(manpage_path))
         PANIC("man page installation path is too long");
 
-    CMD(compiler, "-std=c2x", "-O2", "-Wall", "-Wextra", "-Wpedantic",
-        "-Werror", "-D_DEFAULT_SOURCE", "-o", output, "main.c", "-lncursesw");
+    CMD("sh", "-c",
+        "flags=$(sh ./ncurses-link-flags.sh \"$1\") || exit 1; "
+        "if [ \"$flags\" = \"-lncursesw\" ]; then "
+        "exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw; "
+        "elif [ \"$flags\" = \"-lncursesw -ltinfow\" ]; then "
+        "exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw -ltinfow; "
+        "elif [ \"$flags\" = \"-lncursesw -ltinfo\" ]; then "
+        "exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw -ltinfo; "
+        "else echo \"Unsupported ncursesw linker flags: $flags\" >&2; exit 1; fi",
+        "sh", compiler, output);
     CMD("mkdir", "-p", bin_dir, man_dir);
     CMD("install", "-m", "0755", output, binary_path);
     CMD("install", "-m", "0644", "mmenu.1", manpage_path);

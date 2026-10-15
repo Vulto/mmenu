@@ -4,10 +4,13 @@ set -eu
 CC=${CC:-cc}
 mkdir -p build
 CompilerVersion=$("$CC" --version | sed -n '1p')
-Flags='-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE'
+NCURSES_LIBS="$(sh "$(dirname -- "$0")/../ncurses-link-flags.sh" "$CC")"
+Flags="-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE"
 
-"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/mmenu-c23 main.c -lncursesw
-"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/api-test-c23 tests/apiHarness.c -lncursesw
+# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/mmenu-c23 main.c $NCURSES_LIBS
+# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/api-test-c23 tests/apiHarness.c $NCURSES_LIBS
 
 {
     printf 'compiler=%s\n' "$CompilerVersion"

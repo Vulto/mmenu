@@ -120,7 +120,9 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-driver.sh tests/streaming.sh ncurses-link-flags.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-driver.sh tests/streaming.sh ncurses-link-flags.sh tests/ncurses-link-probe.sh
+      - name: ncurses linker probe fallback regression
+        run: sh tests/ncurses-link-probe.sh
       - name: Clean release smoke and public-header build
         if: always() && steps.compile.outcome == 'success'
         env:

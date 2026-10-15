@@ -357,6 +357,11 @@ int main(int argc, char **argv)
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-percent-negative") == 0) {
+        mmenu_config config = {.height_percent = -1};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-conflict") == 0) {
         mmenu_config config = {.height = 2, .height_percent = 50};
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
@@ -373,10 +378,14 @@ int main(int argc, char **argv)
     }
 
     if (argc > 1 && (strcmp(argv[1], "height-two") == 0 ||
-                     strcmp(argv[1], "height-percent") == 0)) {
+                     strcmp(argv[1], "height-percent") == 0 ||
+                     strcmp(argv[1], "height-percent-min") == 0 ||
+                     strcmp(argv[1], "height-percent-full") == 0)) {
         if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {0};
         if (strcmp(argv[1], "height-two") == 0) config.height = 2;
+        else if (strcmp(argv[1], "height-percent-min") == 0) config.height_percent = 1;
+        else if (strcmp(argv[1], "height-percent-full") == 0) config.height_percent = 100;
         else config.height_percent = 50;
         int result = mmenuConfigured(options, count, prompt, 0, &config);
         printf("MMENU_RESULT=%d\n", result);

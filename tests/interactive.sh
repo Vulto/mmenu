@@ -93,6 +93,8 @@ CheckPreviewClipping() {
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'configured height limits visible option rows' 0 '\n' height-two '' 'café-日本語' C.UTF-8
 CheckSelection 'configured percentage height limits visible option rows' 0 '\n' height-percent '' 'café-日本語' C.UTF-8
+CheckSelection '1 percent height rounds up to one visible row' 0 '\n' height-percent-min '' 'beta' C.UTF-8
+CheckSelection '100 percent height retains all available option rows' 0 '\n' height-percent-full 'café-日本語' '' C.UTF-8
 CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'
 CheckSelection 'C API preview callback receives selected option, index, and query' 2 '\n' preview-callback 'api-preview:needle:2:needle'
 CheckPreviewClipping
@@ -313,6 +315,7 @@ CheckApiContract invalid-case-flags 'unsupported API flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-height 'invalid height configuration'
 CheckApiContract invalid-config-height-percent 'invalid height configuration'
+CheckApiContract invalid-config-height-percent-negative 'invalid height configuration'
 CheckApiContract invalid-config-height-conflict 'invalid height configuration'
 CheckApiContract invalid-config-query 'initial query exceeds'
 CheckApiContract invalid-tiebreak "--tiebreak key 'length' is repeated"

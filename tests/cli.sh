@@ -652,6 +652,7 @@ else
     fi
 fi
 
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 for Height in '' 0 -0 invalid 2147483648 -2147483648 0% 101% -101% 50x \~ \~0 \~invalid \~101% \~-2147483648; do
     if "$Bin" --height "$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "--height rejects invalid row count: $Height"
@@ -670,7 +671,7 @@ for Height in '' 0 -0 invalid 2147483648 -2147483648 0% 101% -101% 50x \~ \~0 \~
 done
 if "$Bin" --height < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing --height value should be rejected'
-elif ! grep -Fq 'requires a positive row count' "$TmpDir/stderr"; then
+elif ! grep -Fq 'requires a nonzero row count or a percentage' "$TmpDir/stderr"; then
     Fail 'missing --height value should explain the requirement'
 else
     Pass 'missing --height value is rejected'

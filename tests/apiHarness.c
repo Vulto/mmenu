@@ -347,6 +347,11 @@ int main(int argc, char **argv)
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height") == 0) {
+        mmenu_config config = {.height = -1};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-query") == 0) {
         char long_query[130];
         memset(long_query, 'x', sizeof(long_query) - 1);
@@ -357,6 +362,13 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "height-two") == 0) {
+        if (!SetTerminalSize(8, 40)) return 2;
+        mmenu_config config = {.height = 2};
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\\n", result);
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "resize-preview") == 0) {
         mmenu_config config = {
             .preview = test_resize_preview_callback

@@ -78,7 +78,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Display size, layout, and chrome
 
-- [ ] Height modes (--height, percentages, auto/inverted sizing) — partial — fixed positive row-count `--height N` and `mmenu_config.height` limit visible option rows; percentage, automatic, and inverted modes remain missing.
+- [ ] Height modes (--height, percentages, auto/inverted sizing) — partial — fixed positive row-count `--height N` and percentage `--height PCT%` with `mmenu_config.height`/`height_percent` limit visible option rows; automatic and inverted modes remain missing.
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
@@ -460,13 +460,21 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Expand the judged ranking-quality dataset from four to twelve query sets and record MRR, NDCG@5, recall, latency, and memory across mmenu, fzf, skim, and fzy (PR #48; CI run 38454243045, all four jobs passed).
 - [x] Run the full GCC/Clang release and sanitizer matrix before merging (PR #48; CI run 38454243045; all four jobs passed).
 
-### M3a — Fixed interactive height
+### M3a — Fixed interactive height (complete)
 
-- [ ] Add a positive integer `--height N` CLI option and additive `mmenu_config.height`; zero preserves the existing full available list height.
-- [ ] Keep the input row separate, clamp visible option rows to the terminal's available space, and preserve scrolling and default behavior.
-- [ ] Reject duplicate, missing, non-positive, overflowing, and batch-filter uses of `--height`; reject negative C API configuration before terminal initialization.
-- [ ] Add CLI and PTY/API regressions for visible-row limits, invalid arguments, batch incompatibility, and default behavior.
-- [ ] Document the implemented fixed-row subset and keep percentage, automatic, and inverted height modes explicitly incomplete.
+- [x] Add a positive integer `--height N` CLI option and additive `mmenu_config.height`; zero preserves the existing full available list height.
+- [x] Keep the input row separate, clamp visible option rows to the terminal's available space, and preserve scrolling and default behavior.
+- [x] Reject duplicate, missing, non-positive, overflowing, and batch-filter uses of `--height`; reject negative C API configuration before terminal initialization.
+- [x] Add CLI and PTY/API regressions for visible-row limits, invalid arguments, batch incompatibility, and default behavior.
+- [x] Document the implemented fixed-row subset and keep percentage, automatic, and inverted height modes explicitly incomplete.
+- [x] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge (PR #52; CI run 38771951888 passed all four matrix jobs; merged as `c8ba971537f54dadb54bd17461712e0a5f0d8ca2`).
+
+### M3b — Percentage interactive height
+
+- [ ] Support `--height PCT%` with an integer percentage from 1 to 100, calculated from available option rows.
+- [ ] Add `mmenu_config.height_percent`; zero preserves default sizing, invalid percentages and simultaneous fixed/percentage settings are rejected.
+- [ ] Test percentage sizing, invalid percentages, and C API validation under constrained pseudo-terminal dimensions.
+- [ ] Document percentage support while keeping automatic and inverted height modes explicitly incomplete.
 - [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
 
 ## Measurement notes

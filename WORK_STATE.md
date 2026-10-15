@@ -4,34 +4,18 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current focus
 
-- Active PR: #51, [feat: add cyclic navigation](https://github.com/Vulto/mmenu/pull/51).
-- Branch: `m3-cycle-navigation`.
-- Feature: opt-in `--cycle` wraps Up/Down at the first/last filtered result; default navigation remains bounded.
-- Public API adds `mmenu_config.cycle`; callers must zero-initialize `mmenu_config`.
-- Regression coverage includes CLI validation and PTY C API tests for Down-wrap, Up-wrap, default non-wrapping, and empty filtered results.
+- Active branch: `m3-height-layout`; implementing the first scoped M3 layout feature, fixed-row interactive height.
+- Added positive integer CLI `--height N` and additive `mmenu_config.height`; zero preserves the current terminal-derived height.
+- The visible option list is capped at the configured row count, while the input line remains separate and selection scrolling remains active.
+- Percentages, automatic sizing, inverted layout, popup positioning, borders, and other M3 features remain incomplete.
+- Regression coverage added for visible-row limits, invalid CLI values, duplicate/batch use, and negative C API configuration.
+- No local test execution is claimed. The container cannot resolve GitHub for cloning; validation must come from the repository CI run on the exact PR head.
 
 ## Verified implementation and CI
 
-- Code/test head: `f09b650e2998413ac92ce4824781299dd2c9ac7c`.
-- CI run [38573572153](https://github.com/Vulto/mmenu/actions/runs/38573572153) passed all four required GCC/Clang release and sanitizer jobs on that code/test head.
-- Documentation head before this handoff update: `43deca1e2c2f838f7ca9f010a988bb23c52aa931`.
-- CI run [38607360475](https://github.com/Vulto/mmenu/actions/runs/38607360475) completed successfully on that documentation head. All four required matrix jobs passed. The run also completed CLI, interactive C API, streaming, allocation-failure, and other jobs according to each job's conditions; skipped optional steps are not counted as executed tests.
-- No local test execution is claimed.
-- Latest verified CI before the current change: run 38719928231 passed all four required jobs on head `efefc3bc2529996c10fa782262a3f21bfd1b68c7`; the added filtered-query CLI regression requires a new exact-head run.
-- Previous QA approval was tied to SHA `43deca1e2c2f838f7ca9f010a988bb23c52aa931`; it is stale for the current PR head.
-- Prior QA review head: `19015ab1e4bc7366c55fd481127aa73b035a889d`; its marker is stale for later commits.
-- Latest previously validated PR head: `ff794839ce4b440e3213461b9a56946964235f82`. Subsequent commits, including the bounded-navigation CLI regression, require fresh CI and QA.
-- CI run [38647765508](https://github.com/Vulto/mmenu/actions/runs/38647765508) passed all four required GCC/Clang release and sanitizer jobs on that exact head. The jobs completed successfully; conditional optional steps were skipped where configured. No local test execution is claimed.
-- The previously posted QA marker for SHA `43deca1e2c2f838f7ca9f010a988bb23c52aa931` is stale for the current PR head.
-- This documentation-only handoff update creates a new head. Recheck required CI and repeat QA against the resulting SHA before merge.
-- The PR changed files are CHANGELOG.md, PLAN.md, README.md, WORK_STATE.md, main.c, mmenu.h, tests/apiHarness.c, tests/cli.sh, and tests/interactive.sh.
-
-## Current action
-
-1. Agent 2 must review the latest exact PR head, including the filtered-query CLI regression and the stabilized incremental-realloc allocation-sweep input, and record approval only if no known defects remain.
-2. Confirm all required CI checks pass on that exact same head; do not merge on absent, pending, stale, or failed checks.
-3. Merge PR #51 only after exact-head QA and CI are both valid.
-4. After merge, continue with the highest-priority dependency-ready incomplete item in PLAN.md.
+- Latest merged change: PR #51, cyclic navigation, merged after CI run 38770402228 passed all four required matrix jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
+- Current height implementation is unmerged and must not be marked complete until exact-head CI passes and the PR is merged.
+- The height implementation intentionally covers only fixed positive row counts; `PLAN.md` continues to mark the full height-mode feature as partial.
 
 ## Run log
 
@@ -61,3 +45,6 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-15: CI run 38724852069 failed only in the GCC sanitizer exhaustive allocation-failure sweep: allocation 54 was not reached in the `incremental-realloc` API scenario. The other three required matrix jobs passed, and CLI, interactive C API, and streaming suites passed. Stabilized that scenario's PTY input by waiting for initialization and spacing the query/backspace/accept keys in `tests/allocation-sweep.sh`. This correction and handoff update require fresh exact-head CI and QA; no local test execution is claimed.
 - 2026-10-15: CI run 38727535977 passed all four required GCC/Clang release and sanitizer jobs on exact code/test head `cca5d932bbe89fb3da688acaad6add185e2cb25e`. CLI, interactive C API, streaming, and applicable allocation-failure steps passed; conditional optional steps were skipped as configured. No local test execution is claimed. The documentation follow-up records this evidence but changes the PR head, so fresh exact-head CI and QA remain required.
+
+- 2026-10-15: Merged PR #51 after exact-head CI run 38770402228 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection. Continued directly to M3 and started fixed-row interactive height on branch `m3-height-layout`.
+- 2026-10-15: Added `--height N`, additive `mmenu_config.height`, validation, CLI/PTy/API regressions, README/changelog updates, and marked full height modes partial pending exact-head CI and merge.

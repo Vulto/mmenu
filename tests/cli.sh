@@ -569,6 +569,44 @@ elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
 else
     Pass 'multi-select is restricted to interactive mode'
 fi
+# --height limits the visible interactive option list and is rejected in batch mode.
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --height=2 < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height CLI test should exit cleanly'
+else
+    CheckEqual '--height accepts a menu with a two-row option limit' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'café-日本語' "$TmpDir/terminal"; then
+        Fail '--height=2 rendered an option beyond its visible row limit'
+    else
+        Pass '--height hides options beyond the configured visible row limit'
+    fi
+fi
+for Height in 0 -1 invalid 2147483648; do
+    if "$Bin" --height "$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "--height rejects invalid row count: $Height"
+    elif ! grep -Fq 'positive integer' "$TmpDir/stderr"; then
+        Fail "--height gives a useful diagnostic for invalid row count: $Height"
+    else
+        Pass "--height rejects invalid row count: $Height"
+    fi
+done
+if "$Bin" --height 2 --height 3 < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --height options should be rejected'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --height should explain the restriction'
+else
+    Pass 'duplicate --height options are rejected'
+fi
+if "$Bin" --height 2 --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--height must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--height/batch conflict must explain the error'
+else
+    Pass '--height is restricted to interactive mode'
+fi
+
 # --cycle wraps navigation at both ends without changing the default behavior.
 printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.

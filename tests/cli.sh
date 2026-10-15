@@ -30,6 +30,11 @@ if grep -Fq -- '--height N or PCT% limits visible option rows (interactive only)
 else
     Fail '--help must display the height percentage marker literally'
 fi
+if grep -Fq -- '--layout MODE (or --layout=MODE) selects default, reverse, or reverse-list (interactive only).' "$TmpDir/help"; then
+    Pass 'help documents the available layout presets'
+else
+    Fail '--help must document the available layout presets'
+fi
 
 # Batch output templates substitute records, original indexes, and the query.
 printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
@@ -643,13 +648,18 @@ else
     fi
 fi
 
-# Reverse-list keeps the query at the top and preserves logical selection order.
+# Reverse-list keeps the query at the top and renders the first option at the bottom.
 printf 'beta\n' > "$TmpDir/expected"
 if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
-     TERM=xterm timeout 5s script -q -e -c "$Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--reverse-list CLI test should exit cleanly'
 else
     CheckEqual '--reverse-list preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse-list renders the first option on the bottom row'
+    else
+        Fail '--reverse-list did not render the first option on the bottom row'
+    fi
 fi
 if "$Bin" --reverse-list --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail '--reverse-list must be rejected with batch filtering'
@@ -671,6 +681,66 @@ else
     else
         Fail '--reverse did not position the query row at the bottom of the terminal'
     fi
+fi
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --layout reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--layout reverse CLI test should exit cleanly'
+else
+    CheckEqual '--layout reverse selects reverse-prompt behavior' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--layout reverse keeps the query row at the bottom'
+    else
+        Fail '--layout reverse did not position the query row at the bottom'
+    fi
+fi
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --layout=default < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--layout=default CLI test should exit cleanly'
+else
+    CheckEqual '--layout=default preserves default selection behavior' "$TmpDir/expected" "$TmpDir/selected"
+fi
+if "$Bin" --layout < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing --layout value should be rejected'
+elif ! grep -Fq 'requires default, reverse, or reverse-list' "$TmpDir/stderr"; then
+    Fail 'missing --layout value should explain supported presets'
+else
+    Pass 'missing --layout value is rejected'
+fi
+if "$Bin" --layout=unknown < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'unknown layout preset should be rejected'
+elif ! grep -Fq 'must be default, reverse, or reverse-list' "$TmpDir/stderr"; then
+    Fail 'unknown layout preset should list supported values'
+else
+    Pass 'unknown layout preset is rejected'
+fi
+if "$Bin" --layout=reverse --layout=default < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --layout options should be rejected'
+elif ! grep -Fq -- '--layout may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --layout should explain the restriction'
+else
+    Pass 'duplicate --layout options are rejected'
+fi
+if "$Bin" --layout=default --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--layout must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--layout/batch conflict must explain the error'
+else
+    Pass '--layout is restricted to interactive mode'
+fi
+if "$Bin" --layout=reverse --reverse < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--layout cannot be combined with --reverse'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'layout/shorthand conflict should explain the restriction'
+else
+    Pass '--layout and --reverse are mutually exclusive'
+fi
+if "$Bin" --reverse --reverse-list < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse and --reverse-list must be mutually exclusive'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'reverse layout conflict should explain the restriction'
+else
+    Pass '--reverse and --reverse-list are mutually exclusive'
 fi
 if "$Bin" --reverse --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail '--reverse must be rejected with batch filtering'

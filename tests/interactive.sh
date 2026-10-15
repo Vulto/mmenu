@@ -320,6 +320,7 @@ CheckApiContract invalid-config-height 'invalid height configuration'
 CheckApiContract invalid-config-height-percent 'invalid height configuration'
 CheckApiContract invalid-config-height-percent-negative 'invalid height configuration'
 CheckApiContract invalid-config-height-conflict 'invalid height configuration'
+CheckApiContract invalid-config-layout-conflict 'reverse_list and reverse_prompt layouts are mutually exclusive'
 CheckApiContract invalid-config-query 'initial query exceeds'
 CheckApiContract invalid-tiebreak "--tiebreak key 'length' is repeated"
 

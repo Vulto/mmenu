@@ -82,7 +82,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
-- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — opt-in `--reverse-list` and `mmenu_config.reverse_list` render the first result at the bottom with the query at the top; full layout presets remain missing.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three CLI presets and both shorthand aliases are implemented with conflicting selections rejected; exact-head CI for the preset implementation remains pending. Margins, padding, borders, and other M3 layout/chrome features remain incomplete.
 - [ ] Margin geometry (--margin) — missing.
 - [ ] Padding geometry (--padding) — missing.
 - [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.
@@ -485,12 +485,20 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Document the reverse-list subset while leaving full `--layout` modes incomplete.
 - [x] Pass all required GCC/Clang release and sanitizer CI jobs on exact PR head `99fb9a51fa4d366222913679c4f1fe5e24df7ff8` (CI run 38775287093 passed all four matrix jobs; merged PR #54 as `c1bfb5a30fcc1d5fdd68bc3ea23282c35de3b39d`).
 
-### M3d — Reverse prompt layout
+### M3d — Reverse prompt layout (complete)
 
-- [ ] Add opt-in `--reverse` and additive `mmenu_config.reverse_prompt`; place the query row at the bottom and draw options immediately above it.
-- [ ] Preserve selection, scrolling, preview rendering, and default layout, including when a fixed/percentage height is configured.
-- [ ] Add CLI and PTY/API regressions for query-row placement, navigation, and batch-mode validation.
-- [ ] Document the reverse-prompt subset while leaving full `--layout` presets incomplete.
+- [x] Add opt-in `--reverse` and additive `mmenu_config.reverse_prompt`; place the query row at the bottom and draw options immediately above it.
+- [x] Preserve selection, scrolling, preview rendering, and default layout, including when a fixed/percentage height is configured.
+- [x] Add CLI and PTY/API regressions for query-row placement, navigation, and batch-mode validation.
+- [x] Document the reverse-prompt subset while leaving full `--layout` presets incomplete.
+- [x] Pass all required GCC/Clang release and sanitizer CI jobs on the exact merged head.
+
+### M3e — Layout presets
+
+- [x] Add `--layout MODE` and `--layout=MODE` for `default`, `reverse`, and `reverse-list`, preserving the existing shorthand flags.
+- [x] Reject missing, invalid, duplicate, conflicting, and batch-filter layout settings.
+- [x] Reject contradictory reverse layout settings in `mmenu_config` before terminal initialization.
+- [x] Add CLI and C API regressions and document the selector and aliases.
 - [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
 
 ## Measurement notes

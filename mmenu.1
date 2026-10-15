@@ -212,7 +212,7 @@ find . -type f | mmenu --preview 'file {}'
 Returns zero on successful completion. Invalid command-line arguments and
 runtime errors return a nonzero status.
 .SH NOTES
-Requires a C compiler and the wide-character ncurses library at build time.
+Requires a C compiler, pkg-config, and the wide-character ncurses library at build time. When linking the C API, use the output of `pkg-config --libs ncursesw` so the platform-specific terminfo library is included.
 Preview commands execute through the shell; do not pass untrusted command text.
 .SH SEE ALSO
 .BR fzf (1),

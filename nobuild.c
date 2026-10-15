@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#undef REBUILD_URSELF
+#define REBUILD_URSELF(binary_path, source_path) \
+    CMD(compiler, "-std=c2x", "-O2", "-Wall", "-Wextra", "-Wpedantic", \
+        "-Werror", "-D_DEFAULT_SOURCE", "-o", binary_path, source_path)
+
 int main(int argc, char **argv)
 {
-    GO_REBUILD_URSELF(argc, argv);
-
     const char *compiler = getenv("CC");
     if (!compiler || !*compiler) compiler = "cc";
+
+    GO_REBUILD_URSELF(argc, argv);
 
     const char *output = getenv("MMENU_BUILD_OUTPUT");
     if (!output || !*output) output = "mmenu";

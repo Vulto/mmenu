@@ -18,8 +18,8 @@ Pass() {
 
 git -C "$Root" diff --check HEAD^ HEAD
 
+# shellcheck disable=SC2046 # pkg-config emits multiple linker arguments intentionally.
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
-    # shellcheck disable=SC2046 # pkg-config emits multiple linker arguments intentionally.
     -D_DEFAULT_SOURCE -o "$Bin" "$Root/main.c" $(pkg-config --libs ncursesw)
 Pass 'clean optimized CLI build'
 

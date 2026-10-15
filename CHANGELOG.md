@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Interactive `--height N` option and configured C API row limit for fixed-height option lists.
 - Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.
 - Interactive fuzzy `--no-sort` mode to preserve input order, including while streaming new records.
 - Interactive `--disabled` mode keeps all options visible while queries are edited.

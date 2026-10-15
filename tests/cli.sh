@@ -643,6 +643,22 @@ else
     fi
 fi
 
+# Reverse-list keeps the query at the top and preserves logical selection order.
+printf 'beta\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--reverse-list CLI test should exit cleanly'
+else
+    CheckEqual '--reverse-list preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+fi
+if "$Bin" --reverse-list --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse-list must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--reverse-list/batch conflict must explain the error'
+else
+    Pass '--reverse-list is restricted to interactive mode'
+fi
+
 # --cycle wraps navigation at both ends without changing the default behavior.
 printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.

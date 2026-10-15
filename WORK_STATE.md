@@ -17,6 +17,7 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - Documentation head before this handoff update: `43deca1e2c2f838f7ca9f010a988bb23c52aa931`.
 - CI run [38607360475](https://github.com/Vulto/mmenu/actions/runs/38607360475) completed successfully on that documentation head. All four required matrix jobs passed. The run also completed CLI, interactive C API, streaming, allocation-failure, and other jobs according to each job's conditions; skipped optional steps are not counted as executed tests.
 - No local test execution is claimed.
+- Latest verified CI before the current change: run 38719928231 passed all four required jobs on head `efefc3bc2529996c10fa782262a3f21bfd1b68c7`; the added filtered-query CLI regression requires a new exact-head run.
 - Previous QA approval was tied to SHA `43deca1e2c2f838f7ca9f010a988bb23c52aa931`; it is stale for the current PR head.
 - Prior QA review head: `19015ab1e4bc7366c55fd481127aa73b035a889d`; its marker is stale for later commits.
 - Latest previously validated PR head: `ff794839ce4b440e3213461b9a56946964235f82`. Subsequent commits, including the bounded-navigation CLI regression, require fresh CI and QA.
@@ -27,7 +28,7 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current action
 
-1. Agent 2 must review the latest exact PR head after the CLI input-timing correction and record approval only if no known defects remain.
+1. Agent 2 must review the latest exact PR head, including the filtered-query CLI regression and input-timing correction, and record approval only if no known defects remain.
 2. Confirm all required CI checks pass on that exact same head; do not merge on absent, pending, stale, or failed checks.
 3. Merge PR #51 only after exact-head QA and CI are both valid.
 4. After merge, continue with the highest-priority dependency-ready incomplete item in PLAN.md.
@@ -55,3 +56,5 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-15: CI run 38709975562 passed all four required GCC/Clang release and sanitizer jobs on parent head `93f7b3f70c541725497e2133820e2b04b41e01e8`. The CLI, interactive C API, streaming, and allocation-failure regression steps passed; conditional optional checks were skipped where configured. Removed a redundant expected-output write in the bounded-navigation CLI regression and refreshed this plan/handoff evidence in one follow-up commit. The new head needs fresh exact-head CI and QA; no local test execution is claimed.
 
 - 2026-10-15: Agent 2 reviewed PR #51 code/test head `bdaf65f2f2813671c3b296e743b17f1076cd2825`. CI run 38718350725 completed successfully with all four required jobs passing: GCC release, Clang release, GCC sanitizers, and Clang sanitizers. CLI, interactive C API, streaming, and allocation-failure regression steps passed where configured; conditional optional checks were skipped as configured. No confirmed source or test defect was found in the reviewed diff. This documentation-only update to PLAN.md and WORK_STATE.md changes the PR head, so the new head requires fresh CI and QA. No local test execution is claimed; no QA marker or merge is authorized for the new head.
+
+- 2026-10-15: CI run 38719928231 passed all four required GCC/Clang release and sanitizer jobs on exact pre-change head `efefc3bc2529996c10fa782262a3f21bfd1b68c7`. Added a CLI regression that verifies `--cycle` wraps within the filtered results when `--query` is active, and updated the plan/handoff. The new head requires fresh exact-head CI and QA. No local test execution is claimed.

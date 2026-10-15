@@ -4,11 +4,11 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current focus
 
-- Active branch: `m3-reverse-list`; continuing M3 after fixed and percentage height subsets.
-- PR #51 cyclic navigation, PR #52 fixed-row height, and PR #53 percentage height are merged.
-- Fixed height and percentage height are verified; percentages accept 1–100%, round up to at least one visible option row, and reject invalid or conflicting C API settings.
-- Current task adds opt-in `--reverse-list` and `mmenu_config.reverse_list`: keep the query at the top, render the first result at the bottom, and preserve logical selection order.
-- Full reverse-prompt layout, automatic/inverted height, popup positioning, borders, colors, and remaining M3 features remain incomplete.
+- Active branch: `m3-reverse-prompt`; continuing M3 layout subsets.
+- PR #51 cyclic navigation, PR #52 fixed-row height, PR #53 percentage height, and PR #54 reverse-list layout are merged.
+- Reverse-list keeps the query at the top, renders the first result at the bottom, and preserves logical selection order.
+- Current task adds opt-in `--reverse` and `mmenu_config.reverse_prompt`: place the query row at the bottom and draw options immediately above it.
+- Full `--layout` presets, automatic/inverted height, popup positioning, borders, colors, and remaining M3 features remain incomplete.
 - No local test execution is claimed. The container cannot resolve GitHub for cloning; validate through exact-head CI.
 
 ## Verified implementation and CI
@@ -16,7 +16,8 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - PR #51 merged after CI run 38770402228 passed all required jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
 - PR #52 merged after CI run 38771951888 passed all required jobs on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`.
 - PR #53 merged after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`.
-- Reverse-list is the current unmerged subtask and requires exact-head CI and QA. Full M3 remains incomplete.
+- PR #54 merged after CI run 38775287093 passed all required jobs on exact head `99fb9a51fa4d366222913679c4f1fe5e24df7ff8`.
+- Reverse-prompt is the current unmerged subtask and requires exact-head CI and QA. Full M3 remains incomplete.
 
 ## Run log
 
@@ -58,3 +59,6 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-15: Merged PR #53 after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`. Percentage height is now recorded complete.
 - 2026-10-15: Started reverse-list layout on branch `m3-reverse-list`; added `--reverse-list`, `mmenu_config.reverse_list`, logical-selection regression coverage, and documentation. Exact-head CI and QA remain required.
+
+- 2026-10-15: Merged PR #54 after CI run 38775287093 passed all required jobs on exact head `99fb9a51fa4d366222913679c4f1fe5e24df7ff8`. Reverse-list is now recorded complete.
+- 2026-10-15: Started reverse-prompt layout on branch `m3-reverse-prompt`; current scope is the bottom query row and options immediately above it, with `--layout` presets still incomplete.

@@ -10,6 +10,7 @@
 #include <regex.h>
 #include <sys/wait.h>
 #include <poll.h>
+#include <limits.h>
 
 #define CHUNK_CAP (1024 * 1024)   /* 1 MiB slabs for string data - huge reduction in mallocs */
 
@@ -762,6 +763,7 @@ static void print_usage(FILE *out) {
         "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
+        "--height N limits the visible option list to N rows (interactive only).\n"
         "Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"
@@ -778,6 +780,17 @@ static void print_usage(FILE *out) {
         "--extended enables AND/OR, inverse, exact-substring, prefix (^), and suffix ($) terms.\n"
         "--invert-match or -v emits records that do not match the batch query.\n"
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
+}
+
+static int parse_positive_int(const char *value, int *result) {
+    if (!value || !*value || !result) return 0;
+    errno = 0;
+    char *end = NULL;
+    long parsed = strtol(value, &end, 10);
+    if (errno || end == value || *end != '\\0' || parsed < 1 || parsed > INT_MAX)
+        return 0;
+    *result = (int)parsed;
+    return 1;
 }
 
 static int argument_error(const char *message) {
@@ -879,6 +892,7 @@ int main(int argc, char **argv) {
     int output_index = 0;
     int multi_mode = 0;
     int cycle_mode = 0;
+    int height_seen = 0;
     const char *initial_query = NULL;
     int initial_query_seen = 0;
     const char *preview_command = NULL;
@@ -971,6 +985,21 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--cycle")) {
             cycle_mode = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--height")) {
+            if (height_seen) return argument_error("--height may only be specified once");
+            if (i + 1 >= argc) return argument_error("--height requires a positive row count");
+            if (!parse_positive_int(argv[++i], &menu_config.height))
+                return argument_error("--height requires a positive integer row count");
+            height_seen = 1;
+            continue;
+        }
+        if (!strncmp(arg, "--height=", 9)) {
+            if (height_seen) return argument_error("--height may only be specified once");
+            if (!parse_positive_int(arg + 9, &menu_config.height))
+                return argument_error("--height requires a positive integer row count");
+            height_seen = 1;
             continue;
         }
         if (!strcmp(arg, "--query")) {
@@ -1139,6 +1168,8 @@ int main(int argc, char **argv) {
         return argument_error("--invert-match requires --filter");
     if (disabled_mode && filter_seen)
         return argument_error("--disabled is only available in interactive mode");
+    if (height_seen && filter_seen)
+        return argument_error("--height is only available in interactive mode");
     if (nth_seen && !nth_spec_valid(nth_spec))
         return argument_error("--nth must be a comma-separated list of fields or ranges");
     if (with_nth_seen && !nth_spec_valid(with_nth_spec))

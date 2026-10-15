@@ -95,6 +95,7 @@ CheckSelection 'configured height limits visible option rows' 0 '\n' height-two 
 CheckSelection 'configured percentage height limits visible option rows' 0 '\n' height-percent '' 'café-日本語' C.UTF-8
 CheckSelection 'configured reverse-list preserves logical Down navigation' 1 "$(TERM=xterm tput kcud1)\\n" reverse-list 'beta'
 CheckSelection 'configured reverse-prompt preserves logical Down navigation' 1 "$(TERM=xterm tput kcud1)\\n" reverse-prompt 'beta'
+CheckSelection 'reverse-prompt preserves navigation with fixed height' 1 "$(TERM=xterm tput kcud1)\\n" reverse-prompt-height 'beta'
 CheckSelection '1 percent height rounds up to one visible row' 0 '\n' height-percent-min '' 'beta' C.UTF-8
 CheckSelection '100 percent height retains all available option rows' 0 '\n' height-percent-full 'café-日本語' '' C.UTF-8
 CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'

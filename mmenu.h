@@ -98,7 +98,8 @@ typedef struct {
     void *display_text_userdata;
     const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
     int cycle; /* wrap up/down navigation at the ends when nonzero */
-    int height; /* maximum visible option rows; zero uses available terminal rows */
+    int height; /* maximum visible option rows; zero leaves this limit unset */
+    int height_percent; /* optional 1..100 percent of available option rows; zero unset */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -117,6 +118,19 @@ int mmenuMultiConfigured(const char *const *options, int n_options, const char *
 static volatile sig_atomic_t resize_flag = 0;
 
 static void handle_resize(int sig) { (void)sig; resize_flag = 1; }
+
+static int mmenu_visible_rows(int terminal_rows, const mmenu_config *config) {
+    int visible = terminal_rows - 1;
+    if (visible < 0) visible = 0;
+    if (config && config->height_percent > 0 && visible > 0) {
+        int percent_rows = (int)(((int64_t)visible * config->height_percent) / 100);
+        if (percent_rows < 1) percent_rows = 1;
+        if (visible > percent_rows) visible = percent_rows;
+    }
+    if (config && config->height > 0 && visible > config->height)
+        visible = config->height;
+    return visible;
+}
 
 static void mmenu_refresh_dimensions(FILE *tty, int *rows, int *cols) {
     struct winsize Size;
@@ -1550,8 +1564,10 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     setlocale(LC_ALL, "");
 
-    if (config && config->height < 0) {
-        fprintf(stderr, "mmenu: height must be zero or a positive number of rows\n");
+    if (config && (config->height < 0 || config->height_percent < 0 ||
+                   config->height_percent > 100 ||
+                   (config->height > 0 && config->height_percent > 0))) {
+        fprintf(stderr, "mmenu: invalid height configuration; use rows or a percentage from 1 to 100, not both\n");
         return -1;
     }
     if (config) {
@@ -1833,9 +1849,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     clear();
     printw("%s%ls", prompt_str, input); clrtoeol();
     mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
-    int visible = rows - 1;
-    if (config && config->height > 0 && visible > config->height)
-        visible = config->height;
+    int visible = mmenu_visible_rows(rows, config);
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
@@ -2234,9 +2248,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
 
         /* Scroll */
-        visible = rows - 1;
-        if (config && config->height > 0 && visible > config->height)
-            visible = config->height;
+        visible = mmenu_visible_rows(rows, config);
         if (filtered.count > 0) {
             if (selection < top) top = selection;
             else if (selection >= top + visible) top = selection - visible + 1;

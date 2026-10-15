@@ -763,7 +763,7 @@ static void print_usage(FILE *out) {
         "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
-        "--height N limits the visible option list to N rows (interactive only).\n"
+        "--height N or PCT%% limits visible option rows (interactive only).\n"
         "Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"
@@ -782,14 +782,21 @@ static void print_usage(FILE *out) {
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
 }
 
-static int parse_positive_int(const char *value, int *result) {
-    if (!value || !*value || !result) return 0;
+static int parse_height_value(const char *value, int *height, int *percent) {
+    if (!value || !*value || !height || !percent) return 0;
     errno = 0;
     char *end = NULL;
     long parsed = strtol(value, &end, 10);
-    if (errno || end == value || *end != '\0' || parsed < 1 || parsed > INT_MAX)
-        return 0;
-    *result = (int)parsed;
+    if (errno || end == value || parsed < 1) return 0;
+    if (*end == '%') {
+        if (end[1] != '\0' || parsed > 100) return 0;
+        *height = 0;
+        *percent = (int)parsed;
+        return 1;
+    }
+    if (*end != '\0' || parsed > INT_MAX) return 0;
+    *height = (int)parsed;
+    *percent = 0;
     return 1;
 }
 
@@ -990,15 +997,15 @@ int main(int argc, char **argv) {
         if (!strcmp(arg, "--height")) {
             if (height_seen) return argument_error("--height may only be specified once");
             if (i + 1 >= argc) return argument_error("--height requires a positive row count");
-            if (!parse_positive_int(argv[++i], &menu_config.height))
-                return argument_error("--height requires a positive integer row count");
+            if (!parse_height_value(argv[++i], &menu_config.height, &menu_config.height_percent))
+                return argument_error("--height requires a positive row count or a percentage from 1 to 100%");
             height_seen = 1;
             continue;
         }
         if (!strncmp(arg, "--height=", 9)) {
             if (height_seen) return argument_error("--height may only be specified once");
-            if (!parse_positive_int(arg + 9, &menu_config.height))
-                return argument_error("--height requires a positive integer row count");
+            if (!parse_height_value(arg + 9, &menu_config.height, &menu_config.height_percent))
+                return argument_error("--height requires a positive row count or a percentage from 1 to 100%");
             height_seen = 1;
             continue;
         }

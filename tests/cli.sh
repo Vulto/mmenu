@@ -23,6 +23,14 @@ CheckEqual() {
     fi
 }
 
+# Help output must preserve the percent marker in the height syntax.
+"$Bin" --help > "$TmpDir/help"
+if grep -Fq -- '--height N or PCT% limits visible option rows (interactive only).' "$TmpDir/help"; then
+    Pass 'help prints percentage height syntax literally'
+else
+    Fail '--help must display the height percentage marker literally'
+fi
+
 # Batch output templates substitute records, original indexes, and the query.
 printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
 printf '0:alpha needle [needle]\n1:beta needle [needle]\n2:needle [needle]\n' > "$TmpDir/expected"
@@ -583,15 +591,29 @@ else
         Pass '--height hides options beyond the configured visible row limit'
     fi
 fi
-for Height in 0 -1 invalid 2147483648; do
+for Height in 0 -1 invalid 2147483648 0% 101% 50x; do
     if "$Bin" --height "$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "--height rejects invalid row count: $Height"
-    elif ! grep -Fq 'positive integer' "$TmpDir/stderr"; then
+    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
         Fail "--height gives a useful diagnostic for invalid row count: $Height"
     else
         Pass "--height rejects invalid row count: $Height"
     fi
+    if "$Bin" --height="$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "--height= rejects invalid row count: $Height"
+    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+        Fail "--height= gives a useful diagnostic for invalid row count: $Height"
+    else
+        Pass "--height= rejects invalid row count: $Height"
+    fi
 done
+if "$Bin" --height < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing --height value should be rejected'
+elif ! grep -Fq 'requires a positive row count' "$TmpDir/stderr"; then
+    Fail 'missing --height value should explain the requirement'
+else
+    Pass 'missing --height value is rejected'
+fi
 if "$Bin" --height 2 --height 3 < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'duplicate --height options should be rejected'
 elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
@@ -605,6 +627,20 @@ elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
     Fail '--height/batch conflict must explain the error'
 else
     Pass '--height is restricted to interactive mode'
+fi
+
+# Percentage height is calculated from the available option rows.
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --height=50% < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'percentage height CLI test should exit cleanly'
+else
+    CheckEqual 'percentage height accepts a 50 percent row limit' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'café-日本語' "$TmpDir/terminal"; then
+        Fail '--height=50% rendered an option beyond its percentage row limit'
+    else
+        Pass '--height percentage limits visible option rows'
+    fi
 fi
 
 # --cycle wraps navigation at both ends without changing the default behavior.

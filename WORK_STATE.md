@@ -4,18 +4,20 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current focus
 
-- Active branch: `m3-height-layout`; implementing the first scoped M3 layout feature, fixed-row interactive height.
-- Added positive integer CLI `--height N` and additive `mmenu_config.height`; zero preserves the current terminal-derived height.
-- The visible option list is capped at the configured row count, while the input line remains separate and selection scrolling remains active.
-- Percentages, automatic sizing, inverted layout, popup positioning, borders, and other M3 features remain incomplete.
-- Regression coverage added for visible-row limits, invalid CLI values, duplicate/batch use, and negative C API configuration.
-- No local test execution is claimed. The container cannot resolve GitHub for cloning; validation must come from the repository CI run on the exact PR head.
+- Active branch: `m3-height-percent`; continuing M3 height semantics after the fixed-row subset merged.
+- PR #52 implemented and merged fixed-row `--height N` and `mmenu_config.height` (merge commit `c8ba971537f54dadb54bd17461712e0a5f0d8ca2`).
+- Current change adds percentage `--height PCT%` and `mmenu_config.height_percent`, based on the available option rows; allowed percentages are 1–100.
+- Fixed and percentage settings are mutually exclusive in the C API; zero values preserve existing default sizing.
+- Added CLI and PTY/API regression coverage for percentage sizing and invalid percentages.
+- Automatic and inverted height modes remain incomplete.
+- No local test execution is claimed. The container cannot resolve GitHub for cloning; validate through exact-head CI.
 
 ## Verified implementation and CI
 
-- Latest merged change: PR #51, cyclic navigation, merged after CI run 38770402228 passed all four required matrix jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
-- Current height implementation is unmerged and must not be marked complete until exact-head CI passes and the PR is merged.
-- The height implementation intentionally covers only fixed positive row counts; `PLAN.md` continues to mark the full height-mode feature as partial.
+- PR #51 cyclic navigation merged after CI run 38770402228 passed all four required matrix jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
+- PR #52 fixed-row height merged after CI run 38771951888 passed all four required matrix jobs on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`.
+- Fixed-row height is marked complete in `PLAN.md`; percentage height is the current unmerged subtask and requires fresh exact-head CI and QA.
+- Full M3 and full height-mode parity remain incomplete.
 
 ## Run log
 
@@ -48,3 +50,6 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-15: Merged PR #51 after exact-head CI run 38770402228 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection. Continued directly to M3 and started fixed-row interactive height on branch `m3-height-layout`.
 - 2026-10-15: Added `--height N`, additive `mmenu_config.height`, validation, CLI/PTy/API regressions, README/changelog updates, and marked full height modes partial pending exact-head CI and merge.
+
+- 2026-10-15: Merged PR #52 after CI run 38771951888 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`. Marked fixed-row height complete and continued to percentage height on `m3-height-percent`.
+- 2026-10-15: Added percentage height parsing, C API configuration/validation, CLI and PTY/API regressions, and documentation. Exact-head CI is required before merge; automatic and inverted modes remain incomplete.

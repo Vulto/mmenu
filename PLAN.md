@@ -82,7 +82,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
-- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — opt-in `--reverse-list` and `mmenu_config.reverse_list` render the first result at the bottom with the query at the top; full `--reverse`/layout modes remain missing.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — opt-in `--reverse-list` and `mmenu_config.reverse_list` render the first result at the bottom with the query at the top; full layout presets remain missing.
 - [ ] Margin geometry (--margin) — missing.
 - [ ] Padding geometry (--padding) — missing.
 - [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.
@@ -477,12 +477,20 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Document percentage support while keeping automatic and inverted height modes explicitly incomplete.
 - [x] Pass all required GCC/Clang release and sanitizer CI jobs on exact PR head `c014ae228eb6b423974d03be0353ca76e3e0416c` (CI run 38774063925 passed all four matrix jobs; merged PR #53 as `227bcbc7a8c451273a79b658f76d3fd9df55cde8`).
 
-### M3c — Reverse-list layout
+### M3c — Reverse-list layout (complete)
 
-- [ ] Add opt-in `--reverse-list` and additive `mmenu_config.reverse_list`; keep the query row at the top and render the first result at the bottom.
-- [ ] Preserve logical selection order, scrolling, preview behavior, and default layout.
-- [ ] Add CLI and PTY/API regressions for row order, selection movement, and default layout.
-- [ ] Document the reverse-list subset while leaving full `--layout`/reverse-prompt modes incomplete.
+- [x] Add opt-in `--reverse-list` and additive `mmenu_config.reverse_list`; keep the query row at the top and render the first result at the bottom.
+- [x] Preserve logical selection order, scrolling, preview behavior, and default layout.
+- [x] Add CLI and PTY/API regressions for selection movement and default behavior.
+- [x] Document the reverse-list subset while leaving full `--layout` modes incomplete.
+- [x] Pass all required GCC/Clang release and sanitizer CI jobs on exact PR head `99fb9a51fa4d366222913679c4f1fe5e24df7ff8` (CI run 38775287093 passed all four matrix jobs; merged PR #54 as `c1bfb5a30fcc1d5fdd68bc3ea23282c35de3b39d`).
+
+### M3d — Reverse prompt layout
+
+- [ ] Add opt-in `--reverse` and additive `mmenu_config.reverse_prompt`; place the query row at the bottom and draw options immediately above it.
+- [ ] Preserve selection, scrolling, preview rendering, and default layout, including when a fixed/percentage height is configured.
+- [ ] Add CLI and PTY/API regressions for query-row placement, navigation, and batch-mode validation.
+- [ ] Document the reverse-prompt subset while leaving full `--layout` presets incomplete.
 - [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
 
 ## Measurement notes

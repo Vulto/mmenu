@@ -6,14 +6,28 @@ TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM
 
 : "${CC:=cc}"
+CompilerPath=$(command -v "$CC")
+if [ -z "$CompilerPath" ]; then
+    printf 'FAIL: configured compiler not found: %s\n' "$CC" >&2
+    exit 1
+fi
+CC=$CompilerPath
 export CC
-"$CC" -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE \
-    -I"$Root" -o "$TmpDir/nobuild" "$Root/nobuild.c"
 
-mkdir -p "$TmpDir/prefix"
+mkdir -p "$TmpDir/source" "$TmpDir/bin" "$TmpDir/prefix"
+cp "$Root/nobuild.c" "$Root/nobuild.h" "$TmpDir/source/"
+"$CC" -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE \
+    -I"$TmpDir/source" -o "$TmpDir/nobuild" "$TmpDir/source/nobuild.c"
+
+FalsePath=$(command -v false)
+ln -s "$FalsePath" "$TmpDir/bin/cc"
+sleep 1
+touch "$TmpDir/source/nobuild.c"
+
 (
     cd "$Root" || exit 1
-    PREFIX="$TmpDir/prefix" MMENU_BUILD_OUTPUT="$TmpDir/mmenu" "$TmpDir/nobuild"
+    PATH="$TmpDir/bin:$PATH" CC="$CC" PREFIX="$TmpDir/prefix" \
+        MMENU_BUILD_OUTPUT="$TmpDir/mmenu" "$TmpDir/nobuild"
 )
 
 test -x "$TmpDir/prefix/bin/mmenu"

@@ -6,6 +6,7 @@ mkdir -p build
 CompilerVersion=$("$CC" --version | sed -n '1p')
 Flags='-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE'
 
+# shellcheck disable=SC2046 # pkg-config emits multiple linker arguments intentionally.
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/mmenu-c23 main.c $(pkg-config --libs ncursesw)
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/api-test-c23 tests/apiHarness.c $(pkg-config --libs ncursesw)
 

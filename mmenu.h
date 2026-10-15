@@ -2275,7 +2275,7 @@ static int mmenu_internal(const char *const *options, int n_options,
                 goto cleanup;
             }
             if (w) {
-                move(v + 1, 0);
+                move(config && config->reverse_list ? visible - v : v + 1, 0);
                 if (fidx == selection) attron(A_STANDOUT);
                 int option_cols = menu_cols;
                 if (multi && menu_cols >= 4) {

@@ -382,7 +382,8 @@ int main(int argc, char **argv)
                      strcmp(argv[1], "height-percent-min") == 0 ||
                      strcmp(argv[1], "height-percent-full") == 0 ||
                      strcmp(argv[1], "reverse-list") == 0 ||
-                     strcmp(argv[1], "reverse-prompt") == 0)) {
+                     strcmp(argv[1], "reverse-prompt") == 0 ||
+                     strcmp(argv[1], "reverse-prompt-height") == 0)) {
         if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {0};
         if (strcmp(argv[1], "height-two") == 0) config.height = 2;
@@ -390,6 +391,10 @@ int main(int argc, char **argv)
         else if (strcmp(argv[1], "height-percent-full") == 0) config.height_percent = 100;
         else if (strcmp(argv[1], "reverse-list") == 0) config.reverse_list = 1;
         else if (strcmp(argv[1], "reverse-prompt") == 0) config.reverse_prompt = 1;
+        else if (strcmp(argv[1], "reverse-prompt-height") == 0) {
+            config.reverse_prompt = 1;
+            config.height = 2;
+        }
         else config.height_percent = 50;
         int result = mmenuConfigured(options, count, prompt, 0, &config);
         printf("MMENU_RESULT=%d\n", result);

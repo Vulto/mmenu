@@ -591,6 +591,13 @@ for Height in 0 -1 invalid 2147483648 0% 101% 50x; do
     else
         Pass "--height rejects invalid row count: $Height"
     fi
+    if "$Bin" --height="$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "--height= rejects invalid row count: $Height"
+    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+        Fail "--height= gives a useful diagnostic for invalid row count: $Height"
+    else
+        Pass "--height= rejects invalid row count: $Height"
+    fi
 done
 if "$Bin" --height < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail 'missing --height value should be rejected'

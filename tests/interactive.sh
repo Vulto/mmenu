@@ -313,6 +313,7 @@ CheckApiContract invalid-case-flags 'unsupported API flags'
 CheckApiContract invalid-config-keys 'a custom key cannot be assigned to multiple actions'
 CheckApiContract invalid-config-height 'invalid height configuration'
 CheckApiContract invalid-config-height-percent 'invalid height configuration'
+CheckApiContract invalid-config-height-conflict 'invalid height configuration'
 CheckApiContract invalid-config-query 'initial query exceeds'
 CheckApiContract invalid-tiebreak "--tiebreak key 'length' is repeated"
 

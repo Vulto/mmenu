@@ -82,7 +82,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
-- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — missing.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — opt-in `--reverse-list` and `mmenu_config.reverse_list` render the first result at the bottom with the query at the top; full `--reverse`/layout modes remain missing.
 - [ ] Margin geometry (--margin) — missing.
 - [ ] Padding geometry (--padding) — missing.
 - [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-Root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+Root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 TmpDir=$(mktemp -d)
 trap 'rm -rf "$TmpDir"' EXIT HUP INT TERM
 

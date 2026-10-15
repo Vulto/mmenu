@@ -17,17 +17,17 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - Documentation head before this handoff update: `43deca1e2c2f838f7ca9f010a988bb23c52aa931`.
 - CI run [38607360475](https://github.com/Vulto/mmenu/actions/runs/38607360475) completed successfully on that documentation head. All four required matrix jobs passed. The run also completed CLI, interactive C API, streaming, allocation-failure, and other jobs according to each job's conditions; skipped optional steps are not counted as executed tests.
 - No local test execution is claimed.
-- Existing QA marker: `AUTONOMOUS-QA: PASS 43deca1e2c2f838f7ca9f010a988bb23c52aa931`; it is stale for the current PR head.
+- Previous QA approval was tied to SHA `43deca1e2c2f838f7ca9f010a988bb23c52aa931`; it is stale for the current PR head.
 - Prior QA review head: `19015ab1e4bc7366c55fd481127aa73b035a889d`; its marker is stale for later commits.
-- Latest verified PR head before this handoff update: `ff794839ce4b440e3213461b9a56946964235f82`.
+- Latest previously validated PR head: `ff794839ce4b440e3213461b9a56946964235f82`. Subsequent commits, including the bounded-navigation CLI regression, require fresh CI and QA.
 - CI run [38647765508](https://github.com/Vulto/mmenu/actions/runs/38647765508) passed all four required GCC/Clang release and sanitizer jobs on that exact head. The jobs completed successfully; conditional optional steps were skipped where configured. No local test execution is claimed.
-- Existing QA marker `AUTONOMOUS-QA: PASS 43deca1e2c2f838f7ca9f010a988bb23c52aa931` is stale for the current PR head.
+- The previously posted QA marker for SHA `43deca1e2c2f838f7ca9f010a988bb23c52aa931` is stale for the current PR head.
 - This documentation-only handoff update creates a new head. Recheck required CI and repeat QA against the resulting SHA before merge.
 - The PR changed files are CHANGELOG.md, PLAN.md, README.md, WORK_STATE.md, main.c, mmenu.h, tests/apiHarness.c, tests/cli.sh, and tests/interactive.sh.
 
 ## Current action
 
-1. Agent 2 must review the latest exact PR head after documentation updates and post a QA marker only if no known defects remain.
+1. Agent 2 must review the latest exact PR head after the CLI expected-output correction and record approval only if no known defects remain.
 2. Confirm all required CI checks pass on that exact same head; do not merge on absent, pending, stale, or failed checks.
 3. Merge PR #51 only after exact-head QA and CI are both valid.
 4. After merge, continue with the highest-priority dependency-ready incomplete item in PLAN.md.
@@ -47,3 +47,5 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-14 22:24 America/Sao_Paulo: Agent 2 verified CI run 38647765508 passed all four required jobs on PR head `ff794839ce4b440e3213461b9a56946964235f82`. This handoff update records that checkpoint; the resulting commit requires fresh exact-head CI and QA.
 
 - 2026-10-15: Added explicit CLI coverage for bounded Down navigation without `--cycle` on `m3-cycle-navigation`. This commit requires fresh exact-head CI and QA; no local test execution is claimed.
+
+- 2026-10-15: CI run 38696684577 failed the CLI regression suite in all four matrix jobs. Job logs show the new bounded-navigation assertion passed, but the following `--cycle` Down-wrap assertion expected `café-日本語` while the program correctly emitted `alpha` after four Down presses. Corrected `tests/cli.sh` to reset the expected output to `alpha` before the wrap test. Local execution remains unavailable because the environment cannot resolve `github.com`; fresh CI and QA are required for the resulting commit.

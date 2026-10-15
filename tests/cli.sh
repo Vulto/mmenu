@@ -574,6 +574,7 @@ printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 printf 'alpha\n' > "$TmpDir/expected"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.
 printf 'café-日本語\n' > "$TmpDir/expected"
+printf 'alpha\n' > "$TmpDir/expected"
 if ! { sleep 0.2; printf '%s%s%s%s\n' "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)"; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail 'default bounded Down CLI test should exit cleanly'

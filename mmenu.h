@@ -100,6 +100,7 @@ typedef struct {
     int cycle; /* wrap up/down navigation at the ends when nonzero */
     int height; /* maximum visible option rows; zero leaves this limit unset */
     int height_percent; /* optional 1..100 percent of available option rows; zero unset */
+    int reverse_list; /* render first result at the bottom while keeping query at top */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1860,7 +1861,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             goto cleanup;
         }
         if (w) {
-            move(v + 1, 0);
+            move(config && config->reverse_list ? visible - v : v + 1, 0);
             if (fidx == selection) attron(A_STANDOUT);
             int option_cols = menu_cols;
             if (multi && menu_cols >= 4) {

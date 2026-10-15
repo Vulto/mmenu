@@ -763,7 +763,7 @@ static void print_usage(FILE *out) {
         "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
-        "--height N or PCT%% limits visible option rows (interactive only).\n"
+        "--height=[~][-]N[%%] limits visible option rows; ~ adapts to input size.\n"
         "--layout MODE (or --layout=MODE) selects default, reverse, or reverse-list (interactive only).\n"
         "--reverse-list renders the first result at the bottom while keeping the query at the top.\n"
         "--reverse places the query at the bottom and options above it.\n"
@@ -785,21 +785,36 @@ static void print_usage(FILE *out) {
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
 }
 
-static int parse_height_value(const char *value, int *height, int *percent) {
-    if (!value || !*value || !height || !percent) return 0;
+static int parse_height_value(const char *value, int *height, int *percent,
+                              int *heightInverted, int *percentInverted,
+                              int *heightAuto) {
+    if (!value || !*value || !height || !percent || !heightInverted ||
+        !percentInverted || !heightAuto) return 0;
+    *height = 0;
+    *percent = 0;
+    *heightInverted = 0;
+    *percentInverted = 0;
+    *heightAuto = 0;
+    if (*value == '~') {
+        *heightAuto = 1;
+        value++;
+        if (!*value) return 0;
+    }
     errno = 0;
     char *end = NULL;
     long parsed = strtol(value, &end, 10);
-    if (errno || end == value || parsed < 1) return 0;
+    if (errno || end == value || parsed == 0 ||
+        parsed > INT_MAX || parsed < -INT_MAX) return 0;
+    long magnitude = parsed < 0 ? -parsed : parsed;
     if (*end == '%') {
-        if (end[1] != '\0' || parsed > 100) return 0;
-        *height = 0;
-        *percent = (int)parsed;
+        if (end[1] != '\0' || magnitude > 100) return 0;
+        if (parsed < 0) *percentInverted = (int)magnitude;
+        else *percent = (int)magnitude;
         return 1;
     }
-    if (*end != '\0' || parsed > INT_MAX) return 0;
-    *height = (int)parsed;
-    *percent = 0;
+    if (*end != '\0') return 0;
+    if (parsed < 0) *heightInverted = (int)magnitude;
+    else *height = (int)parsed;
     return 1;
 }
 
@@ -1043,16 +1058,16 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--height")) {
             if (height_seen) return argument_error("--height may only be specified once");
-            if (i + 1 >= argc) return argument_error("--height requires a positive row count");
-            if (!parse_height_value(argv[++i], &menu_config.height, &menu_config.height_percent))
-                return argument_error("--height requires a positive row count or a percentage from 1 to 100%");
+            if (i + 1 >= argc) return argument_error("--height requires a nonzero row count or a percentage, optionally prefixed with ~");
+            if (!parse_height_value(argv[++i], &menu_config.height, &menu_config.height_percent, &menu_config.heightInverted, &menu_config.heightPercentInverted, &menu_config.heightAuto))
+                return argument_error("--height requires a nonzero row count or a percentage from 1 to 100%, optionally prefixed with ~");
             height_seen = 1;
             continue;
         }
         if (!strncmp(arg, "--height=", 9)) {
             if (height_seen) return argument_error("--height may only be specified once");
-            if (!parse_height_value(arg + 9, &menu_config.height, &menu_config.height_percent))
-                return argument_error("--height requires a positive row count or a percentage from 1 to 100%");
+            if (!parse_height_value(arg + 9, &menu_config.height, &menu_config.height_percent, &menu_config.heightInverted, &menu_config.heightPercentInverted, &menu_config.heightAuto))
+                return argument_error("--height requires a nonzero row count or a percentage from 1 to 100%, optionally prefixed with ~");
             height_seen = 1;
             continue;
         }

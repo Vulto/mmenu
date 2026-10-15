@@ -25,7 +25,7 @@ CheckEqual() {
 
 # Help output must preserve the percent marker in the height syntax.
 "$Bin" --help > "$TmpDir/help"
-if grep -Fq -- '--height N or PCT% limits visible option rows (interactive only).' "$TmpDir/help"; then
+if grep -Fq -- '--height=[~][-]N[%] limits visible option rows; ~ adapts to input size.' "$TmpDir/help"; then
     Pass 'help prints percentage height syntax literally'
 else
     Fail '--help must display the height percentage marker literally'
@@ -596,17 +596,73 @@ else
         Pass '--height hides options beyond the configured visible row limit'
     fi
 fi
-for Height in 0 -1 invalid 2147483648 0% 101% 50x; do
+# Negative row offsets subtract from the available option rows.
+printf 'one\ntwo\nthree\nfour\nfive\nsix\nseven\n' > "$TmpDir/options"
+printf 'one\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --height -1 < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height -1 CLI test should exit cleanly'
+else
+    CheckEqual '--height -1 subtracts one available option row' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'seven' "$TmpDir/terminal"; then
+        Fail '--height=-1 rendered an option beyond its inverted row limit'
+    else
+        Pass '--height=-1 hides options beyond the inverted row limit'
+    fi
+fi
+
+# Negative percentages subtract that fraction of available option rows.
+printf 'one\ntwo\nthree\nfour\nfive\n' > "$TmpDir/options"
+printf 'one\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --height=-50% < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height=-50% CLI test should exit cleanly'
+else
+    CheckEqual '--height=-50% subtracts half the available option rows' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'five' "$TmpDir/terminal"; then
+        Fail '--height=-50% rendered an option beyond its inverted percentage limit'
+    else
+        Pass '--height=-50% hides options beyond the inverted percentage limit'
+    fi
+fi
+
+# Adaptive height shrinks the row limit to the number of input options.
+printf 'alpha\nbeta\n' > "$TmpDir/options"
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --layout=reverse-list --height=~100% < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height=~100% CLI test should exit cleanly'
+else
+    CheckEqual '--height=~100% adapts to the input option count' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[3;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[3d')" "$TmpDir/terminal"; then
+        Pass '--height=~100% places the first reverse-list option at the adaptive bottom row'
+    else
+        Fail '--height=~100% did not adapt reverse-list placement to the input count'
+    fi
+fi
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --layout=reverse-list --height=~-1 < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height=~-1 CLI test should exit cleanly'
+else
+    CheckEqual '--height=~-1 combines adaptive and inverted limits' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[3;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[3d')" "$TmpDir/terminal"; then
+        Pass '--height=~-1 combines adaptive and inverted row sizing'
+    else
+        Fail '--height=~-1 did not adapt reverse-list placement to the input count'
+    fi
+fi
+
+for Height in '' 0 -0 invalid 2147483648 -2147483648 0% 101% -101% 50x \~ \~0 \~invalid \~101% \~-2147483648; do
     if "$Bin" --height "$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "--height rejects invalid row count: $Height"
-    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+    elif ! grep -Fq 'nonzero row count or a percentage' "$TmpDir/stderr"; then
         Fail "--height gives a useful diagnostic for invalid row count: $Height"
     else
         Pass "--height rejects invalid row count: $Height"
     fi
     if "$Bin" --height="$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
         Fail "--height= rejects invalid row count: $Height"
-    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+    elif ! grep -Fq 'nonzero row count or a percentage' "$TmpDir/stderr"; then
         Fail "--height= gives a useful diagnostic for invalid row count: $Height"
     else
         Pass "--height= rejects invalid row count: $Height"

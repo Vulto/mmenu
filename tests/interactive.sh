@@ -90,6 +90,31 @@ CheckPreviewClipping() {
     fi
 }
 
+CheckHeightRow() {
+    Name=$1
+    Mode=$2
+    ExpectedRow=$3
+    if ! { sleep 0.2; printf '\n'; } |
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin $Mode" /dev/null > "$TmpDir/height-output" 2> "$TmpDir/height-error"; then
+        printf 'FAIL: %s (process/timeout failure)\n' "$Name" >&2
+        cat "$TmpDir/height-error" >&2
+        Failures=$((Failures + 1))
+        return
+    fi
+    if ! grep -aFq 'MMENU_RESULT=0' "$TmpDir/height-output"; then
+        printf 'FAIL: %s (expected first option selection)\n' "$Name" >&2
+        tail -c 2000 "$TmpDir/height-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    elif ! grep -aFq "$(printf '\033[%s;1H' "$ExpectedRow")" "$TmpDir/height-output" &&
+         ! grep -aFq "$(printf '\033[%sd' "$ExpectedRow")" "$TmpDir/height-output"; then
+        printf 'FAIL: %s (expected first option at terminal row %s)\n' "$Name" "$ExpectedRow" >&2
+        tail -c 2000 "$TmpDir/height-output" | od -An -tx1c >&2
+        Failures=$((Failures + 1))
+    else
+        printf 'PASS: %s\n' "$Name"
+    fi
+}
+
 CheckSelection 'Enter selects the first option' 0 '\n'
 CheckSelection 'configured height limits visible option rows' 0 '\n' height-two '' 'café-日本語' C.UTF-8
 CheckSelection 'configured percentage height limits visible option rows' 0 '\n' height-percent '' 'café-日本語' C.UTF-8
@@ -98,6 +123,9 @@ CheckSelection 'configured reverse-prompt preserves logical Down navigation' 1 "
 CheckSelection 'reverse-prompt preserves navigation with fixed height' 1 "$(TERM=xterm tput kcud1)\\n" reverse-prompt-height 'beta'
 CheckSelection '1 percent height rounds up to one visible row' 0 '\n' height-percent-min '' 'beta' C.UTF-8
 CheckSelection '100 percent height retains all available option rows' 0 '\n' height-percent-full 'café-日本語' '' C.UTF-8
+CheckHeightRow 'configured adaptive height shrinks to input count' height-auto 5
+CheckHeightRow 'configured inverted height subtracts one row' height-inverted 7
+CheckHeightRow 'configured inverted percentage subtracts half the available rows' height-inverted-percent 5
 CheckSelection 'initial query is prefilled and filters immediately' 2 '\n' configured-query 'needle'
 CheckSelection 'C API preview callback receives selected option, index, and query' 2 '\n' preview-callback 'api-preview:needle:2:needle'
 CheckPreviewClipping
@@ -320,6 +348,10 @@ CheckApiContract invalid-config-height 'invalid height configuration'
 CheckApiContract invalid-config-height-percent 'invalid height configuration'
 CheckApiContract invalid-config-height-percent-negative 'invalid height configuration'
 CheckApiContract invalid-config-height-conflict 'invalid height configuration'
+CheckApiContract invalid-config-height-inverted 'invalid height configuration'
+CheckApiContract invalid-config-height-percent-inverted 'invalid height configuration'
+CheckApiContract invalid-config-height-auto 'invalid height configuration'
+CheckApiContract invalid-config-height-modes-conflict 'invalid height configuration'
 CheckApiContract invalid-config-layout-conflict 'reverse_list and reverse_prompt layouts are mutually exclusive'
 CheckApiContract invalid-config-query 'initial query exceeds'
 CheckApiContract invalid-tiebreak "--tiebreak key 'length' is repeated"

@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Adaptive and inverted interactive height limits via `--height=[~][-]N[%]` and additive configured C API fields.
 - Interactive `--layout MODE` and `--layout=MODE` select the default, reverse-prompt, or reverse-list layout.
 - Interactive `--reverse` layout places the query row at the bottom and draws options above it.
 - Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.

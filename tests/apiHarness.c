@@ -367,6 +367,26 @@ int main(int argc, char **argv)
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-inverted") == 0) {
+        mmenu_config config = {.heightInverted = -1};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-percent-inverted") == 0) {
+        mmenu_config config = {.heightPercentInverted = 101};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-auto") == 0) {
+        mmenu_config config = {.heightAuto = 2};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-modes-conflict") == 0) {
+        mmenu_config config = {.height = 2, .heightInverted = 1};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-layout-conflict") == 0) {
         mmenu_config config = {.reverse_list = 1, .reverse_prompt = 1};
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
@@ -386,6 +406,9 @@ int main(int argc, char **argv)
                      strcmp(argv[1], "height-percent") == 0 ||
                      strcmp(argv[1], "height-percent-min") == 0 ||
                      strcmp(argv[1], "height-percent-full") == 0 ||
+                     strcmp(argv[1], "height-auto") == 0 ||
+                     strcmp(argv[1], "height-inverted") == 0 ||
+                     strcmp(argv[1], "height-inverted-percent") == 0 ||
                      strcmp(argv[1], "reverse-list") == 0 ||
                      strcmp(argv[1], "reverse-prompt") == 0 ||
                      strcmp(argv[1], "reverse-prompt-height") == 0)) {
@@ -394,6 +417,18 @@ int main(int argc, char **argv)
         if (strcmp(argv[1], "height-two") == 0) config.height = 2;
         else if (strcmp(argv[1], "height-percent-min") == 0) config.height_percent = 1;
         else if (strcmp(argv[1], "height-percent-full") == 0) config.height_percent = 100;
+        else if (strcmp(argv[1], "height-auto") == 0) {
+            config.heightAuto = 1;
+            config.reverse_list = 1;
+        }
+        else if (strcmp(argv[1], "height-inverted") == 0) {
+            config.heightInverted = 1;
+            config.reverse_list = 1;
+        }
+        else if (strcmp(argv[1], "height-inverted-percent") == 0) {
+            config.heightPercentInverted = 50;
+            config.reverse_list = 1;
+        }
         else if (strcmp(argv[1], "reverse-list") == 0) config.reverse_list = 1;
         else if (strcmp(argv[1], "reverse-prompt") == 0) config.reverse_prompt = 1;
         else if (strcmp(argv[1], "reverse-prompt-height") == 0) {

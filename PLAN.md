@@ -78,11 +78,11 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Display size, layout, and chrome
 
-- [ ] Height modes (--height, percentages, auto/inverted sizing) — partial — fixed positive row-count `--height N` and percentage `--height PCT%` with `mmenu_config.height`/`height_percent` limit visible option rows; automatic and inverted modes remain missing.
+- [ ] Height modes (--height, percentages, auto/inverted sizing) — partial — positive fixed/percentage limits are merged; adaptive (~) and inverted (-) forms are implemented on branch `m3-height-auto`, pending exact-head CI. Full terminal-window resizing remains out of scope.
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
-- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three CLI presets and both shorthand aliases are implemented with conflicting selections rejected; exact-head CI for the preset implementation remains pending. Margins, padding, borders, and other M3 layout/chrome features remain incomplete.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three presets and both shorthand aliases are merged; margins, padding, borders, and other M3 layout/chrome features remain incomplete.
 - [ ] Margin geometry (--margin) — missing.
 - [ ] Padding geometry (--padding) — missing.
 - [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.
@@ -493,13 +493,22 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Document the reverse-prompt subset while leaving full `--layout` presets incomplete.
 - [x] Pass all required GCC/Clang release and sanitizer CI jobs on the exact merged head.
 
-### M3e — Layout presets
+### M3e — Layout presets (complete)
 
 - [x] Add `--layout MODE` and `--layout=MODE` for `default`, `reverse`, and `reverse-list`, preserving the existing shorthand flags.
 - [x] Reject missing, invalid, duplicate, conflicting, and batch-filter layout settings.
 - [x] Reject contradictory reverse layout settings in `mmenu_config` before terminal initialization.
 - [x] Add CLI and C API regressions and document the selector and aliases.
-- [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
+- [x] Pass all four required GCC/Clang release and sanitizer jobs on PR head `050d7b2e1ec571fa86bc203400b257c27f913296` (CI run `38804630978`); merged as `b641929d5b609a613dbd2b1d74727e80173699f0`.
+
+### M3f — Adaptive and inverted interactive height
+
+- [x] Extend `--height` to accept adaptive `~` limits and inverted row/percentage offsets while preserving existing positive forms.
+- [x] Add `mmenu_config.heightAuto`, `heightInverted`, and `heightPercentInverted` with validation and zero-default behavior.
+- [x] Recompute the adaptive visible-row limit on redraw so it follows the current input count, including streamed records.
+- [x] Add CLI and PTY/C API regressions for inverted row counts, inverted percentages, adaptive limits, invalid combinations, and API configuration.
+- [x] Document the syntax and clarify that this implementation limits visible rows rather than resizing the terminal window.
+- [ ] Pass all four required GCC/Clang release and sanitizer jobs on the exact PR head before merge.
 
 ## Measurement notes
 

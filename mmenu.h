@@ -77,7 +77,7 @@ typedef const char *(*mmenu_display_text_callback)(const char *option, int index
 
 /* Zero-initialize this structure before setting optional fields. Optional
    query, key aliases, preview, input-stream, searchable/display-text callbacks,
-   fuzzy tie-breaking, cyclic navigation, visible row limits, and layout direction are configured here.
+   fuzzy tie-breaking, cyclic navigation, visible row limits (including adaptive and inverted sizing), and layout direction are configured here.
    Zero-valued key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
    Each callback userdata pointer is passed through unchanged. */
 typedef struct {
@@ -98,10 +98,13 @@ typedef struct {
     void *display_text_userdata;
     const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
     int cycle; /* wrap up/down navigation at the ends when nonzero */
-    int height; /* maximum visible option rows; zero leaves this limit unset */
-    int height_percent; /* optional 1..100 percent of available option rows; zero unset */
+    int height; /* positive visible-row cap; zero leaves this limit unset */
+    int height_percent; /* positive 1..100 percent cap; zero unset */
     int reverse_list; /* render first result at the bottom while keeping query at top */
     int reverse_prompt; /* place query at bottom and options above it */
+    int heightInverted; /* positive rows to subtract from available option rows; zero unset */
+    int heightPercentInverted; /* positive 1..100 percent to subtract; zero unset */
+    int heightAuto; /* shrink visible rows to input option count when nonzero */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -121,16 +124,29 @@ static volatile sig_atomic_t resize_flag = 0;
 
 static void handle_resize(int sig) { (void)sig; resize_flag = 1; }
 
-static int mmenu_visible_rows(int terminal_rows, const mmenu_config *config) {
-    int visible = terminal_rows - 1;
-    if (visible < 0) visible = 0;
+static int mmenu_visible_rows(int terminal_rows, const mmenu_config *config,
+                              int n_options) {
+    int available = terminal_rows - 1;
+    if (available < 0) available = 0;
+    int visible = available;
     if (config && config->height_percent > 0 && visible > 0) {
-        int percent_rows = (int)(((int64_t)visible * config->height_percent) / 100);
-        if (percent_rows < 1) percent_rows = 1;
-        if (visible > percent_rows) visible = percent_rows;
+        int percentRows = (int)(((int64_t)available * config->height_percent) / 100);
+        if (percentRows < 1) percentRows = 1;
+        if (visible > percentRows) visible = percentRows;
+    }
+    if (config && config->heightPercentInverted > 0 && visible > 0) {
+        int percentRows = (int)(((int64_t)available * config->heightPercentInverted) / 100);
+        if (percentRows < 1) percentRows = 1;
+        visible -= percentRows;
     }
     if (config && config->height > 0 && visible > config->height)
         visible = config->height;
+    if (config && config->heightInverted > 0)
+        visible -= config->heightInverted;
+    if (visible < 0) visible = 0;
+    if (available > 0 && visible == 0) visible = 1;
+    if (config && config->heightAuto && visible > n_options)
+        visible = n_options;
     return visible;
 }
 
@@ -1572,11 +1588,20 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     setlocale(LC_ALL, "");
 
-    if (config && (config->height < 0 || config->height_percent < 0 ||
-                   config->height_percent > 100 ||
-                   (config->height > 0 && config->height_percent > 0))) {
-        fprintf(stderr, "mmenu: invalid height configuration; use rows or a percentage from 1 to 100, not both\n");
-        return -1;
+    if (config) {
+        int heightModes = (config->height != 0) +
+                          (config->height_percent != 0) +
+                          (config->heightInverted != 0) +
+                          (config->heightPercentInverted != 0);
+        if (config->height < 0 || config->height_percent < 0 ||
+            config->height_percent > 100 || config->heightInverted < 0 ||
+            config->heightPercentInverted < 0 ||
+            config->heightPercentInverted > 100 ||
+            config->heightAuto < 0 || config->heightAuto > 1 ||
+            heightModes > 1) {
+            fprintf(stderr, "mmenu: invalid height configuration; choose one row cap or inverted offset, with heightAuto set to 0 or 1\n");
+            return -1;
+        }
     }
     if (config && config->reverse_list && config->reverse_prompt) {
         fprintf(stderr, "mmenu: reverse_list and reverse_prompt layouts are mutually exclusive\n");
@@ -1863,7 +1888,7 @@ static int mmenu_internal(const char *const *options, int n_options,
     move(prompt_row, 0);
     printw("%s%ls", prompt_str, input); clrtoeol();
     mmenu_position_query_cursor(prompt_columns, input_len, menu_cols, prompt_row);
-    int visible = mmenu_visible_rows(rows, config);
+    int visible = mmenu_visible_rows(rows, config, n_options);
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
@@ -1902,7 +1927,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             preview_visible = has_preview && cols >= 40 && rows >= 4;
             menu_cols = preview_visible ? cols / 2 : cols;
             if (preview_visible != was_preview_visible) preview_dirty = 1;
-            visible = rows - 1;
+            visible = mmenu_visible_rows(rows, config, n_options);
             resized = 1;
         }
 
@@ -2262,7 +2287,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         }
 
         /* Scroll */
-        visible = mmenu_visible_rows(rows, config);
+        visible = mmenu_visible_rows(rows, config, n_options);
         if (filtered.count > 0) {
             if (selection < top) top = selection;
             else if (selection >= top + visible) top = selection - visible + 1;

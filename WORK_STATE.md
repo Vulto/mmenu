@@ -4,12 +4,10 @@ GitHub branch, pull-request, review, and CI state are authoritative. Do not clai
 
 ## Current focus
 
-- Active branch: `m3-layout-presets`.
-- Reverse-prompt layout is merged to master; all four required GCC/Clang release and sanitizer jobs passed on that exact merged commit.
-- Current change adds `--layout MODE` and `--layout=MODE` for `default`, `reverse`, and `reverse-list`, preserving the `--reverse` and `--reverse-list` aliases.
-- Conflicting CLI selectors and contradictory C API layout flags are rejected before terminal initialization. CLI/API regression coverage and README/changelog documentation are included.
-- No local checkout is mounted for compilation; validate the current change through exact-head CI.
-- Next: inspect every required job and its logs on the exact PR head, fix failures on the same branch, then continue with the next dependency-ready M3 item.
+- M3e layout presets merged as `b641929d5b609a613dbd2b1d74727e80173699f0` after CI run `38804630978` passed all four required GCC/Clang release and sanitizer jobs on PR head `050d7b2e1ec571fa86bc203400b257c27f913296`.
+- Current branch: `m3-height-auto`. Adds adaptive `--height=~VALUE` and inverted `--height=-N`/`--height=-PCT%`; C API exposes `heightAuto`, `heightInverted`, and `heightPercentInverted`. CLI and PTY/API regressions plus README/changelog updates are included.
+- Local compilation is unavailable in this environment; no local test pass is claimed. Exact-head CI is required.
+- Next: inspect all four required jobs and failed logs on the exact PR head, correct failures on this branch, then continue with the next dependency-ready M3 item.
 
 ## Validation requirements
 

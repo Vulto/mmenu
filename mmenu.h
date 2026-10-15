@@ -12,7 +12,17 @@
 #define _GNU_SOURCE   /* for strcasestr on glibc */
 #endif
 
-#include <ncurses.h>
+/* Prefer the wide-character header explicitly: some distributions install a
+   narrow-character <ncurses.h> even when linking against libncursesw. */
+#if defined(__has_include)
+#  if __has_include(<ncursesw/curses.h>)
+#    include <ncursesw/curses.h>
+#  else
+#    include <ncurses.h>
+#  endif
+#else
+#  include <ncurses.h>
+#endif
 #include <locale.h>
 #include <signal.h>
 #include <stdio.h>

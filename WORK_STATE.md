@@ -4,20 +4,19 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current focus
 
-- Active branch: `m3-height-percent`; continuing M3 height semantics after the fixed-row subset merged.
-- PR #52 implemented and merged fixed-row `--height N` and `mmenu_config.height` (merge commit `c8ba971537f54dadb54bd17461712e0a5f0d8ca2`).
-- Current change adds percentage `--height PCT%` and `mmenu_config.height_percent`, based on the available option rows; allowed percentages are 1–100.
-- Fixed and percentage settings are mutually exclusive in the C API; zero values preserve existing default sizing.
-- Added CLI and PTY/API regression coverage for percentage sizing and invalid percentages.
-- Automatic and inverted height modes remain incomplete.
+- Active branch: `m3-reverse-list`; continuing M3 after fixed and percentage height subsets.
+- PR #51 cyclic navigation, PR #52 fixed-row height, and PR #53 percentage height are merged.
+- Fixed height and percentage height are verified; percentages accept 1–100%, round up to at least one visible option row, and reject invalid or conflicting C API settings.
+- Current task adds opt-in `--reverse-list` and `mmenu_config.reverse_list`: keep the query at the top, render the first result at the bottom, and preserve logical selection order.
+- Full reverse-prompt layout, automatic/inverted height, popup positioning, borders, colors, and remaining M3 features remain incomplete.
 - No local test execution is claimed. The container cannot resolve GitHub for cloning; validate through exact-head CI.
 
 ## Verified implementation and CI
 
-- PR #51 cyclic navigation merged after CI run 38770402228 passed all four required matrix jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
-- PR #52 fixed-row height merged after CI run 38771951888 passed all four required matrix jobs on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`.
-- Fixed-row height is marked complete in `PLAN.md`; percentage height is the current unmerged subtask and requires fresh exact-head CI and QA.
-- Full M3 and full height-mode parity remain incomplete.
+- PR #51 merged after CI run 38770402228 passed all required jobs on exact head `4a95b8f32fd49337040a58d049291fb02b49cd72`.
+- PR #52 merged after CI run 38771951888 passed all required jobs on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`.
+- PR #53 merged after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`.
+- Reverse-list is the current unmerged subtask and requires exact-head CI and QA. Full M3 remains incomplete.
 
 ## Run log
 
@@ -53,3 +52,9 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 - 2026-10-15: Merged PR #52 after CI run 38771951888 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection on exact head `8215d6577e438261f8ed6458d5da8ed9d6829750`. Marked fixed-row height complete and continued to percentage height on `m3-height-percent`.
 - 2026-10-15: Added percentage height parsing, C API configuration/validation, CLI and PTY/API regressions, and documentation. Exact-head CI is required before merge; automatic and inverted modes remain incomplete.
+
+- 2026-10-15: Merged PR #53 after CI run 38774063925 passed GCC release, Clang release, GCC sanitizers, Clang sanitizers, and change detection on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`. Percentage height is now recorded complete.
+- 2026-10-15: Started M3 reverse-list layout on branch `m3-reverse-list`; full reverse-prompt and automatic/inverted height modes remain incomplete.
+
+- 2026-10-15: Merged PR #53 after CI run 38774063925 passed all required jobs on exact head `c014ae228eb6b423974d03be0353ca76e3e0416c`. Percentage height is now recorded complete.
+- 2026-10-15: Started reverse-list layout on branch `m3-reverse-list`; added `--reverse-list`, `mmenu_config.reverse_list`, logical-selection regression coverage, and documentation. Exact-head CI and QA remain required.

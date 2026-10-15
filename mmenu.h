@@ -77,8 +77,8 @@ typedef const char *(*mmenu_display_text_callback)(const char *option, int index
 
 /* Zero-initialize this structure before setting optional fields. Optional
    query, key aliases, preview, input-stream, searchable/display-text callbacks,
-   fuzzy tie-breaking, and cyclic navigation are configured here. Zero-valued
-   key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
+   fuzzy tie-breaking, cyclic navigation, and visible row limits are configured here.
+   Zero-valued key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
    Each callback userdata pointer is passed through unchanged. */
 typedef struct {
     const char *initial_query;
@@ -98,6 +98,7 @@ typedef struct {
     void *display_text_userdata;
     const char *tiebreak; /* optional comma-separated fuzzy tie-break keys */
     int cycle; /* wrap up/down navigation at the ends when nonzero */
+    int height; /* maximum visible option rows; zero uses available terminal rows */
 } mmenu_config;
 
 int mmenuConfigured(const char *const *options, int n_options, const char *prompt,
@@ -1549,6 +1550,10 @@ static int mmenu_internal(const char *const *options, int n_options,
 
     setlocale(LC_ALL, "");
 
+    if (config && config->height < 0) {
+        fprintf(stderr, "mmenu: height must be zero or a positive number of rows\n");
+        return -1;
+    }
     if (config) {
         const wint_t keys[] = {config->key_up, config->key_down,
                                config->key_accept, config->key_cancel,
@@ -1829,6 +1834,8 @@ static int mmenu_internal(const char *const *options, int n_options,
     printw("%s%ls", prompt_str, input); clrtoeol();
     mmenu_position_query_cursor(prompt_columns, input_len, menu_cols);
     int visible = rows - 1;
+    if (config && config->height > 0 && visible > config->height)
+        visible = config->height;
     for (int v = 0; v < visible && top + v < filtered.count; v++) {
         int fidx = top + v;
         int oidx = filtered.indices[fidx];
@@ -2228,6 +2235,8 @@ static int mmenu_internal(const char *const *options, int n_options,
 
         /* Scroll */
         visible = rows - 1;
+        if (config && config->height > 0 && visible > config->height)
+            visible = config->height;
         if (filtered.count > 0) {
             if (selection < top) top = selection;
             else if (selection >= top + visible) top = selection - visible + 1;

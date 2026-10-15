@@ -662,10 +662,15 @@ fi
 # Reverse prompt places the query below the list and keeps logical selection order.
 printf 'beta\n' > "$TmpDir/expected"
 if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
-     TERM=xterm timeout 5s script -q -e -c "$Bin --reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--reverse CLI test should exit cleanly'
 else
     CheckEqual '--reverse preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse positions the query row at the bottom of the terminal'
+    else
+        Fail '--reverse did not position the query row at the bottom of the terminal'
+    fi
 fi
 if "$Bin" --reverse --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
     Fail '--reverse must be rejected with batch filtering'

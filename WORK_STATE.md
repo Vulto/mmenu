@@ -28,7 +28,7 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current action
 
-1. Agent 2 must review the latest exact PR head, including the filtered-query CLI regression and input-timing correction, and record approval only if no known defects remain.
+1. Agent 2 must review the latest exact PR head, including the filtered-query CLI regression and the stabilized incremental-realloc allocation-sweep input, and record approval only if no known defects remain.
 2. Confirm all required CI checks pass on that exact same head; do not merge on absent, pending, stale, or failed checks.
 3. Merge PR #51 only after exact-head QA and CI are both valid.
 4. After merge, continue with the highest-priority dependency-ready incomplete item in PLAN.md.
@@ -58,3 +58,5 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-15: Agent 2 reviewed PR #51 code/test head `bdaf65f2f2813671c3b296e743b17f1076cd2825`. CI run 38718350725 completed successfully with all four required jobs passing: GCC release, Clang release, GCC sanitizers, and Clang sanitizers. CLI, interactive C API, streaming, and allocation-failure regression steps passed where configured; conditional optional checks were skipped as configured. No confirmed source or test defect was found in the reviewed diff. This documentation-only update to PLAN.md and WORK_STATE.md changes the PR head, so the new head requires fresh CI and QA. No local test execution is claimed; no QA marker or merge is authorized for the new head.
 
 - 2026-10-15: CI run 38719928231 passed all four required GCC/Clang release and sanitizer jobs on exact pre-change head `efefc3bc2529996c10fa782262a3f21bfd1b68c7`. Added a CLI regression that verifies `--cycle` wraps within the filtered results when `--query` is active, and updated the plan/handoff. The new head requires fresh exact-head CI and QA. No local test execution is claimed.
+
+- 2026-10-15: CI run 38724852069 failed only in the GCC sanitizer exhaustive allocation-failure sweep: allocation 54 was not reached in the `incremental-realloc` API scenario. The other three required matrix jobs passed, and CLI, interactive C API, and streaming suites passed. Stabilized that scenario's PTY input by waiting for initialization and spacing the query/backspace/accept keys in `tests/allocation-sweep.sh`. This correction and handoff update require fresh exact-head CI and QA; no local test execution is claimed.

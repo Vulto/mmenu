@@ -14,6 +14,24 @@ GetAllocationCount() {
     sed -n 's/.*MMENU_ALLOC_CALLS=\([0-9][0-9]*\).*/\1/p' "$1" | tail -n 1
 }
 
+SendApiKeys() {
+    SendName=$1
+    SendSequence=$2
+    if [ "$SendName" = incremental-realloc ]; then
+        # Wait for the large interactive list to initialize, then space edits so
+        # the backspace reliably exercises the incremental-filter realloc path.
+        sleep 0.5
+        printf 'a' 2>/dev/null || :
+        sleep 0.05
+        printf '\177' 2>/dev/null || :
+        sleep 0.05
+        printf '\n' 2>/dev/null || :
+    else
+        sleep 0.2
+        printf '%b' "$SendSequence" 2>/dev/null || :
+    fi
+}
+
 Fail() {
     printf 'FAIL: %s\n' "$*" >&2
     exit 1
@@ -122,7 +140,7 @@ ProbeApi() {
     Name=$1
     Mode=$2
     Keys=$3
-    if ! { sleep 0.2; printf '%b' "$Keys" 2>/dev/null || :; } |
+    if ! { SendApiKeys "$Name" "$Keys"; } |
          MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 MMENU_SWEEP_API=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-probe.raw" 2> "$TmpDir/api-probe.err"; then
         Fail "API probe failed for $Name"
     fi
@@ -177,7 +195,7 @@ SweepApi() {
     [ "$Total" -gt 0 ] || Fail "API scenario $Name did not allocate"
     At=1
     while [ "$At" -le "$Total" ]; do
-        if ! { sleep 0.2; printf '%b' "$Keys" 2>/dev/null || :; } |
+        if ! { SendApiKeys "$Name" "$Keys"; } |
              MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 MMENU_SWEEP_API=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$ApiBin $Mode" /dev/null > "$TmpDir/api-raw" 2> "$TmpDir/api-error"; then
             Fail "API allocation failure $At in $Name terminated the harness"
         fi

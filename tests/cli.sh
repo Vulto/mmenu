@@ -648,8 +648,19 @@ else
     fi
 fi
 
-# Reverse-list keeps the query at the top and preserves logical selection order.
-printf 'beta\n' > "$TmpDir/expected"
+# Reverse-list keeps the query at the top and renders the first option at the bottom.
+printf 'beta\\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--reverse-list CLI test should exit cleanly'
+else
+    CheckEqual '--reverse-list preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse-list renders the first option on the bottom row'
+    else
+        Fail '--reverse-list did not render the first option on the bottom row'
+    fi
+fi
 if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--reverse-list CLI test should exit cleanly'

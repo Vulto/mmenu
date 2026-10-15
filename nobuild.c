@@ -44,8 +44,12 @@ int main(int argc, char **argv)
         PANIC("man page installation path is too long");
 
     CMD("sh", "-c",
-        "exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror "
-        "-D_DEFAULT_SOURCE -o \"$2\" main.c $(pkg-config --libs ncursesw)",
+        "flags=$(sh ./ncurses-link-flags.sh \"$1\") || exit 1; "
+        "case \"$flags\" in "
+        "-lncursesw) exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw ;; "
+        "-lncursesw\ -ltinfow) exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw -ltinfow ;; "
+        "-lncursesw\ -ltinfo) exec \"$1\" -std=c2x -O2 -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o \"$2\" main.c -lncursesw -ltinfo ;; "
+        "*) echo \"Unsupported ncursesw linker flags: $flags\" >&2; exit 1 ;; esac",
         "sh", compiler, output);
     CMD("mkdir", "-p", bin_dir, man_dir);
     CMD("install", "-m", "0755", output, binary_path);

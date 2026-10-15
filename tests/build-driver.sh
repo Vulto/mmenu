@@ -12,7 +12,7 @@ export CC
 
 mkdir -p "$TmpDir/prefix"
 (
-    cd "$Root"
+    cd "$Root" || exit 1
     PREFIX="$TmpDir/prefix" MMENU_BUILD_OUTPUT="$TmpDir/mmenu" "$TmpDir/nobuild"
 )
 

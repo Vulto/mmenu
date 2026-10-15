@@ -571,7 +571,6 @@ else
 fi
 # --cycle wraps navigation at both ends without changing the default behavior.
 printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
-printf 'alpha\n' > "$TmpDir/expected"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.
 printf 'café-日本語\n' > "$TmpDir/expected"
 if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |

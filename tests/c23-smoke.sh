@@ -6,8 +6,8 @@ mkdir -p build
 CompilerVersion=$("$CC" --version | sed -n '1p')
 Flags='-O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE'
 
-"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/mmenu-c23 main.c -lncursesw
-"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/api-test-c23 tests/apiHarness.c -lncursesw
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/mmenu-c23 main.c $(pkg-config --libs ncursesw)
+"$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -D_DEFAULT_SOURCE -o build/api-test-c23 tests/apiHarness.c $(pkg-config --libs ncursesw)
 
 {
     printf 'compiler=%s\n' "$CompilerVersion"

@@ -763,7 +763,7 @@ static void print_usage(FILE *out) {
         "and {query} are shell-quoted placeholders. Preview commands execute in the shell.\n"
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
-        "--height N or PCT% limits visible option rows (interactive only).\n"
+        "--height N or PCT%% limits visible option rows (interactive only).\n"
         "Enter emits selected records (or indexes with -t).\n"
         "The legacy second positional argument t or true, and -t, print zero-based indexes.\n"
         "Batch filter mode writes matching records (or indexes with -t).\n"

@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Concise `mmenu(1)` man page with practical interactive, batch, fuzzy, layout, and NUL-delimited examples.
+- `nobuild.c` build driver that installs `mmenu` and its man page without invoking privilege escalation; supports `PREFIX` and `MMENU_BUILD_OUTPUT`.
 - Interactive `--layout MODE` and `--layout=MODE` select the default, reverse-prompt, or reverse-list layout.
 - Interactive `--reverse` layout places the query row at the bottom and draws options above it.
 - Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.

@@ -366,7 +366,7 @@ int main(int argc, char **argv)
         if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {.height = 2};
         int result = mmenuConfigured(options, count, prompt, 0, &config);
-        printf("MMENU_RESULT=%d\\n", result);
+        printf("MMENU_RESULT=%d\n", result);
         return 0;
     }
     if (argc > 1 && strcmp(argv[1], "resize-preview") == 0) {

@@ -357,6 +357,11 @@ int main(int argc, char **argv)
         if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "invalid-config-height-conflict") == 0) {
+        mmenu_config config = {.height = 2, .height_percent = 50};
+        if (mmenuConfigured(options, count, prompt, 0, &config) != -1) return 1;
+        puts("MMENU_API_RESULT=invalid-rejected");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "invalid-config-query") == 0) {
         char long_query[130];
         memset(long_query, 'x', sizeof(long_query) - 1);

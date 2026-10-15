@@ -684,7 +684,7 @@ else
     fi
 fi
 if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
-     TERM=xterm timeout 5s script -q -e -c "$Bin --layout reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --layout reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--layout reverse CLI test should exit cleanly'
 else
     CheckEqual '--layout reverse selects reverse-prompt behavior' "$TmpDir/expected" "$TmpDir/selected"

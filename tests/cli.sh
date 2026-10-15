@@ -574,14 +574,14 @@ printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
 printf 'alpha\n' > "$TmpDir/expected"
 # Without --cycle, Down navigation must stay on the last option instead of wrapping.
 printf 'café-日本語\n' > "$TmpDir/expected"
-if ! { sleep 0.2; printf '%s%s%s%s\n' "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)"; } |
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail 'default bounded Down CLI test should exit cleanly'
 else
     CheckEqual 'default navigation stays on the last option after repeated Down presses' "$TmpDir/expected" "$TmpDir/selected"
 fi
 printf 'alpha\n' > "$TmpDir/expected"
-if ! { sleep 0.2; printf '%s%s%s%s\n' "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)" "$(TERM=xterm tput kcud1)"; } |
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
      TERM=xterm timeout 5s script -q -e -c "$Bin --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
     Fail '--cycle down-wrap CLI test should exit cleanly'
 else

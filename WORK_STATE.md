@@ -27,7 +27,7 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 
 ## Current action
 
-1. Agent 2 must review the latest exact PR head after the CLI expected-output correction and record approval only if no known defects remain.
+1. Agent 2 must review the latest exact PR head after the CLI input-timing correction and record approval only if no known defects remain.
 2. Confirm all required CI checks pass on that exact same head; do not merge on absent, pending, stale, or failed checks.
 3. Merge PR #51 only after exact-head QA and CI are both valid.
 4. After merge, continue with the highest-priority dependency-ready incomplete item in PLAN.md.
@@ -49,3 +49,5 @@ This file records verified handoff state. GitHub branch/PR state and CI remain a
 - 2026-10-15: Added explicit CLI coverage for bounded Down navigation without `--cycle` on `m3-cycle-navigation`. This commit requires fresh exact-head CI and QA; no local test execution is claimed.
 
 - 2026-10-15: CI run 38696684577 failed the CLI regression suite in all four matrix jobs. Job logs show the new bounded-navigation assertion passed, but the following `--cycle` Down-wrap assertion expected `café-日本語` while the program correctly emitted `alpha` after four Down presses. Corrected `tests/cli.sh` to reset the expected output to `alpha` before the wrap test. Local execution remains unavailable because the environment cannot resolve `github.com`; fresh CI and QA are required for the resulting commit.
+
+- 2026-10-15: CI run 38702730675 passed the CLI regression suite on GCC release and both sanitizer jobs, but Clang release failed the Down-wrap CLI assertion: the four-arrow burst selected the last option instead of wrapping. The bounded-navigation assertion passed; C API cycle tests and Up-wrap passed. Updated both Down-navigation PTY cases to deliver arrow sequences with spacing and a longer initialization delay, then send Enter separately. This test-harness correction requires fresh CI and QA. No local test execution is claimed.

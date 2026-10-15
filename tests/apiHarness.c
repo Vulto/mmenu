@@ -392,7 +392,7 @@ int main(int argc, char **argv)
             .cycle = 1
         };
         int result = mmenuConfigured(options, count, prompt, 0, &config);
-        printf("MMENU_PREVIEW_CALLS=%d\\n", preview_calls);
+        printf("MMENU_PREVIEW_CALLS=%d\n", preview_calls);
         printf("MMENU_RESULT=%d\\n", result);
         return 0;
     }

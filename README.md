@@ -15,8 +15,9 @@ mmenu [PROMPT] [t|true] [-t] [--multi] [--query QUERY] [--preview COMMAND] [--bi
 
 The selected line is printed by default. `--query QUERY` pre-fills and applies an initial
 interactive query. `--height N` limits the interactive option list to a fixed positive number
-of visible rows; the input row remains separate, and zero/omitted height uses the available
-terminal rows. Percentage, automatic, and inverted height modes are not implemented. `--preview COMMAND` opens a side pane and synchronously runs the command
+of visible rows; `--height PCT%` uses that percentage (1–100%) of available option rows. The
+input row remains separate. Omitted height uses the available terminal rows; automatic and
+inverted height modes are not implemented. `--preview COMMAND` opens a side pane and synchronously runs the command
 for the highlighted record whenever the selection or query changes. The command output is
 clipped to the pane. `{}`, `{index}`, and `{query}` are replaced by shell-quoted values for
 the selected record, its original zero-based input index, and the current query. The command

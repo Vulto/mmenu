@@ -393,7 +393,7 @@ int main(int argc, char **argv)
         };
         int result = mmenuConfigured(options, count, prompt, 0, &config);
         printf("MMENU_PREVIEW_CALLS=%d\n", preview_calls);
-        printf("MMENU_RESULT=%d\\n", result);
+        printf("MMENU_RESULT=%d\n", result);
         return 0;
     }
     if (argc > 1 && strcmp(argv[1], "preview-callback") == 0) {

@@ -54,9 +54,9 @@ int main(void) {
     return 0;
 }
 EOF
+# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
 "$CC" -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror \
     -D_DEFAULT_SOURCE -I "$Root" -o "$TmpDir/public-api" \
-# shellcheck disable=SC2086 # NCURSES_LIBS intentionally contains multiple linker arguments.
     "$TmpDir/public-api.c" $NCURSES_LIBS
 Pass 'standalone public-header/API consumer build'
 

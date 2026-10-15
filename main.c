@@ -764,6 +764,7 @@ static void print_usage(FILE *out) {
         "--bind-up/down/accept/cancel/toggle/backspace KEY adds a printable ASCII key alias.\n"
         "Use --multi for Tab toggling; --cycle wraps navigation at either end.\n"
         "--height N or PCT%% limits visible option rows (interactive only).\n"
+        "--layout MODE (or --layout=MODE) selects default, reverse, or reverse-list (interactive only).\n"
         "--reverse-list renders the first result at the bottom while keeping the query at the top.\n"
         "--reverse places the query at the bottom and options above it.\n"
         "Enter emits selected records (or indexes with -t).\n"
@@ -902,6 +903,7 @@ int main(int argc, char **argv) {
     int multi_mode = 0;
     int cycle_mode = 0;
     int height_seen = 0;
+    int layout_seen = 0;
     int reverse_list_seen = 0;
     int reverse_prompt_seen = 0;
     const char *initial_query = NULL;
@@ -998,14 +1000,43 @@ int main(int argc, char **argv) {
             cycle_mode = 1;
             continue;
         }
+        if (!strcmp(arg, "--layout") || !strncmp(arg, "--layout=", 9)) {
+            if (layout_seen) return argument_error("--layout may only be specified once");
+            if (reverse_list_seen || reverse_prompt_seen)
+                return argument_error("--layout cannot be combined with --reverse or --reverse-list");
+            const char *layout;
+            if (!strcmp(arg, "--layout")) {
+                if (i + 1 >= argc)
+                    return argument_error("--layout requires default, reverse, or reverse-list");
+                layout = argv[++i];
+            } else {
+                layout = arg + 9;
+            }
+            if (!strcmp(layout, "default")) {
+                menu_config.reverse_list = 0;
+                menu_config.reverse_prompt = 0;
+            } else if (!strcmp(layout, "reverse")) {
+                menu_config.reverse_prompt = 1;
+            } else if (!strcmp(layout, "reverse-list")) {
+                menu_config.reverse_list = 1;
+            } else {
+                return argument_error("--layout must be default, reverse, or reverse-list");
+            }
+            layout_seen = 1;
+            continue;
+        }
         if (!strcmp(arg, "--reverse-list")) {
             if (reverse_list_seen) return argument_error("--reverse-list may only be specified once");
+            if (reverse_prompt_seen || layout_seen)
+                return argument_error("--reverse-list cannot be combined with --reverse or --layout");
             menu_config.reverse_list = 1;
             reverse_list_seen = 1;
             continue;
         }
         if (!strcmp(arg, "--reverse")) {
             if (reverse_prompt_seen) return argument_error("--reverse may only be specified once");
+            if (reverse_list_seen || layout_seen)
+                return argument_error("--reverse cannot be combined with --reverse-list or --layout");
             menu_config.reverse_prompt = 1;
             reverse_prompt_seen = 1;
             continue;
@@ -1193,6 +1224,8 @@ int main(int argc, char **argv) {
         return argument_error("--disabled is only available in interactive mode");
     if (height_seen && filter_seen)
         return argument_error("--height is only available in interactive mode");
+    if (layout_seen && filter_seen)
+        return argument_error("--layout is only available in interactive mode");
     if (reverse_list_seen && filter_seen)
         return argument_error("--reverse-list is only available in interactive mode");
     if (reverse_prompt_seen && filter_seen)

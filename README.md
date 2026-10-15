@@ -18,7 +18,7 @@ interactive query. `--height N` limits the interactive option list to a fixed po
 of visible rows; `--height PCT%` uses that percentage (1–100%) of available option rows. The
 input row remains separate. Omitted height uses the available terminal rows; automatic and
 inverted height modes are not implemented. `--reverse-list` renders the first result at the bottom
-of the option list while keeping the query at the top; selection and output indexes remain in input order. `--reverse` moves the query row to the bottom and draws the options above it.
+of the option list while keeping the query at the top; selection and output indexes remain in input order. `--reverse` moves the query row to the bottom and draws the options above it. `--layout MODE` (also `--layout=MODE`) selects `default`, `reverse`, or `reverse-list`; it is interactive-only and cannot be combined with either shorthand flag. The `--reverse` and `--reverse-list` flags are mutually exclusive.
 `--preview COMMAND` opens a side pane and synchronously runs the command
 for the highlighted record whenever the selection or query changes. The command output is
 clipped to the pane. `{}`, `{index}`, and `{query}` are replaced by shell-quoted values for

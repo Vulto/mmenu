@@ -1578,6 +1578,10 @@ static int mmenu_internal(const char *const *options, int n_options,
         fprintf(stderr, "mmenu: invalid height configuration; use rows or a percentage from 1 to 100, not both\n");
         return -1;
     }
+    if (config && config->reverse_list && config->reverse_prompt) {
+        fprintf(stderr, "mmenu: reverse_list and reverse_prompt layouts are mutually exclusive\n");
+        return -1;
+    }
     if (config) {
         const wint_t keys[] = {config->key_up, config->key_down,
                                config->key_accept, config->key_cancel,

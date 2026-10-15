@@ -77,7 +77,7 @@ typedef const char *(*mmenu_display_text_callback)(const char *option, int index
 
 /* Zero-initialize this structure before setting optional fields. Optional
    query, key aliases, preview, input-stream, searchable/display-text callbacks,
-   fuzzy tie-breaking, cyclic navigation, and visible row limits are configured here.
+   fuzzy tie-breaking, cyclic navigation, visible row limits, and layout direction are configured here.
    Zero-valued key fields preserve built-in keys; cycle == 0 preserves bounded navigation.
    Each callback userdata pointer is passed through unchanged. */
 typedef struct {

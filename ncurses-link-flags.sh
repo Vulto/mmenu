@@ -1,5 +1,5 @@
 #!/bin/sh
-# Print portable ncursesw linker flags without requiring pkg-config.
+# Probe portable ncursesw and terminfo linker flags.
 set -eu
 CC=${1:-${CC:-cc}}
 TmpDir=$(mktemp -d)

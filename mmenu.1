@@ -1,0 +1,220 @@
+.TH MMENU 1 "October 2026" "mmenu" "User Commands"
+.SH NAME
+mmenu \- interactive terminal menu and batch filter
+.SH SYNOPSIS
+.B mmenu
+.RI [ PROMPT ]
+.RI [ OPTIONS ]
+.br
+.B mmenu
+.BR --filter " " QUERY
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+.B mmenu
+reads newline-delimited options from standard input. Interactive mode lets the
+user search and select an option; the selected record is written to standard
+output. Batch filtering with
+.B --filter
+prints matching records without opening a terminal.
+.PP
+Interactive mode can display records while input is still arriving. Matching is
+ASCII-case-insensitive by default. The selected record is printed unless
+.B -t
+requests its zero-based input index.
+.SH OPTIONS
+.TP
+.BR -h ", " --help
+Print usage information and exit.
+.TP
+.BR -f " " QUERY ", " --filter " " QUERY
+Filter all input records without opening the interactive menu. Also accepts
+.B --filter=QUERY.
+.TP
+.B --fuzzy
+Match query characters as an ordered subsequence and rank matches by score.
+.TP
+.B --exact
+Match complete records byte-for-byte, case-sensitively.
+.TP
+.BR -x ", " --extended
+Enable query expressions: whitespace-separated AND terms, | for OR groups,
+! for inverse terms, a leading apostrophe for contiguous terms, ^ for prefixes,
+and $ for suffixes.
+.TP
+.BR -i ", " --ignore-case
+Use ASCII-case-insensitive matching (the default).
+.TP
+.BR +i ", " --no-ignore-case
+Use ASCII-case-sensitive matching.
+.TP
+.B --smart-case
+Ignore case unless the query contains an ASCII uppercase letter.
+.TP
+.BR -v ", " --invert-match
+In batch mode, print records that do not match. Requires
+.BR --filter .
+.TP
+.B --no-sort
+With
+.BR --fuzzy ,
+preserve input order instead of ranking matches.
+.TP
+.B --tiebreak=KEYS
+Order equal-score fuzzy matches by comma-separated keys: length, begin, end,
+chunk, pathname, and index. Requires
+.BR --fuzzy .
+.TP
+.B --multi
+Enable multi-selection. Tab toggles an option; Enter prints selected records
+in original input order. If none were toggled, Enter selects the current option.
+.TP
+.B --cycle
+Wrap Up/Down navigation at either end of the result list.
+.TP
+.B --disabled
+Keep all options visible while editing the query.
+.TP
+.B --query QUERY
+Prefill the interactive query.
+.TP
+.B --layout MODE
+Set the interactive layout to
+.BR default ,
+.BR reverse ,
+or
+.BR reverse-list .
+The latter keeps the query at the top and puts the first option at the bottom.
+.TP
+.B --reverse
+Place the query row at the bottom. Alias for
+.BR --layout=reverse .
+.TP
+.B --reverse-list
+Keep the query at the top and render the first option at the bottom. Alias for
+.BR --layout=reverse-list .
+.TP
+.B --height N
+Limit the interactive option list to N rows.
+.TP
+.B --height PCT%
+Use the specified percentage (1–100) of available option rows.
+.TP
+.B --preview COMMAND
+Show command output for the highlighted record. The placeholders
+.BR {} ,
+.BR {index} ,
+and
+.B {query}
+expand to the selected record, its zero-based input index, and the query.
+Placeholder values are shell-quoted, but the command itself is executed by the
+shell. Use only trusted commands.
+.TP
+.B --read0
+Read NUL-delimited input records instead of newline-delimited records.
+.TP
+.B --print0
+Terminate output records with NUL instead of newline.
+.TP
+.B -t
+Print zero-based indexes instead of records. In interactive mode, the legacy
+second positional argument
+.B t
+or
+.B true
+has the same effect.
+.TP
+.B --nth SPEC
+Search only the selected 1-based fields or ranges, such as
+.BR 1,3 ,
+.BR 2..4 ,
+or
+.BR 1,-1 .
+.TP
+.B --with-nth SPEC
+Display only selected fields in interactive mode while preserving original
+records for output.
+.TP
+.B --accept-nth SPEC
+Output only selected fields from accepted records.
+.TP
+.BR -d " " REGEX ", " --delimiter " " REGEX
+Split fields using a POSIX extended regular expression. Requires
+.BR --nth ,
+.BR --with-nth ,
+or
+.BR --accept-nth .
+The expression must not match an empty string.
+.TP
+.B --format FORMAT
+In batch mode, expand
+.B {}
+to the record,
+.B {index}
+to its original zero-based index, and
+.B {query}
+to the query. Requires
+.BR --filter ;
+cannot be combined with
+.BR -t .
+.TP
+.B --bind-up KEY
+.TQ
+.B --bind-down KEY
+.TQ
+.B --bind-accept KEY
+.TQ
+.B --bind-cancel KEY
+.TQ
+.B --bind-toggle KEY
+.TQ
+.B --bind-backspace KEY
+Add a printable ASCII key alias for the specified action. Use
+.B space
+for the Space key. Toggle binding requires
+.BR --multi .
+.SH EXAMPLES
+Select a file and open it with less:
+.PP
+.nf
+find . -type f | mmenu "Open: " | xargs -d '\\n' -r less
+.fi
+.PP
+Print matching C files:
+.PP
+.nf
+find . -type f | mmenu --filter .c
+.fi
+.PP
+Use fuzzy matching with a prefilled query and reverse-list layout:
+.PP
+.nf
+find . -type f | mmenu --fuzzy --query main --layout reverse-list
+.fi
+.PP
+Print the indexes of matching records:
+.PP
+.nf
+mmenu --filter needle -t < files.txt
+.fi
+.PP
+Filter NUL-delimited records and preserve NUL output:
+.PP
+.nf
+printf 'alpha\\0beta\\0' | mmenu --read0 --filter beta --print0
+.fi
+.PP
+Show file information for the highlighted record:
+.PP
+.nf
+find . -type f | mmenu --preview 'file {}'
+.fi
+.SH EXIT STATUS
+Returns zero on successful completion. Invalid command-line arguments and
+runtime errors return a nonzero status.
+.SH NOTES
+Requires a C compiler and the wide-character ncurses library at build time.
+Preview commands execute through the shell; do not pass untrusted command text.
+.SH SEE ALSO
+.BR fzf (1),
+.BR grep (1),
+.BR find (1)

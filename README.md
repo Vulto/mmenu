@@ -97,9 +97,18 @@ cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
 ./mmenu --help
 ```
 
-The build creates a local `mmenu` executable; generated binaries and object files are
-not committed. The documented `nobuild.c` driver is not present in this repository, and
-the standalone menu does not require `nobuild.h` to compile.
+The `nobuild.c` driver builds `mmenu`, then installs the binary and man page.
+Its default prefix is `/usr/local`; installation runs directly as the current user and
+does not invoke `sudo` or `doas`. The user must already have write permission to the
+destination. To install under your home directory instead:
+
+```sh
+cc -std=c2x -Wall -Wextra -Wpedantic -Werror -o nobuild nobuild.c
+PREFIX="$HOME/.local" ./nobuild
+```
+
+This installs the executable to `$PREFIX/bin/mmenu` and the man page to
+`$PREFIX/share/man/man1/mmenu.1`. Generated binaries and object files are not committed.
 
 ## Performance and ranking baselines
 

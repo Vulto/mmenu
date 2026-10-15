@@ -183,6 +183,7 @@ CheckMultiSelection 'multi-select cancellation returns no selections' '-1' '\003
 CheckSelection 'Down arrow moves selection to the second option' 1 "$(TERM=xterm tput kcud1)\n"
 UpKey=$(TERM=xterm tput kcuu1)
 CheckSelection 'configured C API cycle wraps Down across filtered results' 0 "$(printf '%s%s%s' "$DownKey" "$DownKey" "$DownKey")\\n" cycle
+CheckSelection 'single-result cyclic navigation does not rerun preview' 2 "$(printf '%s%s' "$UpKey" "$DownKey")\\\\n" cycle-preview-single 'MMENU_PREVIEW_CALLS=1'
 CheckSelection 'configured C API cycle wraps Up across filtered results' 3 "$UpKey\\n" cycle
 CheckSelection 'configured C API default does not wrap Up at the first result' 0 "$UpKey\\n" cycle-default
 CheckSelection 'configured C API cycle handles an empty filtered result safely' -1 "$(printf '%s%s' "$UpKey" "$DownKey")\\n" cycle-empty

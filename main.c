@@ -1005,7 +1005,7 @@ int main(int argc, char **argv) {
         if (!strncmp(arg, "--height=", 9)) {
             if (height_seen) return argument_error("--height may only be specified once");
             if (!parse_height_value(arg + 9, &menu_config.height, &menu_config.height_percent))
-                return argument_error("--height requires a positive integer row count");
+                return argument_error("--height requires a positive row count or a percentage from 1 to 100%");
             height_seen = 1;
             continue;
         }

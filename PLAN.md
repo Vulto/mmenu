@@ -469,12 +469,20 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Document the implemented fixed-row subset and keep percentage, automatic, and inverted height modes explicitly incomplete.
 - [x] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge (PR #52; CI run 38771951888 passed all four matrix jobs; merged as `c8ba971537f54dadb54bd17461712e0a5f0d8ca2`).
 
-### M3b — Percentage interactive height
+### M3b — Percentage interactive height (complete)
 
-- [ ] Support `--height PCT%` with an integer percentage from 1 to 100, calculated from available option rows.
-- [ ] Add `mmenu_config.height_percent`; zero preserves default sizing, invalid percentages and simultaneous fixed/percentage settings are rejected.
-- [ ] Test percentage sizing, invalid percentages, and C API validation under constrained pseudo-terminal dimensions.
-- [ ] Document percentage support while keeping automatic and inverted height modes explicitly incomplete.
+- [x] Support `--height PCT%` with an integer percentage from 1 to 100, calculated from available option rows.
+- [x] Add `mmenu_config.height_percent`; zero preserves default sizing, invalid percentages and simultaneous fixed/percentage settings are rejected.
+- [x] Test percentage sizing, invalid percentages, and C API validation under constrained pseudo-terminal dimensions.
+- [x] Document percentage support while keeping automatic and inverted height modes explicitly incomplete.
+- [x] Pass all required GCC/Clang release and sanitizer CI jobs on exact PR head `c014ae228eb6b423974d03be0353ca76e3e0416c` (CI run 38774063925 passed all four matrix jobs; merged PR #53 as `227bcbc7a8c451273a79b658f76d3fd9df55cde8`).
+
+### M3c — Reverse-list layout
+
+- [ ] Add opt-in `--reverse-list` and additive `mmenu_config.reverse_list`; keep the query row at the top and render the first result at the bottom.
+- [ ] Preserve logical selection order, scrolling, preview behavior, and default layout.
+- [ ] Add CLI and PTY/API regressions for row order, selection movement, and default layout.
+- [ ] Document the reverse-list subset while leaving full `--layout`/reverse-prompt modes incomplete.
 - [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
 
 ## Measurement notes

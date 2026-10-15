@@ -1990,7 +1990,8 @@ static int mmenu_internal(const char *const *options, int n_options,
             if (selection > 0) {
                 selection--;
                 preview_dirty = 1;
-            } else if (config && config->cycle && filtered.count > 0) {
+            } else if (config && config->cycle && filtered.count > 0 &&
+                       selection != filtered.count - 1) {
                 selection = filtered.count - 1;
                 preview_dirty = 1;
             }
@@ -1998,7 +1999,7 @@ static int mmenu_internal(const char *const *options, int n_options,
             if (selection < filtered.count - 1) {
                 selection++;
                 preview_dirty = 1;
-            } else if (config && config->cycle && filtered.count > 0) {
+            } else if (config && config->cycle && filtered.count > 0 && selection != 0) {
                 selection = 0;
                 preview_dirty = 1;
             }

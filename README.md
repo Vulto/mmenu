@@ -172,5 +172,5 @@ The original substring behavior remains the default for backward compatibility. 
 - [Changelog](CHANGELOG.md)
 
 ## Notes
-- Requires ncursesw (`-lncursesw` when linking the C API).
+- Requires the wide-character ncurses library and `pkg-config` at build time. Use `$(pkg-config --libs ncursesw)` when linking; the returned flags include the platform-specific terminfo library (for example, `-ltinfo` or `-ltinfow`).
 - For best results with truly enormous inputs, ensure you have enough RAM (the tool buffers everything, as it must present a live menu).

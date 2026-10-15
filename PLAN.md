@@ -97,7 +97,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Header/footer label positioning — missing.
 - [ ] Multi-selection limit (--multi[=MAX]) — partial — unlimited multi-select exists; limits do not.
 - [ ] Highlight selected/current line (--highlight-line) — missing.
-- [ ] Cursor wrapping (--cycle) — missing.
+- [ ] Cursor wrapping (--cycle) — CLI wraparound, filtered-query, batch-validation, and PTY/C API regressions are on branch `m3-cycle-navigation`. The bounded-navigation CLI regression verifies repeated Down presses remain on the last option without `--cycle`; the C API suite also covers bounded navigation. CI run 38727535977 passed all four required GCC/Clang release and sanitizer jobs on code/test head `cca5d932bbe89fb3da688acaad6add185e2cb25e`; CLI, interactive C API, streaming, and applicable allocation-failure regression steps passed, while conditional optional steps were skipped where configured. This result does not validate later commits; keep unchecked until the exact current PR head has passing required CI, a matching QA marker, and is merged.
 - [ ] Multiline wrapping modes and wrap signs (--wrap, --wrap-sign, --no-multi-line) — missing.
 - [ ] Raw mode (--raw) — missing.
 - [ ] Gap between list entries (--gap, --gap-line) — missing.

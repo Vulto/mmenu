@@ -34,6 +34,19 @@ static int test_preview_callback(const char *option, int index,
     return result < 0 ? -1 : 0;
 }
 
+
+static int test_count_preview_callback(const char *option, int index,
+                                       const wchar_t *query, char *output,
+                                       size_t output_size, void *userdata) {
+    int *calls = userdata;
+    (void)option;
+    (void)index;
+    (void)query;
+    (*calls)++;
+    int result = snprintf(output, output_size, "preview-call-count");
+    return result < 0 ? -1 : 0;
+}
+
 static int test_long_preview_callback(const char *option, int index,
                                       const wchar_t *query, char *output,
                                       size_t output_size, void *userdata) {
@@ -149,6 +162,20 @@ int main(int argc, char **argv)
         if (result != -1) return 1;
         puts("MMENU_API_RESULT=invalid-rejected");
         return 0;
+    }
+
+    if (argc > 1 &&
+        (strcmp(argv[1], "cycle") == 0 ||
+         strcmp(argv[1], "cycle-default") == 0 ||
+         strcmp(argv[1], "cycle-empty") == 0)) {
+        mmenu_config config = {0};
+        config.initial_query = strcmp(argv[1], "cycle-empty") == 0
+                                   ? "no-such-option" : "a";
+        config.cycle = strcmp(argv[1], "cycle") == 0 ||
+                       strcmp(argv[1], "cycle-empty") == 0;
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return result < -1 ? 1 : 0;
     }
 
     pid_t resize_child = -1;
@@ -353,6 +380,19 @@ int main(int argc, char **argv)
             .preview = test_wide_preview_callback
         };
         int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "cycle-preview-single") == 0) {
+        int preview_calls = 0;
+        mmenu_config config = {
+            .initial_query = "needle",
+            .preview = test_count_preview_callback,
+            .preview_userdata = &preview_calls,
+            .cycle = 1
+        };
+        int result = mmenuConfigured(options, count, prompt, 0, &config);
+        printf("MMENU_PREVIEW_CALLS=%d\n", preview_calls);
         printf("MMENU_RESULT=%d\n", result);
         return 0;
     }

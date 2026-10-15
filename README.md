@@ -118,6 +118,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--no-sort`: with `--fuzzy`, keep matching records in original input order instead of ranking by score in both interactive and batch modes; requires `--fuzzy`.
 - `--tiebreak=KEYS`: order equal-score fuzzy matches using a comma-separated list of `length`, `begin`, `end`, `index`, `chunk`, and `pathname`. Input index is appended as a stable fallback when omitted; requires `--fuzzy`.
 - `--disabled`: interactive-only; keep all options visible regardless of the current query.
+- `--cycle`: interactive-only; Up/Down wraps between the first and last filtered results instead of stopping at either end.
 - `--nth SPEC`: search only the selected 1-based fields or ranges (for example `1,3`, `2..4`, or `1,-1`). Matching uses the selected fields joined by spaces, while display and output preserve the original record.
 - `--with-nth SPEC`: display only the selected fields in interactive mode; selection and output still refer to the original record. Batch-filter mode rejects it because there is no interactive display.
 - `--accept-nth SPEC`: output only the selected fields from each accepted record. This is independent of `--nth`; field projections share the same `--delimiter`/`-d` regular expression. It cannot be combined with `--index` or `--format.

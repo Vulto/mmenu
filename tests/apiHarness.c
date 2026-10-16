@@ -252,6 +252,29 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 &&
+        (strcmp(argv[1], "extended-escaped-space-and") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-prefix") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-suffix") == 0)) {
+        const char *and_options[] = {"foo baz bar", "foo bar baz", "bar foo baz"};
+        const char *prefix_options[] = {"foo baz bar", "foo bar baz", "bar foo bar"};
+        const char *suffix_options[] = {"foo bar baz", "qux foo bar", "foo baz bar"};
+        const char *const *extended_options = and_options;
+        const char *query = "foo\\ bar baz";
+        if (strcmp(argv[1], "extended-escaped-space-prefix") == 0) {
+            extended_options = prefix_options;
+            query = "^foo\\ bar";
+        } else if (strcmp(argv[1], "extended-escaped-space-suffix") == 0) {
+            extended_options = suffix_options;
+            query = "foo\\ bar$";
+        }
+        mmenu_config config = {.initial_query = query};
+        int result = mmenuConfigured(extended_options, 3, prompt,
+                                     MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "stream") == 0) {
         const char *stream_records[] = {"alpha", "needle", "other"};
         stream_fixture_t stream = {

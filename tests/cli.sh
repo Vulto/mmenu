@@ -84,7 +84,10 @@ CheckEqual 'escaped-space suffix terms match the complete suffix' "$TmpDir/expec
 
 printf 'foo bar\nfoo bar baz\nx foo bar\n' > "$TmpDir/input"
 printf 'foo bar\n' > "$TmpDir/expected"
-"$Bin" --extended --filter '^foo\\ bar# Inverse and quoted terms must unescape spaces before matching.
+"$Bin" --extended --filter '^foo\ bar$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space term composes with both prefix and suffix anchors' "$TmpDir/expected" "$TmpDir/actual"
+
+# Inverse and quoted terms must unescape spaces before matching.
 printf 'foo bar baz\nfoo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/input"
 printf 'foo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/expected"
 "$Bin" --extended --filter '!foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"

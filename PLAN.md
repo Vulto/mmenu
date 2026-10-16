@@ -43,7 +43,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### Input, streaming, and output
 
-- [ ] Interactive incremental streaming input; show and update results before stdin closes — partial — an additive callback and nonblocking CLI reader are implemented; acceptance validation is pending.
+- [ ] Interactive incremental streaming input; show and update results before stdin closes — partial — an additive callback and nonblocking CLI reader are implemented; a streaming C API regression now covers escaped-space AND matching, while overall acceptance validation remains pending.
 - [ ] Keep arena/slab allocation for streaming input without per-record allocation — partial — streamed record bytes use the existing arena; one reusable record buffer grows only as needed.
 - [ ] NUL-delimited input (--read0) — present — existing CLI option and regression coverage.
 - [ ] NUL-delimited output (--print0) — present — existing CLI option and regression coverage.

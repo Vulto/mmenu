@@ -4,9 +4,9 @@ GitHub branch, pull-request, review, and CI state are authoritative. Do not clai
 
 ## Current focus
 
-- Extended-query escaped-space parsing on m2-extended-escaped-spaces.
-- CLI and interactive C API regressions cover escaped-space terms and OR groups; README and changelog document the syntax.
-- Local tests were not run in this environment. Validate the complete regression suite through exact-head CI before accepting the change.
+- Extended-query escaped-space parsing on m2-extended-escaped-spaces; added a streaming C API regression for escaped-space AND matching.
+- CLI and interactive C API regressions cover escaped-space terms and OR groups; README, changelog, and man page document the syntax.
+- Local tests remain unavailable because GitHub DNS resolution fails in this environment; validate the complete suite through exact-head CI before accepting the change.
 
 ## Validation requirements
 

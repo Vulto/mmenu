@@ -53,18 +53,21 @@ CheckSelection() {
 }
 
 CheckStreamApi() {
+    Name=$1
+    Mode=$2
+    Expected=$3
     if ! { sleep 0.5; printf '\n'; } |
-         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin stream" /dev/null > "$TmpDir/stream-output" 2> "$TmpDir/stream-error"; then
-        printf 'FAIL: configured C API streaming callback did not exit cleanly\n' >&2
+         LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$Bin $Mode" /dev/null > "$TmpDir/stream-output" 2> "$TmpDir/stream-error"; then
+        printf 'FAIL: %s (streaming C API did not exit cleanly)\n' "$Name" >&2
         cat "$TmpDir/stream-error" >&2
         Failures=$((Failures + 1))
         return
     fi
     sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/stream-output" > "$TmpDir/stream-plain"
-    if grep -aFq 'MMENU_RESULT=1' "$TmpDir/stream-plain"; then
-        printf 'PASS: configured C API accepts asynchronously supplied records\n'
+    if grep -aFq "MMENU_RESULT=$Expected" "$TmpDir/stream-plain"; then
+        printf 'PASS: %s\n' "$Name"
     else
-        printf 'FAIL: configured C API did not filter streamed records correctly\n' >&2
+        printf 'FAIL: %s (expected selection %s)\n' "$Name" "$Expected" >&2
         tail -c 2000 "$TmpDir/stream-output" | od -An -tx1c >&2
         Failures=$((Failures + 1))
     fi
@@ -475,7 +478,8 @@ CheckSelection 'escaped-space inverse terms work in the interactive C API' 1 '\n
 CheckSelection 'escaped-space quoted terms match contiguous text in the interactive C API' 0 '\n' extended-escaped-space-quoted
 CheckSelection 'escaped-space term preserves whitespace in fuzzy C API matching' 1 '\n' extended-escaped-space-fuzzy
 
-CheckStreamApi
+CheckStreamApi 'configured C API accepts asynchronously supplied records' stream 1
+CheckStreamApi 'escaped-space AND query filters streamed C API records' extended-escaped-space-stream 1
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s interactive regression check(s) failed.\n' "$Failures" >&2

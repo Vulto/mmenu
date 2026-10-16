@@ -316,6 +316,26 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 &&
+        strcmp(argv[1], "extended-escaped-space-stream") == 0) {
+        const char *stream_records[] = {
+            "foo baz bar", "foo bar baz", "bar foo baz"
+        };
+        stream_fixture_t stream = {
+            .records = stream_records,
+            .count = sizeof(stream_records) / sizeof(stream_records[0]),
+            .pending_once = 1
+        };
+        mmenu_config config = {
+            .initial_query = "foo\\ bar baz",
+            .stream_next = test_stream_next,
+            .stream_userdata = &stream
+        };
+        int result = mmenuConfigured(NULL, 0, prompt, MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "empty") == 0) {
         count = 0;
     } else if (argc > 1 && strcmp(argv[1], "null-empty") == 0) {

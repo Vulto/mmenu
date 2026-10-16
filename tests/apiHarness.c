@@ -292,10 +292,10 @@ int main(int argc, char **argv)
 
     if (argc > 1 && strcmp(argv[1], "extended-escaped-space-fuzzy") == 0) {
         const char *ExtendedOptions[] = {"foobar", "foo bar", "foo baz bar"};
-        mmenu_config Config = {.initial_query = "foo\\\\ bar"};
+        mmenu_config Config = {.initial_query = "foo\\ bar"};
         int Result = mmenuConfigured(ExtendedOptions, 3, prompt,
                                      MMENU_EXTENDED | MMENU_FUZZY, &Config);
-        printf("MMENU_RESULT=%d\\n", Result);
+        printf("MMENU_RESULT=%d\n", Result);
         return 0;
     }
 

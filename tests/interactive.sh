@@ -471,6 +471,8 @@ CheckSelection 'escaped spaces stay inside one interactive extended term' 1 '\n'
 CheckSelection 'escaped-space terms compose with AND in the interactive C API' 1 '\n' extended-escaped-space-and
 CheckSelection 'escaped-space prefix terms work in the interactive C API' 1 '\n' extended-escaped-space-prefix
 CheckSelection 'escaped-space suffix terms work in the interactive C API' 1 '\n' extended-escaped-space-suffix
+CheckSelection 'escaped-space inverse terms work in the interactive C API' 1 '\n' extended-escaped-space-inverse
+CheckSelection 'escaped-space quoted terms match contiguous text in the interactive C API' 0 '\n' extended-escaped-space-quoted
 
 CheckStreamApi
 

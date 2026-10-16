@@ -275,6 +275,21 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 &&
+        (strcmp(argv[1], "extended-escaped-space-inverse") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-quoted") == 0)) {
+        const char *ExtendedOptions[] = {
+            "foo bar baz", "foo baz bar", "bar foo baz", "foo qux"
+        };
+        const char *Query = strcmp(argv[1], "extended-escaped-space-inverse") == 0
+                                ? "!foo\\ bar" : "'foo\\ bar";
+        mmenu_config Config = {.initial_query = Query};
+        int Result = mmenuConfigured(ExtendedOptions, 4, prompt,
+                                     MMENU_EXTENDED, &Config);
+        printf("MMENU_RESULT=%d\n", Result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "stream") == 0) {
         const char *stream_records[] = {"alpha", "needle", "other"};
         stream_fixture_t stream = {

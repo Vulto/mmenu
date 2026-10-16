@@ -81,6 +81,981 @@ printf 'foo bar baz\nqux foo bar\nfoo baz bar\n' > "$TmpDir/input"
 printf 'qux foo bar\n' > "$TmpDir/expected"
 "$Bin" --extended --filter 'foo\ bar$' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'escaped-space suffix terms match the complete suffix' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'foo bar\nfoo bar baz\nx foo bar\n' > "$TmpDir/input"
+printf 'foo bar\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^foo\\ bar# Inverse and quoted terms must unescape spaces before matching.
+printf 'foo bar baz\nfoo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/input"
+printf 'foo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '!foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space inverse term excludes contiguous phrase' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "'foo\ bar" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space quoted term matches contiguous phrase' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foobar\nfoo bar\nfoo baz bar\n' > "$TmpDir/input"
+printf 'foo bar\nfoo baz bar\n' > "$TmpDir/expected"
+"$Bin" --extended --fuzzy --filter 'foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space terms retain the space in fuzzy matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
+"$Bin" -x --filter 'src/main.c | other.c' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended OR groups preserve input order' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nsrc/README.md\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^src' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended caret terms match prefixes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '.c$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended dollar terms match suffixes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^src/main.c$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended caret and dollar anchor both ends' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '!README' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended inverse terms exclude matching records' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/README.md\nREADME.md\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "'README" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended single quote forces contiguous matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\n' > "$TmpDir/expected"
+"$Bin" --extended --fuzzy --filter 'smc' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended fuzzy terms use subsequence matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --invert-match --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended inverse filtering inverts the full expression' "$TmpDir/expected" "$TmpDir/actual"
+: > "$TmpDir/expected"
+"$Bin" --no-extended --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'no-extended keeps legacy literal substring behavior' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --extended --exact --filter foo < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'extended mode must reject whole-record exact mode'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'extended/exact conflict must explain the restriction'
+else
+    Pass 'extended and whole-record exact modes are rejected together'
+fi
+
+# Inverse filtering preserves original input order and supports all matcher modes.
+printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/input"
+printf 'beta\n' > "$TmpDir/expected"
+"$Bin" --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse substring filter excludes matching records' "$TmpDir/expected" "$TmpDir/actual"
+printf '1\n' > "$TmpDir/expected"
+"$Bin" -v -f alpha -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse substring filter emits original indexes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'beta\nAlpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --exact --invert-match --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse exact filter uses whole-record equality' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nbeta\nAlpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --invert-match --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse fuzzy filter preserves records unmatched by subsequence' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --invert-match < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'inverse filter without a query must fail'
+elif ! grep -Fq 'requires --filter' "$TmpDir/stderr"; then
+    Fail 'inverse filter without a query must explain the error'
+else
+    Pass 'inverse filter requires a batch query'
+fi
+
+# Fuzzy --no-sort keeps matched records in original input order.
+printf 'zzab\nabzz\nacb\nbbb\n' > "$TmpDir/input"
+printf 'zzab\nabzz\nacb\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy no-sort preserves input order while filtering subsequences' "$TmpDir/expected" "$TmpDir/actual"
+printf '0\n1\n2\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter ab -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy no-sort preserves original indexes' "$TmpDir/expected" "$TmpDir/actual"
+
+# Fuzzy tiebreak keys order equal-score matches after the primary score.
+printf 'ab-long\nab\n' > "$TmpDir/input"
+printf 'ab\nab-long\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'default fuzzy tiebreak prefers shorter equal-score matches' "$TmpDir/expected" "$TmpDir/actual"
+printf 'ab-long\nab\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --tiebreak=index --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'index tiebreak preserves input order for equal scores' "$TmpDir/expected" "$TmpDir/actual"
+printf 'ab\nab-long\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --tiebreak=length --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'length tiebreak prefers shorter equal-score matches' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --fuzzy --tiebreak=length,begin,end,chunk,pathname,index --filter ab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'all supported tiebreak keys parse and compose with index last' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --fuzzy --tiebreak=length, --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'trailing empty tiebreak key must fail'
+elif ! grep -Fq 'contains an empty key' "$TmpDir/stderr"; then
+    Fail 'empty tiebreak key must explain the error'
+else
+    Pass 'empty tiebreak keys are rejected'
+fi
+if "$Bin" --fuzzy --tiebreak=length,length --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate tiebreak keys must fail'
+elif ! grep -Fq 'is repeated' "$TmpDir/stderr"; then
+    Fail 'duplicate tiebreak keys must explain the error'
+else
+    Pass 'duplicate tiebreak keys are rejected'
+fi
+if "$Bin" --fuzzy --tiebreak=index,begin --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'index before the final tie-break key must fail'
+elif ! grep -Fq 'index must be the final key' "$TmpDir/stderr"; then
+    Fail 'index ordering error must be explained'
+else
+    Pass 'index is required to be the final tie-break key'
+fi
+if "$Bin" --fuzzy --tiebreak=score --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'unsupported score tiebreak key must fail'
+elif ! grep -Fq "invalid --tiebreak key 'score'" "$TmpDir/stderr"; then
+    Fail 'unsupported score key must explain the error'
+else
+    Pass 'unsupported tiebreak keys are rejected'
+fi
+if "$Bin" --tiebreak length --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'tiebreak without fuzzy mode must fail'
+elif ! grep -Fq 'requires --fuzzy' "$TmpDir/stderr"; then
+    Fail 'tiebreak mode restriction must explain the error'
+else
+    Pass 'tiebreak requires fuzzy mode'
+fi
+if "$Bin" --disabled --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'disabled mode must not be accepted in batch filter mode'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail 'disabled mode must explain its interactive-only restriction'
+else
+    Pass 'disabled mode is restricted to interactive use'
+fi
+if "$Bin" --no-sort --filter ab < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'no-sort without fuzzy mode must fail'
+elif ! grep -Fq 'requires --fuzzy' "$TmpDir/stderr"; then
+    Fail 'no-sort without fuzzy mode must explain the error'
+else
+    Pass 'no-sort requires fuzzy batch mode'
+fi
+
+# --nth changes the searchable fields but emits the original record.
+printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c:42\nid:src/main.c:12\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth selects fields for substring matching while preserving raw output' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmh.c\nid:docs/readme.md\n' > "$TmpDir/input"
+printf 'id:src/mmh.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter mmh --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth fields are used by fuzzy matching with the -d alias' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c:42\nid:src/main.c:12\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^src' --nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth field selection applies to extended queries' "$TmpDir/expected" "$TmpDir/actual"
+printf 'one two three\nalpha beta gamma\n' > "$TmpDir/input"
+printf 'one two three\n' > "$TmpDir/expected"
+"$Bin" --filter 'one three' --nth '1,-1' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth supports negative field indexes and joins selected fields' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmenu.c:42\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c:42\n' > "$TmpDir/expected"
+"$Bin" --exact --filter src/mmenu.c --nth 2 -d : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'nth field selection applies to exact matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'id:src/mmenu.c:42\nid:docs/readme.md:10\nid:src/main.c:12\n' > "$TmpDir/input"
+printf 'id\nid\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --accept-nth 1 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'accept-nth changes output independently of search fields' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/mmenu.c\n' > "$TmpDir/expected"
+"$Bin" --filter mmenu --accept-nth 2 --delimiter : < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'accept-nth selects output fields from matched records' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --filter x --accept-nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid accept-nth expression must fail'
+elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; then
+    Fail 'invalid accept-nth expression must explain the error'
+else
+    Pass 'invalid accept-nth expressions are rejected'
+fi
+if "$Bin" --filter x --nth '1,,2' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid nth expression must fail'
+elif ! grep -Fq 'comma-separated list of fields or ranges' "$TmpDir/stderr"; then
+    Fail 'invalid nth expression must explain the error'
+else
+    Pass 'invalid nth expressions are rejected'
+fi
+if "$Bin" --with-nth 2 --filter needle < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'with-nth must not be silently ignored in batch mode'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail 'with-nth batch restriction must explain the error'
+else
+    Pass 'with-nth is restricted to interactive display mode'
+fi
+if "$Bin" --delimiter : --filter x < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'delimiter without nth must fail'
+elif ! grep -Fq 'requires --nth' "$TmpDir/stderr"; then
+    Fail 'delimiter without nth must explain the error'
+else
+    Pass 'delimiter requires nth'
+fi
+
+# --delimiter uses POSIX extended regular expressions and splits delimiter runs.
+printf 'id:src/mmenu.c,,42\nid:docs/readme.md;10\nid:src/main.c,12\n' > "$TmpDir/input"
+printf 'id:src/mmenu.c,,42\nid:src/main.c,12\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --delimiter '[:,;]+' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex delimiter selects fields across delimiter alternatives and runs' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --filter x --nth 2 --delimiter '[' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid delimiter regular expression must fail'
+elif ! grep -Fq 'invalid --delimiter regex' "$TmpDir/stderr"; then
+    Fail 'invalid delimiter regular expression must explain the error'
+else
+    Pass 'invalid delimiter regular expressions are rejected'
+fi
+if "$Bin" --filter x --nth 2 --delimiter 'a*' < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'zero-width delimiter regular expression must fail'
+elif ! grep -Fq 'must not match an empty string' "$TmpDir/stderr"; then
+    Fail 'zero-width delimiter regular expression must explain the error'
+else
+    Pass 'zero-width delimiter regular expressions are rejected'
+fi
+
+# Regex anchors stay relative to the original record, not each remaining suffix.
+printf ':first:second\n' > "$TmpDir/input"
+printf ':first:second\n' > "$TmpDir/expected"
+"$Bin" --filter second --nth 2 --delimiter '^:' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex start anchor is not reapplied after the first split' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha:beta:\n' > "$TmpDir/input"
+"$Bin" --filter 'beta:' --nth 1 --delimiter ':$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex end anchor splits only at the end of the original record' /dev/null "$TmpDir/actual"
+
+# Regex delimiters also apply to accepted output fields.
+printf 'id:src/mmenu.c,,42\nid:docs/readme.md;10\nid:src/main.c,12\n' > "$TmpDir/input"
+printf 'src/mmenu.c\nsrc/main.c\n' > "$TmpDir/expected"
+"$Bin" --filter .c --nth 2 --accept-nth 2 --delimiter '[:,;]+' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'regex delimiter applies to both search and accepted output fields' "$TmpDir/expected" "$TmpDir/actual"
+
+# NUL-delimited records support both terminated and final unterminated input.
+printf 'alpha\000beta\000alpha beta' > "$TmpDir/input0"
+printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"
+"$Bin" --read0 --print0 --filter alpha < "$TmpDir/input0" > "$TmpDir/actual0"
+CheckEqual 'read0 and print0 preserve NUL-delimited records including final unterminated record' "$TmpDir/expected0" "$TmpDir/actual0"
+printf 'alpha\nalpha beta\n' > "$TmpDir/expected"
+"$Bin" --read0 --filter alpha < "$TmpDir/input0" > "$TmpDir/actual"
+CheckEqual 'read0 accepts NUL-delimited input with newline output' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nbeta\nalpha beta\n' > "$TmpDir/input"
+printf 'alpha\000alpha beta\000' > "$TmpDir/expected0"
+"$Bin" --print0 --filter alpha < "$TmpDir/input" > "$TmpDir/actual0"
+CheckEqual 'print0 emits NUL-delimited output for line-delimited input' "$TmpDir/expected0" "$TmpDir/actual0"
+printf '0\0002\000' > "$TmpDir/expected0"
+"$Bin" --read0 --print0 --filter alpha -t < "$TmpDir/input0" > "$TmpDir/actual0"
+CheckEqual 'print0 also terminates index records with NUL' "$TmpDir/expected0" "$TmpDir/actual0"
+
+# Exact mode uses byte-exact whole-record equality and preserves duplicate order.
+printf 'alpha\nAlpha\nalpha beta\nalpha\n\n' > "$TmpDir/input"
+printf 'alpha\nalpha\n' > "$TmpDir/expected"
+"$Bin" --exact --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode matches whole records and preserves duplicates' "$TmpDir/expected" "$TmpDir/actual"
+printf '0\n3\n' > "$TmpDir/expected"
+"$Bin" --exact -f alpha -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode index output uses original input indexes' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\n' > "$TmpDir/expected"
+"$Bin" --exact --filter Alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact mode is case-sensitive' "$TmpDir/expected" "$TmpDir/actual"
+printf '\n' > "$TmpDir/expected"
+"$Bin" --exact --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'exact empty query matches only empty records' "$TmpDir/expected" "$TmpDir/actual"
+if "$Bin" --exact --fuzzy --filter alpha < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'conflicting exact and fuzzy modes must fail'
+elif ! grep -Fq 'mutually exclusive' "$TmpDir/stderr"; then
+    Fail 'conflicting matching modes must explain the error'
+else
+    Pass 'conflicting matching modes are rejected'
+fi
+
+# ASCII case folding is deterministic and never folds non-ASCII bytes.
+printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/input"
+printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'ASCII-insensitive substring matching works in the C locale' "$TmpDir/expected" "$TmpDir/actual"
+
+# Explicit case policies apply consistently to substring, fuzzy, and extended queries.
+printf 'Alpha\nalpha\nALPHA\nbeta\nBeta\nalpha Beta\nAlpha Beta\n' > "$TmpDir/input"
+printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"
+"$Bin" --no-ignore-case --filter Alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'case-sensitive substring mode distinguishes ASCII case' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\nalpha\nALPHA\nalpha Beta\nAlpha Beta\n' > "$TmpDir/expected"
+"$Bin" --smart-case --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'smart-case lower-case query remains insensitive' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"
+"$Bin" --smart-case --filter Alpha < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'smart-case uppercase query becomes sensitive' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"
+"$Bin" --no-ignore-case --fuzzy --filter Al < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'case-sensitive fuzzy matching respects letter case' "$TmpDir/expected" "$TmpDir/actual"
+printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"
+"$Bin" --smart-case --extended --filter '^Al' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'smart-case applies to extended prefix terms' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha Beta\n' > "$TmpDir/expected"
+"$Bin" --smart-case --extended --filter 'alpha Beta' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'smart-case is resolved across the complete extended query' "$TmpDir/expected" "$TmpDir/actual"
+
+# ASCII folding must not case-fold non-ASCII UTF-8 bytes.
+printf 'ÄLPHA\nälpha\n' > "$TmpDir/input"
+printf 'älpha\n' > "$TmpDir/expected"
+"$Bin" --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'non-ASCII case variants remain distinct' "$TmpDir/expected" "$TmpDir/actual"
+
+# Ranking corpus smoke cases: source paths, identifiers, separators, and ambiguous partial words.
+printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\ngit-status\ngit-stash\nHTTPServer\nhttp_server\nfoo bar\nfoo-baz\nfoobar\n' > "$TmpDir/input"
+printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter smc < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches subsequences in source paths' "$TmpDir/expected" "$TmpDir/actual"
+printf 'git-status\ngit-stash\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter gts < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches partial command names across separators' "$TmpDir/expected" "$TmpDir/actual"
+printf 'HTTPServer\nhttp_server\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter hps < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus matches identifiers with camel-case and underscore boundaries' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foo bar\nfoo-baz\nfoobar\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --no-sort --filter fb < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy corpus preserves all ambiguous partial-word matches' "$TmpDir/expected" "$TmpDir/actual"
+
+# Fuzzy mode is opt-in; legacy substring mode must keep its existing contract.
+printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
+printf 'src/mmh.c\nsrc/mmenu.h\nsrc/m-m-h.c\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter mmh < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy batch mode finds subsequences and ranks by score' "$TmpDir/expected" "$TmpDir/actual"
+printf 'abc-first\nabc-second\n' > "$TmpDir/input"
+printf 'abc-first\nabc-second\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter abc < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy equal-score ties preserve input order' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/other.c\nsrc/mmenu.h\nsrc/m-m-h.c\nsrc/mmh.c\n' > "$TmpDir/input"
+printf '3\n1\n2\n' > "$TmpDir/expected"
+"$Bin" --fuzzy -f mmh -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy index mode emits original input indexes in ranked order' "$TmpDir/expected" "$TmpDir/actual"
+printf 'alpha\nbeta\n' > "$TmpDir/input"
+printf 'alpha\nbeta\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty fuzzy query preserves input order' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --fuzzy --filter zzz < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'unmatched fuzzy query emits no records' /dev/null "$TmpDir/actual"
+InvalidQuery=$(printf '\377bad')
+if "$Bin" --fuzzy --filter "$InvalidQuery" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'invalid multibyte fuzzy query must be rejected'
+elif ! grep -qi 'fuzzy query is not valid' "$TmpDir/stderr"; then
+    Fail 'invalid multibyte fuzzy query must explain the error'
+else
+    Pass 'invalid multibyte fuzzy query is rejected'
+fi
+printf '\377bad\nalpha\n' > "$TmpDir/input"
+printf 'alpha\n' > "$TmpDir/expected"
+"$Bin" --fuzzy --filter a < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'invalid multibyte candidates are ignored in fuzzy mode' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'alpha needle omega\nNeedle uppercase\nnothing here\nneedle\nneedle\n\nfinal needle' > "$TmpDir/input"
+printf 'alpha needle omega\nNeedle uppercase\nneedle\nneedle\nfinal needle\n' > "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'case-insensitive substring; duplicates; final unterminated line' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '0\n1\n3\n4\n6\n' > "$TmpDir/expected"
+"$Bin" -f needle -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'short filter alias and original zero-based line indexes' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'alpha needle omega\nNeedle uppercase\nneedle\nneedle\nfinal needle\n' > "$TmpDir/expected"
+"$Bin" --filter NEEDLE < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'ASCII case-insensitive matching' "$TmpDir/expected" "$TmpDir/actual"
+
+: > "$TmpDir/expected"
+"$Bin" --filter absent < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'query with zero matches returns empty stdout' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'alpha needle omega\nNeedle uppercase\nnothing here\nneedle\nneedle\n\nfinal needle\n' > "$TmpDir/expected"
+"$Bin" --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty query returns all input records in order' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '\n\n' > "$TmpDir/input"
+printf '\n\n' > "$TmpDir/expected"
+"$Bin" --filter '' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty records are preserved' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'prefix-needle-suffix\n' > "$TmpDir/input"
+printf '0\n' > "$TmpDir/expected"
+"$Bin" --filter needle -t < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'index output is zero based' "$TmpDir/expected" "$TmpDir/actual"
+
+# Long-record behavior is a correctness gate, not an implementation preference.
+awk 'BEGIN { for (i = 0; i < 6000; i++) printf "x"; printf "needle\n" }' > "$TmpDir/input"
+cp "$TmpDir/input" "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'long records are preserved without truncation' "$TmpDir/expected" "$TmpDir/actual"
+
+awk 'BEGIN { for (i = 0; i < 120000; i++) printf "item-%06d needle\n", i }' > "$TmpDir/input"
+"$Bin" --filter needle -t < "$TmpDir/input" > "$TmpDir/actual"
+awk 'BEGIN { for (i = 0; i < 120000; i++) printf "%d\n", i }' > "$TmpDir/expected"
+CheckEqual 'large input returns all matching indexes in stable order' "$TmpDir/expected" "$TmpDir/actual"
+
+# Differential checks against grep's fixed-string, case-insensitive matcher.
+# The generated corpus and query set are deterministic for reproducible failures.
+awk 'BEGIN {
+    for (i = 0; i < 5000; i++) {
+        printf "row-%05d alpha-%d Needle-%d punctuation.[x] Z9\n", i, i % 17, i % 31;
+    }
+}' > "$TmpDir/input"
+for Query in alpha-3 needle 'punctuation.[x]' Z9 missing; do
+    grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = missing ]
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "differential matching oracle for query: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done
+
+# Deterministic property-style corpus with varied lengths, delimiters, and overlaps.
+awk 'BEGIN {
+    for (i = 0; i < 2500; i++) {
+        a = (i * 37 + 11) % 101;
+        b = (i * 17 + 3) % 47;
+        marker = (i % 13 == 0) ? "needle" : "other";
+        printf "Case-%04d|group-%02d|token-%02d|literal.[*]?|%s\n", i, a, b, marker;
+    }
+    print "café-日本語";
+    print "CAFÉ-日本語";
+}' > "$TmpDir/input"
+for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value 'café-日本語'; do
+    LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done
+
+# Seeded fuzz-style corpus: randomized record lengths and punctuation, plus queries
+# sampled from the generated data. Every result is compared byte-for-byte with grep.
+awk 'BEGIN {
+    srand(20261010);
+    chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:-[]*? ";
+    for (i = 0; i < 5000; i++) {
+        n = 8 + int(rand() * 96);
+        line = sprintf("fuzz-%05d|", i);
+        for (j = 0; j < n; j++) line = line substr(chars, 1 + int(rand() * length(chars)), 1);
+        if (i % 19 == 0) line = line "Needle";
+        print line;
+    }
+}' > "$TmpDir/input"
+awk 'BEGIN { srand(20261011) }
+     NR % 43 == 0 {
+         n = 1 + int(rand() * 9);
+         start = 1 + int(rand() * (length($0) - n + 1));
+         print substr($0, start, n);
+     }' "$TmpDir/input" > "$TmpDir/queries"
+while IFS= read -r Query; do
+    if LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected"; then
+        :
+    else
+        Status=$?
+        [ "$Status" -eq 1 ] || Fail "grep oracle failed for seeded query: $Query"
+    fi
+    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    CheckEqual "seeded fuzz corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
+done < "$TmpDir/queries"
+
+for Flag in --filter -f; do
+    if "$Bin" "$Flag" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "missing query after $Flag must be rejected"
+    elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then
+        Fail "missing query after $Flag must explain the argument error"
+    else
+        Pass "missing query after $Flag is rejected"
+    fi
+done
+
+if "$Bin" --filter < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing --filter query must be rejected with nonzero status'
+elif ! grep -qi 'filter.*query\|query.*filter' "$TmpDir/stderr"; then
+    Fail 'missing --filter query must report an argument error instead of entering interactive mode'
+else
+    Pass 'missing --filter query is rejected with an argument diagnostic'
+fi
+
+
+# Option parsing: documented aliases, ordering, and malformed combinations.
+printf 'alpha needle\nbeta needle\n' > "$TmpDir/options"
+printf '0\n1\n' > "$TmpDir/expected"
+"$Bin" -t --filter needle < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'index flag before filter flag' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter needle -t < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'index flag after filter flag' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter=needle < "$TmpDir/options" > "$TmpDir/actual"
+printf 'alpha needle\nbeta needle\n' > "$TmpDir/expected"
+CheckEqual 'equals form of long filter option' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --filter= < "$TmpDir/options" > "$TmpDir/actual"
+CheckEqual 'equals form accepts an empty query' "$TmpDir/options" "$TmpDir/actual"
+
+CheckRejectedArgs() {
+    Name=$1
+    shift
+    if "$Bin" "$@" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "$Name must be rejected"
+    else
+        Status=$?
+        if [ "$Status" -ne 2 ] || ! grep -qi 'argument\|option\|usage' "$TmpDir/stderr"; then
+            printf 'FAIL: %s expected status 2 and an argument diagnostic, got %s\n' "$Name" "$Status" >&2
+            cat "$TmpDir/stderr" >&2
+            Fail "$Name"
+        else
+            Pass "$Name"
+        fi
+    fi
+}
+"$Bin" --help > "$TmpDir/actual"
+if grep -qi '^Usage:' "$TmpDir/actual"; then
+    Pass 'help option prints usage'
+else
+    Fail 'help option must print usage'
+fi
+CheckRejectedArgs 'unknown option is rejected' --bogus
+CheckRejectedArgs 'duplicate filter options are rejected' --filter needle -f other
+CheckRejectedArgs 'positional prompt is rejected in batch mode' --filter needle prompt
+CheckRejectedArgs 'extra positional argument is rejected' prompt extra
+CheckRejectedArgs 'filter-like unknown option is rejected' --filterx needle
+CheckRejectedArgs 'format without batch filter is rejected' --format '{}'
+CheckRejectedArgs 'format without its argument is rejected' --filter needle --format
+CheckRejectedArgs 'format cannot be combined with index output' --filter needle --format '{}' -t
+CheckRejectedArgs 'duplicate format options are rejected' --filter needle --format '{}' --format '{}'
+
+# Interactive multi-select emits every selected record in original input order.
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+printf 'alpha\nneedle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\t'; printf '%s' "$(TERM=xterm tput kcud1)"; printf '%s' "$(TERM=xterm tput kcud1)"; printf '\t\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'multi-select CLI should exit cleanly'
+    cat "$TmpDir/stderr" >&2
+else
+    CheckEqual 'multi-select CLI emits all toggled records in input order' "$TmpDir/expected" "$TmpDir/selected"
+fi
+if "$Bin" --multi --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'multi-select must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail 'multi-select/batch conflict must explain the error'
+else
+    Pass 'multi-select is restricted to interactive mode'
+fi
+# --height limits the visible interactive option list and is rejected in batch mode.
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --height=2 < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--height CLI test should exit cleanly'
+else
+    CheckEqual '--height accepts a menu with a two-row option limit' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'café-日本語' "$TmpDir/terminal"; then
+        Fail '--height=2 rendered an option beyond its visible row limit'
+    else
+        Pass '--height hides options beyond the configured visible row limit'
+    fi
+fi
+for Height in 0 -1 invalid 2147483648 0% 101% 50x; do
+    if "$Bin" --height "$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "--height rejects invalid row count: $Height"
+    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+        Fail "--height gives a useful diagnostic for invalid row count: $Height"
+    else
+        Pass "--height rejects invalid row count: $Height"
+    fi
+    if "$Bin" --height="$Height" < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+        Fail "--height= rejects invalid row count: $Height"
+    elif ! grep -Fq 'positive row count or a percentage' "$TmpDir/stderr"; then
+        Fail "--height= gives a useful diagnostic for invalid row count: $Height"
+    else
+        Pass "--height= rejects invalid row count: $Height"
+    fi
+done
+if "$Bin" --height < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing --height value should be rejected'
+elif ! grep -Fq 'requires a positive row count' "$TmpDir/stderr"; then
+    Fail 'missing --height value should explain the requirement'
+else
+    Pass 'missing --height value is rejected'
+fi
+if "$Bin" --height 2 --height 3 < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --height options should be rejected'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --height should explain the restriction'
+else
+    Pass 'duplicate --height options are rejected'
+fi
+if "$Bin" --height 2 --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--height must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--height/batch conflict must explain the error'
+else
+    Pass '--height is restricted to interactive mode'
+fi
+
+# Percentage height is calculated from the available option rows.
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --height=50% < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'percentage height CLI test should exit cleanly'
+else
+    CheckEqual 'percentage height accepts a 50 percent row limit' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq 'café-日本語' "$TmpDir/terminal"; then
+        Fail '--height=50% rendered an option beyond its percentage row limit'
+    else
+        Pass '--height percentage limits visible option rows'
+    fi
+fi
+
+# Reverse-list keeps the query at the top and renders the first option at the bottom.
+printf 'beta\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse-list < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--reverse-list CLI test should exit cleanly'
+else
+    CheckEqual '--reverse-list preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse-list renders the first option on the bottom row'
+    else
+        Fail '--reverse-list did not render the first option on the bottom row'
+    fi
+fi
+if "$Bin" --reverse-list --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse-list must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--reverse-list/batch conflict must explain the error'
+else
+    Pass '--reverse-list is restricted to interactive mode'
+fi
+
+# Reverse prompt places the query below the list and keeps logical selection order.
+printf 'beta\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--reverse CLI test should exit cleanly'
+else
+    CheckEqual '--reverse preserves logical Down selection' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--reverse positions the query row at the bottom of the terminal'
+    else
+        Fail '--reverse did not position the query row at the bottom of the terminal'
+    fi
+fi
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "stty rows 8 cols 40; $Bin --layout reverse < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--layout reverse CLI test should exit cleanly'
+else
+    CheckEqual '--layout reverse selects reverse-prompt behavior' "$TmpDir/expected" "$TmpDir/selected"
+    if grep -aFq "$(printf '\033[8;1H')" "$TmpDir/terminal" || grep -aFq "$(printf '\033[8d')" "$TmpDir/terminal"; then
+        Pass '--layout reverse keeps the query row at the bottom'
+    else
+        Fail '--layout reverse did not position the query row at the bottom'
+    fi
+fi
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.5; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --layout=default < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--layout=default CLI test should exit cleanly'
+else
+    CheckEqual '--layout=default preserves default selection behavior' "$TmpDir/expected" "$TmpDir/selected"
+fi
+if "$Bin" --layout < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing --layout value should be rejected'
+elif ! grep -Fq 'requires default, reverse, or reverse-list' "$TmpDir/stderr"; then
+    Fail 'missing --layout value should explain supported presets'
+else
+    Pass 'missing --layout value is rejected'
+fi
+if "$Bin" --layout=unknown < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'unknown layout preset should be rejected'
+elif ! grep -Fq 'must be default, reverse, or reverse-list' "$TmpDir/stderr"; then
+    Fail 'unknown layout preset should list supported values'
+else
+    Pass 'unknown layout preset is rejected'
+fi
+if "$Bin" --layout=reverse --layout=default < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --layout options should be rejected'
+elif ! grep -Fq -- '--layout may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --layout should explain the restriction'
+else
+    Pass 'duplicate --layout options are rejected'
+fi
+if "$Bin" --layout=default --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--layout must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--layout/batch conflict must explain the error'
+else
+    Pass '--layout is restricted to interactive mode'
+fi
+if "$Bin" --layout=reverse --reverse < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--layout cannot be combined with --reverse'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'layout/shorthand conflict should explain the restriction'
+else
+    Pass '--layout and --reverse are mutually exclusive'
+fi
+if "$Bin" --reverse --reverse-list < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse and --reverse-list must be mutually exclusive'
+elif ! grep -Fq 'cannot be combined' "$TmpDir/stderr"; then
+    Fail 'reverse layout conflict should explain the restriction'
+else
+    Pass '--reverse and --reverse-list are mutually exclusive'
+fi
+if "$Bin" --reverse --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--reverse must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--reverse/batch conflict must explain the error'
+else
+    Pass '--reverse is restricted to interactive mode'
+fi
+if "$Bin" --reverse --reverse < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate --reverse options should be rejected'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate --reverse should explain the restriction'
+else
+    Pass 'duplicate --reverse options are rejected'
+fi
+
+# --cycle wraps navigation at both ends without changing the default behavior.
+printf 'alpha\nbeta\nneedle\ncafé-日本語\n' > "$TmpDir/options"
+# Without --cycle, Down navigation must stay on the last option instead of wrapping.
+printf 'café-日本語\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'default bounded Down CLI test should exit cleanly'
+else
+    CheckEqual 'default navigation stays on the last option after repeated Down presses' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--cycle down-wrap CLI test should exit cleanly'
+else
+    CheckEqual '--cycle wraps Down from the last option to the first' "$TmpDir/expected" "$TmpDir/selected"
+fi
+# The CLI must wrap within the filtered result set when an initial query is active.
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { DownKey=$(TERM=xterm tput kcud1); sleep 0.5; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.05; printf '%s' "$DownKey"; sleep 0.1; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --query a --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--cycle filtered Down-wrap CLI test should exit cleanly'
+else
+    CheckEqual '--cycle wraps within filtered results after an initial query' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'café-日本語\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '%s\n' "$(TERM=xterm tput kcuu1)"; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --cycle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail '--cycle up-wrap CLI test should exit cleanly'
+else
+    CheckEqual '--cycle wraps Up from the first option to the last' "$TmpDir/expected" "$TmpDir/selected"
+fi
+if "$Bin" --cycle --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail '--cycle must be rejected with batch filtering'
+elif ! grep -Fq 'only available in interactive mode' "$TmpDir/stderr"; then
+    Fail '--cycle/batch conflict must explain the error'
+else
+    Pass '--cycle is restricted to interactive mode'
+fi
+
+# Initial query is prefilled and custom key aliases can drive interactive selection.
+printf 'alpha\nbeta\nneedle\n' > "$TmpDir/options"
+printf 'needle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --query needle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'initial-query CLI should exit cleanly'
+else
+    CheckEqual 'initial query filters and selects the matching record' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'beta\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf 'jx'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --bind-down j --bind-accept x < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'custom-key CLI should exit cleanly'
+else
+    CheckEqual 'custom navigation and accept aliases select the second record' "$TmpDir/expected" "$TmpDir/selected"
+fi
+printf 'alpha\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf 'v\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi --bind-toggle v < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'custom multi-toggle CLI should exit cleanly'
+else
+    CheckEqual 'custom toggle alias works with multi-selection' "$TmpDir/expected" "$TmpDir/selected"
+fi
+# Prefilled queries also work in multi-selection mode.
+printf 'needle\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '\t\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --multi --query needle < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'initial-query multi-select CLI should exit cleanly'
+else
+    CheckEqual 'initial query filters multi-select options' "$TmpDir/expected" "$TmpDir/selected"
+fi
+LongQuery=$(awk 'BEGIN { for (i = 0; i < 129; i++) printf "x" }')
+if "$Bin" --query "$LongQuery" < /dev/null > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'oversized initial query must fail'
+elif ! grep -Fq 'exceeds 128 characters' "$TmpDir/stderr"; then
+    Fail 'oversized initial query must explain the error'
+else
+    Pass 'oversized initial query is rejected before input reading'
+fi
+if "$Bin" --query needle --filter needle < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'initial query must be rejected with batch filtering'
+elif ! grep -Fq 'cannot be used with --filter' "$TmpDir/stderr"; then
+    Fail 'query/batch conflict must explain the error'
+else
+    Pass 'initial query is restricted to interactive mode'
+fi
+if "$Bin" --query a --query b < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate initial queries must fail'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate initial query must explain the error'
+else
+    Pass 'duplicate initial query is rejected'
+fi
+if "$Bin" --bind-up j --bind-down j < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'a key cannot be assigned to two actions'
+elif ! grep -Fq 'assigned to multiple actions' "$TmpDir/stderr"; then
+    Fail 'duplicate key assignment must explain the error'
+else
+    Pass 'conflicting key bindings are rejected'
+fi
+if "$Bin" --bind-toggle v < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'toggle binding must require multi-selection'
+elif ! grep -Fq 'requires --multi' "$TmpDir/stderr"; then
+    Fail 'toggle binding mode conflict must explain the error'
+else
+    Pass 'toggle binding requires multi-selection'
+fi
+
+# Preview commands receive safely quoted record/index/query placeholders and refresh on navigation.
+printf 'alpha\nbeta\n' > "$TmpDir/options"
+printf 'beta\n' > "$TmpDir/expected"
+if ! { sleep 0.2; printf '%s\n' "$(TERM=xterm tput kcud1)"; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --preview 'printf \"preview:%s:%s:%s\" {} {index} {query}' --query a < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'preview CLI should exit cleanly'
+else
+    CheckEqual 'preview mode preserves selected-record output' "$TmpDir/expected" "$TmpDir/selected"
+    sed -E 's/\x1B\[[0-?]*[ -/]*[@-~]//g; s/\x1B[()][A-Za-z0-9]//g; s/\x1B[=>]//g' "$TmpDir/terminal" > "$TmpDir/terminal-plain"
+    if ! grep -aFq 'preview:beta:1:a' "$TmpDir/terminal-plain"; then
+        Fail 'preview should show the selected record, original index, and query'
+    else
+        Pass 'preview refreshes on navigation and expands all placeholders'
+    fi
+fi
+# Data placeholders must be shell-quoted, not evaluated as shell syntax.
+InjectionOption=$(printf "quote'\$(touch %s/pwned)" "$TmpDir")
+printf '%s\n' "$InjectionOption" > "$TmpDir/options"
+if ! { sleep 0.2; printf '\n'; } |
+     TERM=xterm timeout 5s script -q -e -c "$Bin --preview 'printf \"record:%s\" {}' < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    Fail 'preview placeholder quoting test should exit cleanly'
+elif [ -e "$TmpDir/pwned" ]; then
+    Fail 'preview record placeholder must not execute shell syntax'
+else
+    Pass 'preview record placeholder is shell-quoted'
+fi
+if "$Bin" --preview 'printf test' --filter test < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'preview must be rejected with batch filtering'
+elif ! grep -Fq 'cannot be used with --filter' "$TmpDir/stderr"; then
+    Fail 'preview/batch conflict must explain the error'
+else
+    Pass 'preview is restricted to interactive mode'
+fi
+if "$Bin" --preview one --preview two < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'duplicate preview commands must fail'
+elif ! grep -Fq 'may only be specified once' "$TmpDir/stderr"; then
+    Fail 'duplicate preview command must explain the error'
+else
+    Pass 'duplicate preview command is rejected'
+fi
+if "$Bin" --preview '' < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'empty preview command must fail'
+elif ! grep -Fq 'must not be empty' "$TmpDir/stderr"; then
+    Fail 'empty preview command must explain the error'
+else
+    Pass 'empty preview command is rejected'
+fi
+if "$Bin" --preview < "$TmpDir/options" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'missing preview command must fail'
+elif ! grep -Fq 'requires a command argument' "$TmpDir/stderr"; then
+    Fail 'missing preview command must explain the error'
+else
+    Pass 'missing preview command is rejected'
+fi
+
+# Legacy interactive positional index mode remains supported by the documented CLI.
+CheckInteractiveIndexMode() {
+    Name=$1
+    shift
+    printf 'alpha\nbeta\n' > "$TmpDir/options"
+    printf '0\n' > "$TmpDir/expected"
+    if ! printf '\n' | TERM=xterm timeout 5s script -q -e -c "$Bin $* < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+        printf 'FAIL: %s did not exit cleanly\n' "$Name" >&2
+        cat "$TmpDir/stderr" >&2
+        Fail "$Name"
+    else
+        CheckEqual "$Name" "$TmpDir/expected" "$TmpDir/selected"
+        if grep -aFq 'prompt' "$TmpDir/terminal"; then
+            Pass "$Name preserves the positional prompt"
+        else
+            Fail "$Name did not display the positional prompt"
+        fi
+    fi
+}
+CheckInteractiveIndexMode 'legacy positional t selects index output' prompt t
+CheckInteractiveIndexMode 'legacy positional true selects index output' prompt true
+CheckInteractiveIndexMode 'flag index mode works before positional prompt' -t prompt
+CheckInteractiveIndexMode 'flag index mode works after positional prompt' prompt -t
+
+# CLI cancellation is successful and emits only the documented empty result line.
+printf 'alpha\nbeta\n' > "$TmpDir/options"
+printf '\n' > "$TmpDir/expected"
+if { sleep 0.2; printf '\003'; } | TERM=xterm timeout 5s script -q -e -c "$Bin prompt < '$TmpDir/options' > '$TmpDir/selected'" /dev/null > "$TmpDir/terminal" 2> "$TmpDir/stderr"; then
+    CheckEqual 'CLI Ctrl-C cancellation emits an empty result line' "$TmpDir/expected" "$TmpDir/selected"
+else
+    Fail 'CLI Ctrl-C cancellation should exit successfully'
+    cat "$TmpDir/stderr" >&2
+fi
+
+# Empty stdin is valid and produces no batch output.
+: > "$TmpDir/input"
+: > "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'empty input produces empty output' "$TmpDir/expected" "$TmpDir/actual"
+
+# Preserve CRLF records exactly and reject embedded NUL bytes explicitly.
+printf 'alpha needle\r\nno match\r\n' > "$TmpDir/input"
+printf 'alpha needle\r\n' > "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'CRLF record endings are preserved' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '\377needle\n' > "$TmpDir/input"
+cp "$TmpDir/input" "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'batch mode preserves invalid UTF-8 bytes' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'alpha\000needle\n' > "$TmpDir/input"
+if "$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'embedded NUL input must be rejected'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'NUL' "$TmpDir/stderr"; then
+        Fail 'embedded NUL input must report a clear diagnostic and status 1'
+    else
+        Pass 'embedded NUL input is rejected explicitly'
+    fi
+fi
+
+# Large standalone slabs must not corrupt the following record.
+awk 'BEGIN { for (i = 0; i < 1048577; i++) printf "x"; printf " needle\nshort needle\n"; }' > "$TmpDir/input"
+cp "$TmpDir/input" "$TmpDir/expected"
+"$Bin" --filter needle < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'over-1MiB record followed by another record remains intact' "$TmpDir/expected" "$TmpDir/actual"
+
+# stdout write errors must be observed before the process returns.
+printf 'needle\n' > "$TmpDir/input"
+if "$Bin" --filter needle < "$TmpDir/input" > /dev/full 2> "$TmpDir/stderr"; then
+    Fail 'stdout write failure must return nonzero status'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'stdout\|writing' "$TmpDir/stderr"; then
+        Fail 'stdout write failure must report a diagnostic and status 1'
+    else
+        Pass 'stdout write failures are reported'
+    fi
+fi
+
+if "$Bin" --filter needle 0<&- > "$TmpDir/actual" 2> "$TmpDir/stderr"; then
+    Fail 'stdin read failure must return nonzero status'
+else
+    Status=$?
+    if [ "$Status" -ne 1 ] || ! grep -qi 'reading stdin' "$TmpDir/stderr"; then
+        Fail 'stdin read failure must report a diagnostic and status 1'
+    else
+        Pass 'stdin read failures are reported'
+    fi
+fi
+
+if [ "$Failures" -ne 0 ]; then
+    printf '%s regression check(s) failed.\n' "$Failures" >&2
+    exit 1
+fi
+printf 'All CLI regression checks passed.\n'
+ < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space prefix and suffix anchors require a whole-record match' "$TmpDir/expected" "$TmpDir/actual"
 # Inverse and quoted terms must unescape spaces before matching.
 printf 'foo bar baz\nfoo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/input"
 printf 'foo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/expected"

@@ -4,13 +4,12 @@ GitHub branch, pull-request, review, and CI state are authoritative. Do not clai
 
 ## Current focus
 
-- Layout presets (`--layout default`, `reverse`, and `reverse-list`) merged to master in commit `b641929d5b609a613dbd2b1d74727e80173699f0`; all four required GCC/Clang release and sanitizer jobs passed on the exact PR head.
-- Current change adds a concise `mmenu(1)` manual, a `nobuild.c` driver, and a regression script that formats the manual and verifies installation into a temporary prefix.
-- The build driver defaults to `/usr/local`, never calls `sudo` or `doas`, and honors `PREFIX` for installations where the current user has write permission.
-- Validate the new change through exact-head CI before merging.
+- Extended-query escaped-space parsing on m2-extended-escaped-spaces.
+- CLI and interactive C API regressions cover escaped-space terms and OR groups; README and changelog document the syntax.
+- Local tests were not run in this environment. Validate the complete regression suite through exact-head CI before accepting the change.
 
 ## Validation requirements
 
 - GCC release, Clang release, GCC sanitizers, and Clang sanitizers must pass on the exact current PR head.
-- The build-driver test must verify the installed executable, installed man page, and successful groff formatting.
+- Inspect all required job logs and unresolved review threads after each new commit.
 - Agent 1 does not post QA markers or merge.

@@ -252,6 +252,14 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "extended-escaped-metachar") == 0) {
+        const char *options[] = {"!danger", "danger", "other"};
+        mmenu_config config = {.initial_query = "\\!danger"};
+        int result = mmenuConfigured(options, 3, prompt, MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "extended-escaped-space-or") == 0) {
         const char *ExtendedOptions[] = {
             "foo baz bar", "other.c", "foo bar baz"

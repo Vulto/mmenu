@@ -426,6 +426,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Document the new syntax and record it in the Unreleased changelog.
 - [x] Run the full four-job CI matrix and resolve all failures before merging (PR #60 merged as `488c01ad8b1ccd3ef3f80cb8b2cfd61562b71173`; exact-head run #39068543111 and post-merge master run #39069090746 both passed all four compiler/sanitizer jobs).
 
+### M2a2 — Escaped query metacharacters
+
+- [x] Treat escaped `|`, `!`, `'`, `^`, `$`, and backslash as literal query text without changing the meaning of unescaped operators and anchors.
+- [x] Add CLI regressions for escaped metacharacters and an interactive C API regression for an escaped inverse marker.
+- [x] Document escaping in the README and man page; keep broader extended-query compatibility marked partial.
+- [ ] Pass all required GCC/Clang release and sanitizer jobs on the exact current PR head before merge.
+
 ### M2b — Searchable, display, and accepted field expressions
 
 - [x] Add `--nth` field indexes and ranges, including negative indexes, to batch and interactive matching.

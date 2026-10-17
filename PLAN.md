@@ -82,7 +82,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Minimum height (--min-height) — missing.
 - [ ] Popup placement and sizing (--popup) — missing.
 - [ ] tmux popup integration (--tmux) — missing.
-- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three CLI presets and both shorthand aliases are implemented with conflicting selections rejected; exact-head CI for the preset implementation remains pending. Margins, padding, borders, and other M3 layout/chrome features remain incomplete.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three CLI presets and both shorthand aliases are implemented with conflicting selections rejected; the preset implementation is merged to master after passing exact-head CI. Margins, padding, borders, and other M3 layout/chrome features remain incomplete.
 - [ ] Margin geometry (--margin) — missing.
 - [ ] Padding geometry (--padding) — missing.
 - [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.
@@ -499,7 +499,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Reject missing, invalid, duplicate, conflicting, and batch-filter layout settings.
 - [x] Reject contradictory reverse layout settings in `mmenu_config` before terminal initialization.
 - [x] Add CLI and C API regressions and document the selector and aliases.
-- [ ] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge.
+- [x] Pass all required GCC/Clang release and sanitizer CI jobs on the exact PR head before merge (PR #56 merged to master in commit `b641929d5b609a613dbd2b1d74727e80173699f0`).
 
 ## Measurement notes
 
@@ -534,7 +534,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 - Streaming input requires a producer/consumer design that safely coordinates the input reader, live arena growth, matching, UI redraw, cancellation, and stable record references.
 - The current C API accepts a completed array of strings; a streaming C API should be additive and must define ownership and callback/lifetime rules.
-- Current CI tests C11; C23 support must be established across available GCC/Clang toolchains before choosing mandatory flags.
+- CI now uses C23 language mode (`-std=c2x`) across GCC/Clang release and sanitizer builds; the C11 baseline benchmark records above are historical measurements.
 - The fzf option/action surface includes process execution, shell quoting, reload, remote listener, and background transforms; avoid command injection, unbounded child accumulation, and deadlocks.
 - ANSI parsing must keep terminal control sequences out of cursor-width and matching calculations without corrupting original output records.
 - Unicode grapheme width and normalization require careful separation between byte offsets, code-point offsets, and terminal display columns.

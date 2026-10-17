@@ -471,6 +471,7 @@ CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the curren
 CheckSelection 'case-sensitive matching is exposed through the C API' 1 '\n' case-sensitive
 CheckSelection 'extended query AND terms work in the interactive C API' 1 '\n' extended
 CheckSelection 'escaped spaces stay inside one interactive extended term' 1 '\n' extended-escaped-space
+CheckSelection 'escaped extended-query metacharacters stay literal in the C API' 0 '\n' extended-escaped-metachar
 CheckSelection 'escaped-space OR groups work in the interactive C API' 1 '\n' extended-escaped-space-or
 CheckSelection 'escaped-space terms compose with AND in the interactive C API' 1 '\n' extended-escaped-space-and
 CheckSelection 'escaped-space prefix terms work in the interactive C API' 1 '\n' extended-escaped-space-prefix

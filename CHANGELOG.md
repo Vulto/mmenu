@@ -18,7 +18,8 @@
 - Configurable fuzzy tie-breaking with `--tiebreak` and the C API `mmenu_config.tiebreak`.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
 - Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
-- Backslash escaping for spaces and extended-query syntax metacharacters, so literal `|`, `!`, `'`, `^`, `# Changelog
+- Backslash-escaped spaces keep multiword text within one extended-query term, including in OR groups.
+- Backslash escaping also treats extended-query syntax characters as literal text, including `|`, `!`, `'`, `^`, `# Changelog
 
 ## Unreleased
 
@@ -37,8 +38,8 @@
 - `--with-nth` interactive display-field transformation while retaining original records for matching/output unless `--nth` is also set.
 - Configurable fuzzy tie-breaking with `--tiebreak` and the C API `mmenu_config.tiebreak`.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
-, and backslashes can be searched.
-- Backslash-escaped spaces keep multiword text within one extended-query term, including in OR groups.
+- Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
+, and `\\`.
 - Opt-in interactive `--cycle` navigation wraps Up/Down between the first and last filtered results; the configured C API exposes `mmenu_config.cycle`.
 
 ## 1.0.0 - 2026-10-11

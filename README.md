@@ -93,24 +93,18 @@ int main() {
 Requires a C compiler and the ncursesw development headers.
 
 ```sh
-cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
-./mmenu --help
-```
-
-The POSIX `build.sh` script builds `build/mmenu` by default and can install the
-binary and man page without privilege escalation:
-
-```sh
 ./build.sh
 ./build/mmenu --help
 PREFIX="$HOME/.local" ./build.sh install
 ```
 
-Installation defaults to `/usr/local`; the current user must already have write
-permission to the destination. The executable is installed to `$PREFIX/bin/mmenu`
-and the man page to `$PREFIX/share/man/man1/mmenu.1`. Set `CC`, `CFLAGS`, or
-`MMENU_BUILD_OUTPUT` to customize the compiler, compile flags, or output path.
-Generated binaries and object files are not committed.
+The POSIX shell script probes the available ncursesw/terminfo linker combination,
+builds `build/mmenu` by default, and installs the executable and `mmenu(1)` man
+page when invoked with `install`. Installation defaults to `/usr/local`; the
+current user must already have write permission, and the script never invokes
+`sudo` or `doas`. Set `CC`, `CFLAGS`, or `MMENU_BUILD_OUTPUT` to customize the
+compiler, compile flags, or output path. Generated binaries and object files are
+not committed.
 
 ## Performance and ranking baselines
 

@@ -150,10 +150,11 @@ ProbeApi() {
     printf '%s\n' "$Count"
 }
 
+# Pin the PTY geometry so the preview allocation path is deterministic on every runner.
 ProbePreview() {
     Input=$1
     if ! { sleep 0.2; printf '\n'; } |
-         MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$CliBin --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-probe.raw" 2> "$TmpDir/preview-probe.err"; then
+         MMENU_FAIL_ALLOC_AT=999999 MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "stty rows 24 cols 80 && \"$CliBin\" --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-probe.raw" 2> "$TmpDir/preview-probe.err"; then
         Fail "preview allocation probe failed"
     fi
     StripTerminalCodes "$TmpDir/preview-probe.raw" "$TmpDir/preview-probe.txt"
@@ -169,7 +170,7 @@ SweepPreview() {
     At=1
     while [ "$At" -le "$Total" ]; do
         if { sleep 0.2; printf '\n'; } |
-             MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "$CliBin --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-raw" 2> "$TmpDir/preview-error"; then
+             MMENU_FAIL_ALLOC_AT="$At" MMENU_REPORT_ALLOC_COUNT=1 LC_ALL=C.UTF-8 TERM=xterm timeout 5s script -q -e -c "stty rows 24 cols 80 && \"$CliBin\" --preview 'printf preview:{}' < '$Input' > '$TmpDir/preview-selected'" /dev/null > "$TmpDir/preview-raw" 2> "$TmpDir/preview-error"; then
             Status=0
         else
             Status=$?

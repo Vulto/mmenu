@@ -431,7 +431,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Treat escaped `|`, `!`, `'`, `^`, `$`, and backslash as literal query text without changing the meaning of unescaped operators and anchors.
 - [x] Add CLI regressions for escaped metacharacters and an interactive C API regression for an escaped inverse marker.
 - [x] Document escaping in the README and man page; keep broader extended-query compatibility marked partial.
-- [ ] Pass all required GCC/Clang release and sanitizer jobs on the exact current PR head before merge.
+- [x] Pass all required GCC/Clang release and sanitizer jobs on the exact PR head (PR #61, run #39072576746; all four jobs passed; merged as `c14b7e01527da07e6d9a4fe702d57c78d2d5a6c5`).
 
 ### M2b — Searchable, display, and accepted field expressions
 

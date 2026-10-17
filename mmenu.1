@@ -40,9 +40,12 @@ Match complete records byte-for-byte, case-sensitively.
 Enable query expressions: whitespace-separated AND terms, | for OR groups,
 ! for inverse terms, a leading apostrophe for contiguous terms, ^ for prefixes,
 and $ for suffixes.
-A backslash-escaped space keeps a multiword term together, for example,
-.B foo\\ bar
-matches the contiguous term "foo bar".
+A backslash escapes spaces and query metacharacters to match them literally.
+For example, the query
+.B "foo\\ bar"
+matches the contiguous term "foo bar", while
+.B "\\|literal"
+matches a literal vertical bar.
 .TP
 .BR -i ", " --ignore-case
 Use ASCII-case-insensitive matching (the default).

@@ -20,7 +20,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 ### Search and matching
 
 - [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
-- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, `^term$` whole-record terms, and backslash-escaped spaces; broader upstream fzf syntax remains unimplemented.
+- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, `^term$` whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
@@ -425,6 +425,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Include extended query parsing and fuzzy-result allocations in the exhaustive CLI/API allocation-failure sweeps.
 - [x] Document the new syntax and record it in the Unreleased changelog.
 - [x] Run the full four-job CI matrix and resolve all failures before merging (PR #60 merged as `488c01ad8b1ccd3ef3f80cb8b2cfd61562b71173`; exact-head run #39068543111 and post-merge master run #39069090746 both passed all four compiler/sanitizer jobs).
+
+### M2a2 — Escaped query metacharacters
+
+- [x] Treat escaped `|`, `!`, `'`, `^`, `$`, and backslash as literal query text without changing the meaning of unescaped operators and anchors.
+- [x] Add CLI regressions for escaped metacharacters and an interactive C API regression for an escaped inverse marker.
+- [x] Document escaping in the README and man page; keep broader extended-query compatibility marked partial.
+- [ ] Pass all required GCC/Clang release and sanitizer jobs on the exact current PR head before merge.
 
 ### M2b — Searchable, display, and accepted field expressions
 

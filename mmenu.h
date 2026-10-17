@@ -727,6 +727,24 @@ static void mmenu_query_free(mmenu_query *query)
     memset(query, 0, sizeof(*query));
 }
 
+/* Only these query syntax characters can be escaped; other backslashes remain literal. */
+static int mmenu_query_escapable(wchar_t ch)
+{
+    return iswspace(ch) || ch == L'|' || ch == L'!' || ch == L'\'' ||
+           ch == L'^' || ch == L'\x24' || ch == L'\\';
+}
+
+static int mmenu_query_char_escaped(const wchar_t *source, size_t start,
+                                    size_t pos)
+{
+    size_t backslashes = 0;
+    while (pos > start && source[pos - 1] == L'\\') {
+        backslashes++;
+        pos--;
+    }
+    return (backslashes & 1U) != 0;
+}
+
 /* Compile the extended expression once per filtering pass. Terms within a
    group are ANDed; groups separated by | are ORed. */
 static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
@@ -797,7 +815,8 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
 
         size_t start = pos;
         while (pos < length) {
-            if (source[pos] == L'\\' && pos + 1 < length && source[pos + 1] == L' ') {
+            if (source[pos] == L'\\' && pos + 1 < length &&
+                mmenu_query_escapable(source[pos + 1])) {
                 pos += 2;
                 continue;
             }
@@ -805,7 +824,8 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
             pos++;
         }
         size_t end = pos;
-        if (end > start && source[end - 1] == L'$') {
+        if (end > start && source[end - 1] == L'\x24' &&
+            !mmenu_query_char_escaped(source, start, end - 1)) {
             end--;
             if (kind == MMENU_QUERY_PREFIX) kind = MMENU_QUERY_EQUAL;
             else if (kind == MMENU_QUERY_NORMAL) kind = MMENU_QUERY_SUFFIX;
@@ -821,7 +841,8 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
         wchar_t *wide_term = query->wide_storage + wide_used;
         size_t term_len = 0;
         for (size_t i = start; i < end; i++) {
-            if (source[i] == L'\\' && i + 1 < end && source[i + 1] == L' ')
+            if (source[i] == L'\\' && i + 1 < end &&
+                mmenu_query_escapable(source[i + 1]))
                 i++;
             wide_term[term_len++] = source[i];
         }

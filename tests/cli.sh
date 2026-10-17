@@ -101,6 +101,33 @@ printf 'foobar\nfoo bar\nfoo baz bar\n' > "$TmpDir/input"
 printf 'foo bar\nfoo baz bar\n' > "$TmpDir/expected"
 "$Bin" --extended --fuzzy --filter 'foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'escaped-space terms retain the space in fuzzy matching' "$TmpDir/expected" "$TmpDir/actual"
+
+# Escaped query metacharacters are literals, not operators or anchors.
+Dollar=$(printf '\044')
+printf '%s\n' '!danger' 'danger' '^caret' 'caretful' "price$Dollar" 'price' "'quote" 'quote' 'left|right' 'left' 'right' 'path\name' 'pathname' > "$TmpDir/input"
+printf '!danger\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '\!danger' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped inverse marker matches a literal exclamation mark' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '^caret\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '\^caret' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped prefix marker matches a literal caret' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '%s\n' "price$Dollar" > "$TmpDir/expected"
+"$Bin" --extended --filter "price\\$Dollar" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped suffix marker matches a literal dollar sign' "$TmpDir/expected" "$TmpDir/actual"
+
+printf "'quote\n" > "$TmpDir/expected"
+"$Bin" --extended --filter "\\'quote" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped exact marker matches a literal apostrophe' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'left|right\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'left\|right' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped OR separator matches a literal pipe' "$TmpDir/expected" "$TmpDir/actual"
+
+printf '%s\n' 'path\name' > "$TmpDir/expected"
+"$Bin" --extended --filter 'path\\name' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped backslash matches one literal backslash' "$TmpDir/expected" "$TmpDir/actual"
 printf 'src/main.c\nsrc/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/input"
 printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
 "$Bin" -x --filter 'src/main.c | other.c' < "$TmpDir/input" > "$TmpDir/actual"

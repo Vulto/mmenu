@@ -249,5 +249,7 @@ SweepApi unicode-query '' 'café\n'
 SweepApi fuzzy fuzzy 'ndl\n'
 SweepApi fuzzy-result-growth fuzzy-many 'a\n'
 SweepApi extended-query extended '\n'
+SweepApi field-projection nth-api '\n'
+SweepApi preview-callback preview-callback '\n'
 
 printf 'All exhaustive allocation-failure sweeps passed.\n'

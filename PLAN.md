@@ -418,13 +418,13 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 ### M2a — Extended query grammar
 
 - [x] Add opt-in --extended/-x and --no-extended/+x CLI flags and additive MMENU_EXTENDED C API flag; preserve legacy query semantics when disabled.
-- [x] Parse whitespace-separated AND terms, |-separated OR groups, ! inverse terms, ' contiguous terms, ^ prefix terms, $ suffix terms, and ^term$ whole-record terms.
+- [x] Parse whitespace-separated AND terms, |-separated OR groups, ! inverse terms, ' contiguous terms, ^ prefix terms, $ suffix terms, ^term$ whole-record terms, and backslash-escaped spaces within a term.
 - [x] Support the grammar with substring and fuzzy matchers in batch, interactive, and streaming paths; keep fuzzy result ordering score-based and stable.
 - [x] Define the combination rule: extended mode rejects whole-record --exact/MMENU_EXACT, while --fuzzy remains supported.
 - [x] Add CLI and interactive C API regressions for every operator, OR/AND composition, inversion, fuzzy mode, and legacy behavior.
 - [x] Include extended query parsing and fuzzy-result allocations in the exhaustive CLI/API allocation-failure sweeps.
 - [x] Document the new syntax and record it in the Unreleased changelog.
-- [x] Run the full four-job CI matrix and resolve all failures before merging.
+- [x] Run the full four-job CI matrix and resolve all failures before merging (PR #60 merged as `488c01ad8b1ccd3ef3f80cb8b2cfd61562b71173`; exact-head run #39068543111 and post-merge master run #39069090746 both passed all four compiler/sanitizer jobs).
 
 ### M2b — Searchable, display, and accepted field expressions
 

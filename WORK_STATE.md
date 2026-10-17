@@ -1,19 +1,17 @@
 # Work State
 
-GitHub branch, pull-request, and CI state are authoritative. Do not claim tests unless their results are confirmed.
+GitHub is authoritative for branch, pull-request, and CI state. Do not claim tests unless their results are confirmed.
 
-## Current focus
+## Current state
 
-- Replace the C-based `nobuild` utility with the POSIX `build.sh` build/install script; `nobuild.c`, `nobuild.h`, the old driver test, and the obsolete scheduled-agent workflow document have been removed.
-- Keep the portable ncursesw/terminfo linker probe and document separate terminfo link dependencies.
-- PR #60 includes escaped-space extended-query support and CLI, interactive C API, and streaming regressions.
-- Technical-debt fixes in this change include the unavailable-ncurses-linker failure-path regression and suppressing expected PTY EPIPE noise during allocation-failure sweeps.
-- Exact-head CI is required after the final commit. The container cannot reach GitHub and lacks ncurses development headers, ShellCheck, and groff; do not claim local integration tests passed.
+- PR #60 was merged into `master` on 2026-10-17 as `488c01ad8b1ccd3ef3f80cb8b2cfd61562b71173`.
+- Exact PR-head CI run #39068543111 and post-merge `master` run #39069090746 both passed all five workflow jobs, including GCC/Clang release and sanitizer jobs.
+- The C-based `nobuild.c`/`nobuild.h` utility has been removed. `build.sh` now provides `build` and `install` modes, portable ncursesw/terminfo probing, and configurable `CC`, `CFLAGS`, `MMENU_BUILD_OUTPUT`, and `PREFIX`.
+- The build/install regression, ncurses linker fallback/failure-path regression, ShellCheck, and man-page formatting passed in CI.
+- Preview allocation-failure sweeps now suppress only the expected producer broken-pipe diagnostic; allocation-count, exit-status, and sanitizer checks remain active and passed without the prior `printf: I/O error` messages.
+- The escaped-space extended-query grammar is implemented and covered in CLI, interactive C API, fuzzy, and streaming paths.
+- No open pull requests were present after PR #60 merged.
 
-## Validation requirements
+## Next action
 
-- GCC release, Clang release, GCC sanitizers, and Clang sanitizers must pass on the exact current PR head.
-- ShellCheck must include the build script and its regression test.
-- The build regression must verify standalone build output, installed executable behavior, installed man page, and successful groff formatting.
-- Allocation-failure sweeps must still validate allocation counts, exit behavior, and sanitizer safety; only expected broken-pipe noise from the test producer may be suppressed.
-- Do not proceed to unrelated implementation work while the current change has failing CI or unresolved implementation debt.
+Continue with the highest-priority incomplete item in `PLAN.md`: broader fzf extended-query compatibility. Do not mark the entire extended grammar complete while upstream syntax remains unsupported.

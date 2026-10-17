@@ -19,27 +19,7 @@
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
 - Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
 - Backslash-escaped spaces keep multiword text within one extended-query term, including in OR groups.
-- Backslash escaping also treats extended-query syntax characters as literal text, including `|`, `!`, `'`, `^`, `# Changelog
-
-## Unreleased
-
-### Added
-- Concise `mmenu(1)` man page with practical interactive, batch, fuzzy, layout, and NUL-delimited examples.
-- POSIX `build.sh` script for building `mmenu` and optionally installing the binary and man page without invoking privilege escalation; supports `PREFIX`, `CC`, `CFLAGS`, and `MMENU_BUILD_OUTPUT`.
-- Interactive `--layout MODE` and `--layout=MODE` select the default, reverse-prompt, or reverse-list layout.
-- Interactive `--reverse` layout places the query row at the bottom and draws options above it.
-- Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.
-- Interactive `--height N` and `--height PCT%` options with configured C API row limits.
-- Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.
-- Interactive fuzzy `--no-sort` mode to preserve input order, including while streaming new records.
-- Interactive `--disabled` mode keeps all options visible while queries are edited.
-- `--nth` field selection for batch and interactive matching, with POSIX extended-regex delimiters, empty-width delimiter validation, and raw-record output preservation.
-- `--accept-nth` output-field selection for batch and interactive accepted records.
-- `--with-nth` interactive display-field transformation while retaining original records for matching/output unless `--nth` is also set.
-- Configurable fuzzy tie-breaking with `--tiebreak` and the C API `mmenu_config.tiebreak`.
-- Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
-- Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
-, and `\\`.
+- Backslash escaping also treats extended-query syntax characters as literal text, including `|`, `!`, `'`, `^`, `$`, and `\\`.
 - Opt-in interactive `--cycle` navigation wraps Up/Down between the first and last filtered results; the configured C API exposes `mmenu_config.cycle`.
 
 ## 1.0.0 - 2026-10-11

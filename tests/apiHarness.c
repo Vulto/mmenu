@@ -252,6 +252,17 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "extended-escaped-space-or") == 0) {
+        const char *ExtendedOptions[] = {
+            "foo baz bar", "other.c", "foo bar baz"
+        };
+        mmenu_config Config = {.initial_query = "foo\\ bar | other.c"};
+        int Result = mmenuConfigured(ExtendedOptions, 3, prompt,
+                                     MMENU_EXTENDED, &Config);
+        printf("MMENU_RESULT=%d\n", Result);
+        return 0;
+    }
+
     if (argc > 1 &&
         (strcmp(argv[1], "extended-escaped-space-and") == 0 ||
          strcmp(argv[1], "extended-escaped-space-prefix") == 0 ||

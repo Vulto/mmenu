@@ -145,6 +145,9 @@ ProbeApi() {
         Fail "API probe failed for $Name"
     fi
     StripTerminalCodes "$TmpDir/api-probe.raw" "$TmpDir/api-probe.txt"
+    if [ "$Name" = preview-callback ] && ! grep -aFq "api-preview:" "$TmpDir/api-probe.txt"; then
+        Fail "API preview callback was not invoked in the successful probe"
+    fi
     Count=$(GetAllocationCount "$TmpDir/api-probe.txt")
     [ -n "$Count" ] || Fail "API allocation count missing for $Name"
     printf '%s\n' "$Count"
@@ -207,9 +210,6 @@ SweepApi() {
             Fail "API allocation failure $At in $Name terminated the harness"
         fi
         StripTerminalCodes "$TmpDir/api-raw" "$TmpDir/api.txt"
-        if [ "$Name" = preview-callback ] && ! grep -aFq "api-preview:" "$TmpDir/api.txt"; then
-            Fail "API preview callback was not invoked at allocation failure $At"
-        fi
         Count=$(GetAllocationCount "$TmpDir/api.txt")
         [ -n "$Count" ] || Fail "API allocation count missing for $Name at $At"
         [ "$Count" -ge "$At" ] || Fail "API allocation $At was not reached in $Name"

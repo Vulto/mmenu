@@ -97,18 +97,20 @@ cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
 ./mmenu --help
 ```
 
-The `nobuild.c` driver builds `mmenu`, then installs the binary and man page.
-Its default prefix is `/usr/local`; installation runs directly as the current user and
-does not invoke `sudo` or `doas`. The user must already have write permission to the
-destination. To install under your home directory instead:
+The POSIX `build.sh` script builds `build/mmenu` by default and can install the
+binary and man page without privilege escalation:
 
 ```sh
-cc -std=c2x -Wall -Wextra -Wpedantic -Werror -o nobuild nobuild.c
-PREFIX="$HOME/.local" ./nobuild
+./build.sh
+./build/mmenu --help
+PREFIX="$HOME/.local" ./build.sh install
 ```
 
-This installs the executable to `$PREFIX/bin/mmenu` and the man page to
-`$PREFIX/share/man/man1/mmenu.1`. Generated binaries and object files are not committed.
+Installation defaults to `/usr/local`; the current user must already have write
+permission to the destination. The executable is installed to `$PREFIX/bin/mmenu`
+and the man page to `$PREFIX/share/man/man1/mmenu.1`. Set `CC`, `CFLAGS`, or
+`MMENU_BUILD_OUTPUT` to customize the compiler, compile flags, or output path.
+Generated binaries and object files are not committed.
 
 ## Performance and ranking baselines
 

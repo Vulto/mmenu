@@ -1,15 +1,17 @@
-# Autonomous Work State
+# Work State
 
-GitHub branch, pull-request, review, and CI state are authoritative. Do not claim local tests unless they ran.
+GitHub branch, pull-request, and CI state are authoritative. Do not claim tests unless their results are confirmed.
 
 ## Current focus
 
-- Extended-query escaped-space parsing on m2-extended-escaped-spaces; added a streaming C API regression for escaped-space AND matching.
-- CLI and interactive C API regressions cover escaped-space terms and OR groups; README, changelog, and man page document the syntax.
-- Local tests remain unavailable because GitHub DNS resolution fails in this environment; validate the complete suite through exact-head CI before accepting the change.
+- Simplify the build/install path by replacing the C-based `nobuild` utility with a POSIX shell script.
+- Preserve portable ncursesw/terminfo linker probing, strict C23 builds, and unprivileged installation under a configurable `PREFIX`.
+- PR #60 contains the escaped-space extended-query implementation and its CLI, interactive C API, and streaming regressions.
+- Before this change, the latest PR-head CI run was #347 (`38998896234`) and all five jobs passed on `9065b3a085e16192b5f6685bc7e7545263ec8a17`. A new commit requires fresh exact-head validation.
 
 ## Validation requirements
 
 - GCC release, Clang release, GCC sanitizers, and Clang sanitizers must pass on the exact current PR head.
-- Inspect all required job logs and unresolved review threads after each new commit.
-- Agent 1 does not post QA markers or merge.
+- ShellCheck must include the build script and its regression test.
+- The build regression must verify standalone build output, installed executable behavior, installed man page, and successful groff formatting.
+- Do not proceed to unrelated implementation work while the current change has failing CI or unresolved implementation debt.

@@ -60,6 +60,48 @@ printf 'src/main.c\nsrc/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' >
 printf 'src/main.c\n' > "$TmpDir/expected"
 "$Bin" --extended --filter 'src main' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended whitespace terms are ANDed' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped spaces keep an extended term together' "$TmpDir/expected" "$TmpDir/actual"
+printf 'other.c\nfoo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'foo\ bar | other.c' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space terms work inside OR groups' "$TmpDir/expected" "$TmpDir/actual"
+
+# Escaped spaces remain within one term when AND and anchors follow.
+printf 'foo baz bar\nfoo bar baz\nbar foo baz\n' > "$TmpDir/input"
+printf 'foo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'foo\ bar baz' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space term composes with a following AND term' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'foo baz bar\nfoo bar baz\nbar foo bar\n' > "$TmpDir/input"
+printf 'foo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space prefix terms match the complete prefix' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'foo bar baz\nqux foo bar\nfoo baz bar\n' > "$TmpDir/input"
+printf 'qux foo bar\n' > "$TmpDir/expected"
+"$Bin" --extended --filter 'foo\ bar$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space suffix terms match the complete suffix' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'foo bar\nfoo bar baz\nx foo bar\n' > "$TmpDir/input"
+printf 'foo bar\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '^foo\ bar$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space term composes with both prefix and suffix anchors' "$TmpDir/expected" "$TmpDir/actual"
+
+# Inverse and quoted terms must unescape spaces before matching.
+printf 'foo bar baz\nfoo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/input"
+printf 'foo baz bar\nbar foo baz\nfoo qux\n' > "$TmpDir/expected"
+"$Bin" --extended --filter '!foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space inverse term excludes contiguous phrase' "$TmpDir/expected" "$TmpDir/actual"
+printf 'foo bar baz\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "'foo\ bar" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space quoted term matches contiguous phrase' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'foobar\nfoo bar\nfoo baz bar\n' > "$TmpDir/input"
+printf 'foo bar\nfoo baz bar\n' > "$TmpDir/expected"
+"$Bin" --extended --fuzzy --filter 'foo\ bar' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped-space terms retain the space in fuzzy matching' "$TmpDir/expected" "$TmpDir/actual"
+printf 'src/main.c\nsrc/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/input"
 printf 'src/main.c\nother.c\n' > "$TmpDir/expected"
 "$Bin" -x --filter 'src/main.c | other.c' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended OR groups preserve input order' "$TmpDir/expected" "$TmpDir/actual"

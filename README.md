@@ -76,7 +76,7 @@ find . -type f | mmenu --preview 'file {}' --query .c
 ## For C programs
 The `mmenu` function takes 3 inputs, the options (similar to argv), the length of the options (similar to argc),
 and the prompt to be asked (a string). The return value is the index of the element chosen, or -1 in the case of none. For multi-selection, `mmenuMulti` returns status 0 and fills an allocated array of selected zero-based indexes; the caller must `free` that array. It supports the same matching flags and returns indexes in original input order. If no options were toggled, Enter selects the current option. `mmenuConfigured` and `mmenuMultiConfigured` additionally accept an `mmenu_config` structure for an initial query, printable key aliases, an optional generic preview callback, stream callback, searchable-text callback, and display-text callback, plus an optional fuzzy tie-break key order through `mmenu_config.tiebreak`. The searchable-text callback supplies the string used for matching; the display-text callback supplies the rendered option. Both can differ from the original option, which remains the selected/returned record. The stream callback can return a record, temporary no-data, EOF, or an error; record storage must remain valid until the menu call returns. The menu invokes it without blocking for more input and filters new records as they arrive. The preview callback receives the selected record, original index, and current wide-character query and fills a caller-provided output buffer. Shell execution remains a CLI callback implementation, not matcher logic; zero-valued key fields preserve built-in keys. Initial queries are limited to 128 wide characters, and conflicting custom aliases are rejected. Invalid API arguments (a negative option count, a NULL options array with a positive count, or a NULL entry) are rejected with a diagnostic and return -1 before terminal initialization. If no controlling terminal is available, the API reports the error and returns -1 rather than terminating the host process. A NULL prompt uses the default prompt. An empty list is valid and returns -1 when cancelled or confirmed with no selection.
-For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. Add `MMENU_CASE_SENSITIVE` for ASCII-case-sensitive matching, `MMENU_SMART_CASE` for query-sensitive case behavior (mutually exclusive), or `MMENU_NO_SORT` with `MMENU_FUZZY` to preserve input order instead of ranking, or `MMENU_DISABLED` to keep all options visible. The case-policy flags are mutually exclusive. `MMENU_NO_SORT` requires `MMENU_FUZZY`; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation. An example may look like:
+For opt-in fuzzy matching, call `mmenuEx(options, count, prompt, MMENU_FUZZY)`; for byte-exact matching, use `mmenuEx(options, count, prompt, MMENU_EXACT)`. Add `MMENU_CASE_SENSITIVE` for ASCII-case-sensitive matching, `MMENU_SMART_CASE` for query-sensitive case behavior (mutually exclusive), or `MMENU_NO_SORT` with `MMENU_FUZZY` to preserve input order instead of ranking, or `MMENU_DISABLED` to keep all options visible. The case-policy flags are mutually exclusive. `MMENU_NO_SORT` requires `MMENU_FUZZY`; the existing `mmenu` function keeps substring semantics. The -lncursesw flag is required at compilation; on systems that split terminfo into a separate library, also link -ltinfow or -ltinfo. An example may look like:
 
 ```c
 #include "mmenu.h"
@@ -93,22 +93,18 @@ int main() {
 Requires a C compiler and the ncursesw development headers.
 
 ```sh
-cc -std=c2x -Wall -Wextra -Wpedantic -o mmenu main.c -lncursesw
-./mmenu --help
+./build.sh
+./build/mmenu --help
+PREFIX="$HOME/.local" ./build.sh install
 ```
 
-The `nobuild.c` driver builds `mmenu`, then installs the binary and man page.
-Its default prefix is `/usr/local`; installation runs directly as the current user and
-does not invoke `sudo` or `doas`. The user must already have write permission to the
-destination. To install under your home directory instead:
-
-```sh
-cc -std=c2x -Wall -Wextra -Wpedantic -Werror -o nobuild nobuild.c
-PREFIX="$HOME/.local" ./nobuild
-```
-
-This installs the executable to `$PREFIX/bin/mmenu` and the man page to
-`$PREFIX/share/man/man1/mmenu.1`. Generated binaries and object files are not committed.
+The POSIX shell script probes the available ncursesw/terminfo linker combination,
+builds `build/mmenu` by default, and installs the executable and `mmenu(1)` man
+page when invoked with `install`. Installation defaults to `/usr/local`; the
+current user must already have write permission, and the script never invokes
+`sudo` or `doas`. Set `CC`, `CFLAGS`, or `MMENU_BUILD_OUTPUT` to customize the
+compiler, compile flags, or output path. Generated binaries and object files are
+not committed.
 
 ## Performance and ranking baselines
 
@@ -128,7 +124,7 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--ignore-case`/`-i`: ASCII-case-insensitive matching (the default); `--no-ignore-case`/`+i`: ASCII-case-sensitive matching; `--smart-case`: case-insensitive unless the complete query contains an ASCII uppercase letter. Non-ASCII bytes are always matched exactly.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
-- `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, prefix terms prefixed by `^`, and suffix terms ending in `$`. `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.
+- `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, prefix terms prefixed by `^`, and suffix terms ending in `$`; backslash-escaped spaces keep words in one term (for example, `foo\ bar`). `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.
 - `--no-sort`: with `--fuzzy`, keep matching records in original input order instead of ranking by score in both interactive and batch modes; requires `--fuzzy`.
 - `--tiebreak=KEYS`: order equal-score fuzzy matches using a comma-separated list of `length`, `begin`, `end`, `index`, `chunk`, and `pathname`. Input index is appended as a stable fallback when omitted; requires `--fuzzy`.
 - `--disabled`: interactive-only; keep all options visible regardless of the current query.

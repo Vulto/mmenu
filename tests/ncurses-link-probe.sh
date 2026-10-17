@@ -28,6 +28,9 @@ case "${NCURSES_PROBE_EXPECT:?}" in
     tinfo)
         [ "$HasTinfow" = false ] && [ "$HasTinfo" = true ]
         ;;
+    unavailable)
+        exit 2
+        ;;
     *)
         exit 2
         ;;
@@ -49,3 +52,14 @@ ExpectProbe() {
 ExpectProbe ncursesw '-lncursesw'
 ExpectProbe tinfow '-lncursesw -ltinfow'
 ExpectProbe tinfo '-lncursesw -ltinfo'
+
+if NCURSES_PROBE_EXPECT=unavailable sh "$Root/ncurses-link-flags.sh" "$TmpDir/fake-cc" >"$TmpDir/unavailable.out" 2>"$TmpDir/unavailable.err"; then
+    printf 'FAIL: linker probe succeeded when every candidate was unavailable\n' >&2
+    exit 1
+fi
+if ! grep -Fq 'Unable to link ncursesw with known terminfo library combinations.' "$TmpDir/unavailable.err"; then
+    printf 'FAIL: unavailable linker probe did not report a clear diagnostic\n' >&2
+    cat "$TmpDir/unavailable.err" >&2
+    exit 1
+fi
+printf 'PASS: unavailable ncursesw linker candidates fail with a diagnostic\n'

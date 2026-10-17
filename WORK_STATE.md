@@ -1,16 +1,19 @@
-# Autonomous Work State
+# Work State
 
-GitHub branch, pull-request, review, and CI state are authoritative. Do not claim local tests unless they ran.
+GitHub branch, pull-request, and CI state are authoritative. Do not claim tests unless their results are confirmed.
 
 ## Current focus
 
-- Layout presets (`--layout default`, `reverse`, and `reverse-list`) merged to master in commit `b641929d5b609a613dbd2b1d74727e80173699f0`; all four required GCC/Clang release and sanitizer jobs passed on the exact PR head.
-- Current change adds a concise `mmenu(1)` manual, a `nobuild.c` driver, and a regression script that formats the manual and verifies installation into a temporary prefix.
-- The build driver defaults to `/usr/local`, never calls `sudo` or `doas`, and honors `PREFIX` for installations where the current user has write permission.
-- Validate the new change through exact-head CI before merging.
+- Replace the C-based `nobuild` utility with the POSIX `build.sh` build/install script; `nobuild.c`, `nobuild.h`, the old driver test, and the obsolete scheduled-agent workflow document have been removed.
+- Keep the portable ncursesw/terminfo linker probe and document separate terminfo link dependencies.
+- PR #60 includes escaped-space extended-query support and CLI, interactive C API, and streaming regressions.
+- Technical-debt fixes in this change include the unavailable-ncurses-linker failure-path regression and suppressing expected PTY EPIPE noise during allocation-failure sweeps.
+- Exact-head CI is required after the final commit. The container cannot reach GitHub and lacks ncurses development headers, ShellCheck, and groff; do not claim local integration tests passed.
 
 ## Validation requirements
 
 - GCC release, Clang release, GCC sanitizers, and Clang sanitizers must pass on the exact current PR head.
-- The build-driver test must verify the installed executable, installed man page, and successful groff formatting.
-- Agent 1 does not post QA markers or merge.
+- ShellCheck must include the build script and its regression test.
+- The build regression must verify standalone build output, installed executable behavior, installed man page, and successful groff formatting.
+- Allocation-failure sweeps must still validate allocation counts, exit behavior, and sanitizer safety; only expected broken-pipe noise from the test producer may be suppressed.
+- Do not proceed to unrelated implementation work while the current change has failing CI or unresolved implementation debt.

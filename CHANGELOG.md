@@ -4,7 +4,7 @@
 
 ### Added
 - Concise `mmenu(1)` man page with practical interactive, batch, fuzzy, layout, and NUL-delimited examples.
-- `nobuild.c` build driver that installs `mmenu` and its man page without invoking privilege escalation; supports `PREFIX` and `MMENU_BUILD_OUTPUT`.
+- POSIX `build.sh` script for building `mmenu` and optionally installing the binary and man page without invoking privilege escalation; supports `PREFIX`, `CC`, `CFLAGS`, and `MMENU_BUILD_OUTPUT`.
 - Interactive `--layout MODE` and `--layout=MODE` select the default, reverse-prompt, or reverse-list layout.
 - Interactive `--reverse` layout places the query row at the bottom and draws options above it.
 - Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.
@@ -18,6 +18,7 @@
 - Configurable fuzzy tie-breaking with `--tiebreak` and the C API `mmenu_config.tiebreak`.
 - Interactive input streaming: the menu now shows and filters records before stdin reaches EOF.
 - Opt-in extended query grammar for AND/OR expressions, inverse terms, exact contiguous terms, and prefix/suffix anchors in batch and interactive matching.
+- Backslash-escaped spaces keep multiword text within one extended-query term, including in OR groups.
 - Opt-in interactive `--cycle` navigation wraps Up/Down between the first and last filtered results; the configured C API exposes `mmenu_config.cycle`.
 
 ## 1.0.0 - 2026-10-11

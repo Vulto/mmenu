@@ -120,7 +120,7 @@ jobs:
           install -m 0755 "$SkimBin" "$RUNNER_TEMP/sk"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Shell test lint
-        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-driver.sh tests/streaming.sh ncurses-link-flags.sh tests/ncurses-link-probe.sh
+        run: shellcheck tests/cli.sh tests/interactive.sh tests/benchmark.sh tests/performance-regression.sh tests/allocation-failure.sh tests/allocation-sweep.sh tests/ranking-baseline.sh tests/release-check.sh tests/interactive-benchmark.sh tests/matcher-throughput.sh tests/c23-smoke.sh tests/build-script.sh tests/streaming.sh ncurses-link-flags.sh tests/ncurses-link-probe.sh
       - name: ncurses linker probe fallback regression
         run: sh tests/ncurses-link-probe.sh
       - name: Clean release smoke and public-header build
@@ -128,11 +128,11 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: sh tests/release-check.sh
-      - name: Man page and build-driver regression
+      - name: Man page and shell build-script regression
         if: always() && steps.compile.outcome == 'success'
         env:
           CC: ${{ matrix.compiler }}
-        run: sh tests/build-driver.sh
+        run: sh tests/build-script.sh
       - name: GCC static analyzer
         if: always() && matrix.compiler == 'gcc' && matrix.mode == 'release' && steps.compile.outcome == 'success'
         run: gcc -O2 -g -std=c2x -Wall -Wextra -Wpedantic -Werror -fanalyzer -D_DEFAULT_SOURCE -o build/mmenu-analyzer main.c $NCURSES_LIBS

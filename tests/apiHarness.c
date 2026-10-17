@@ -243,6 +243,73 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "extended-escaped-space") == 0) {
+        const char *extended_options[] = {"foo qux", "foo bar baz", "bar foo"};
+        mmenu_config config = {.initial_query = "foo\\ bar"};
+        int result = mmenuConfigured(extended_options, 3, prompt,
+                                     MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "extended-escaped-space-or") == 0) {
+        const char *ExtendedOptions[] = {
+            "foo baz bar", "other.c", "foo bar baz"
+        };
+        mmenu_config Config = {.initial_query = "foo\\ bar | other.c"};
+        int Result = mmenuConfigured(ExtendedOptions, 3, prompt,
+                                     MMENU_EXTENDED, &Config);
+        printf("MMENU_RESULT=%d\n", Result);
+        return 0;
+    }
+
+    if (argc > 1 &&
+        (strcmp(argv[1], "extended-escaped-space-and") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-prefix") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-suffix") == 0)) {
+        const char *and_options[] = {"foo baz bar", "foo bar baz", "bar foo baz"};
+        const char *prefix_options[] = {"foo baz bar", "foo bar baz", "bar foo bar"};
+        const char *suffix_options[] = {"foo bar baz", "qux foo bar", "foo baz bar"};
+        const char *const *extended_options = and_options;
+        const char *query = "foo\\ bar baz";
+        if (strcmp(argv[1], "extended-escaped-space-prefix") == 0) {
+            extended_options = prefix_options;
+            query = "^foo\\ bar";
+        } else if (strcmp(argv[1], "extended-escaped-space-suffix") == 0) {
+            extended_options = suffix_options;
+            query = "foo\\ bar$";
+        }
+        mmenu_config config = {.initial_query = query};
+        int result = mmenuConfigured(extended_options, 3, prompt,
+                                     MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
+    if (argc > 1 &&
+        (strcmp(argv[1], "extended-escaped-space-inverse") == 0 ||
+         strcmp(argv[1], "extended-escaped-space-quoted") == 0)) {
+        const char *ExtendedOptions[] = {
+            "foo bar baz", "foo baz bar", "bar foo baz", "foo qux"
+        };
+        const char *Query = strcmp(argv[1], "extended-escaped-space-inverse") == 0
+                                ? "!foo\\ bar" : "'foo\\ bar";
+        mmenu_config Config = {.initial_query = Query};
+        int Result = mmenuConfigured(ExtendedOptions, 4, prompt,
+                                     MMENU_EXTENDED, &Config);
+        printf("MMENU_RESULT=%d\n", Result);
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "extended-escaped-space-fuzzy") == 0) {
+        const char *ExtendedOptions[] = {"foobar", "foo bar", "foo baz bar"};
+        mmenu_config Config = {.initial_query = "foo\\ bar"};
+        int Result = mmenuConfigured(ExtendedOptions, 3, prompt,
+                                     MMENU_EXTENDED | MMENU_FUZZY, &Config);
+        printf("MMENU_RESULT=%d\n", Result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "stream") == 0) {
         const char *stream_records[] = {"alpha", "needle", "other"};
         stream_fixture_t stream = {
@@ -256,6 +323,26 @@ int main(int argc, char **argv)
             .stream_userdata = &stream
         };
         int result = mmenuConfigured(NULL, 0, prompt, 0, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
+    if (argc > 1 &&
+        strcmp(argv[1], "extended-escaped-space-stream") == 0) {
+        const char *stream_records[] = {
+            "foo baz bar", "foo bar baz", "bar foo baz"
+        };
+        stream_fixture_t stream = {
+            .records = stream_records,
+            .count = sizeof(stream_records) / sizeof(stream_records[0]),
+            .pending_once = 1
+        };
+        mmenu_config config = {
+            .initial_query = "foo\\ bar baz",
+            .stream_next = test_stream_next,
+            .stream_userdata = &stream
+        };
+        int result = mmenuConfigured(NULL, 0, prompt, MMENU_EXTENDED, &config);
         printf("MMENU_RESULT=%d\n", result);
         return 0;
     }

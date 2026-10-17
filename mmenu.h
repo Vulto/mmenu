@@ -796,8 +796,14 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
         }
 
         size_t start = pos;
-        while (pos < length && !iswspace(source[pos]) && source[pos] != L'|')
+        while (pos < length) {
+            if (source[pos] == L'\\' && pos + 1 < length && source[pos + 1] == L' ') {
+                pos += 2;
+                continue;
+            }
+            if (iswspace(source[pos]) || source[pos] == L'|') break;
             pos++;
+        }
         size_t end = pos;
         if (end > start && source[end - 1] == L'$') {
             end--;
@@ -806,14 +812,19 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
         }
         if (end == start) continue;
 
-        size_t term_len = end - start;
-        if (term_len + 1 > wide_capacity - wide_used) {
+        size_t raw_len = end - start;
+        if (raw_len >= wide_capacity - wide_used) {
             errno = ENOMEM;
             mmenu_query_free(query);
             return 0;
         }
         wchar_t *wide_term = query->wide_storage + wide_used;
-        memcpy(wide_term, source + start, term_len * sizeof(*wide_term));
+        size_t term_len = 0;
+        for (size_t i = start; i < end; i++) {
+            if (source[i] == L'\\' && i + 1 < end && source[i + 1] == L' ')
+                i++;
+            wide_term[term_len++] = source[i];
+        }
         wide_term[term_len] = L'\0';
         wide_used += term_len + 1;
 

@@ -540,6 +540,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (argc > 1 && strcmp(argv[1], "preview-callback") == 0) {
+        if (!SetTerminalSize(8, 40)) return 2;
         mmenu_config config = {
             .initial_query = "needle",
             .preview = test_preview_callback

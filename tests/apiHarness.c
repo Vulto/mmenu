@@ -234,6 +234,18 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "latin-normalization") == 0 ||
+        argc > 1 && strcmp(argv[1], "latin-normalization-literal") == 0) {
+        const char *options[] = {"café", "cafe"};
+        mmenu_config config = {.initial_query = "cafe"};
+        unsigned int flags = MMENU_FUZZY;
+        if (strcmp(argv[1], "latin-normalization-literal") == 0)
+            flags |= MMENU_LITERAL;
+        int result = mmenuConfigured(options, 2, prompt, flags, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "extended") == 0) {
         const char *extended_options[] = {"beta", "alpha needle", "needle alpha"};
         mmenu_config config = {.initial_query = "needle alpha"};

@@ -154,6 +154,12 @@ printf 'wild\nfoo-wild-bar\n_wild_\nrewild:wild:ok\nfoo.wild.png\n' > "$TmpDir/e
 "$Bin" --extended --filter "'wild'" < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'paired quote terms require start and end word boundaries' "$TmpDir/expected" "$TmpDir/actual"
 
+# Locale-aware word classification must not split Unicode letters from terms.
+printf 'élanwild\nwildé\né-wild\nwild-é\n' > "$TmpDir/input"
+printf 'é-wild\nwild-é\n' > "$TmpDir/expected"
+LC_ALL=C.UTF-8 "$Bin" --extended --filter "'wild'" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'Unicode letters remain word characters at paired-quote boundaries' "$TmpDir/expected" "$TmpDir/actual"
+
 printf 'wildlife\nfoo-wild-bar\nrewild\n' > "$TmpDir/input"
 printf 'wildlife\nrewild\n' > "$TmpDir/expected"
 "$Bin" --extended --filter "!'wild'" < "$TmpDir/input" > "$TmpDir/actual"

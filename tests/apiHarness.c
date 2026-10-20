@@ -234,8 +234,9 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (argc > 1 && strcmp(argv[1], "latin-normalization") == 0 ||
-        argc > 1 && strcmp(argv[1], "latin-normalization-literal") == 0) {
+    if (argc > 1 &&
+        (strcmp(argv[1], "latin-normalization") == 0 ||
+         strcmp(argv[1], "latin-normalization-literal") == 0)) {
         const char *options[] = {"café", "cafe"};
         mmenu_config config = {.initial_query = "cafe"};
         unsigned int flags = MMENU_FUZZY;

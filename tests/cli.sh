@@ -35,6 +35,11 @@ if grep -Fq -- '--layout MODE (or --layout=MODE) selects default, reverse, or re
 else
     Fail '--help must document the available layout presets'
 fi
+if grep -Fq -- '--literal disables Latin-script normalization for matching.' "$TmpDir/help"; then
+    Pass 'help documents the Latin normalization opt-out'
+else
+    Fail '--help must document --literal'
+fi
 
 # Batch output templates substitute records, original indexes, and the query.
 printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"

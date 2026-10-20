@@ -20,7 +20,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 ### Search and matching
 
 - [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
-- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, `^term$` whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
+- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'term` contiguous terms, paired quotes such as `'term'` for word-boundary contiguous matches, `^` prefix, `$` suffix, `^term$` whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
@@ -432,6 +432,14 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Add CLI regressions for escaped metacharacters and an interactive C API regression for an escaped inverse marker.
 - [x] Document escaping in the README and man page; keep broader extended-query compatibility marked partial.
 - [x] Pass all required GCC/Clang release and sanitizer jobs on the exact PR head (PR #61, run #39072576746; all four jobs passed; merged as `c14b7e01527da07e6d9a4fe702d57c78d2d5a6c5`).
+
+### M2a3 — Paired-quote exact-boundary terms
+
+- [ ] Interpret `'term'` as a contiguous match with non-word boundaries on both sides, while preserving `'term` as a contiguous substring.
+- [ ] Handle escaped trailing apostrophes as literal term characters.
+- [ ] Add batch CLI and interactive C API regressions, including inverse boundary terms and repeated candidate occurrences.
+- [ ] Document boundary classification and the active-locale Unicode alphanumeric policy.
+- [ ] Pass the full GCC/Clang release and sanitizer matrix on the exact PR head before marking this subtask complete.
 
 ### M2b — Searchable, display, and accepted field expressions
 

@@ -38,8 +38,9 @@ Match complete records byte-for-byte, case-sensitively.
 .TP
 .BR -x ", " --extended
 Enable query expressions: whitespace-separated AND terms, | for OR groups,
-! for inverse terms, a leading apostrophe for contiguous terms, ^ for prefixes,
-and $ for suffixes.
+! for inverse terms, a leading apostrophe for contiguous terms, paired apostrophes
+for contiguous terms at word boundaries, ^ for prefixes, and $ for suffixes.
+Boundary classification uses wide-character alphanumeric rules in the active locale.
 A backslash escapes spaces and query metacharacters to match them literally.
 For example, the query
 .B "foo\\ bar"

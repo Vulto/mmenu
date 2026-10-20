@@ -930,17 +930,19 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
         }
         size_t end = pos;
         if (kind == MMENU_QUERY_EXACT && end > start &&
-            source[end - 1] == L'\\'' &&
+            source[end - 1] == L'\'' &&
             !mmenu_query_char_escaped(source, start, end - 1)) {
             end--;
             kind = MMENU_QUERY_BOUNDARY;
         }
-        if (end > start && source[end - 1] == L'\\x24' &&
+        if (end > start && source[end - 1] == L'\x24' &&
             !mmenu_query_char_escaped(source, start, end - 1)) {
             end--;
             if (kind == MMENU_QUERY_PREFIX) kind = MMENU_QUERY_EQUAL;
             else if (kind == MMENU_QUERY_NORMAL) kind = MMENU_QUERY_SUFFIX;
         }
+        if (end == start) continue;
+
         size_t raw_len = end - start;
         if (raw_len >= wide_capacity - wide_used) {
             errno = ENOMEM;

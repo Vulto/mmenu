@@ -172,6 +172,7 @@ EscapedQuote=$(printf '\047wild\134\047')
 "$Bin" --extended --filter "$EscapedQuote" < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'escaped final apostrophe is not treated as a closing quote' "$TmpDir/expected" "$TmpDir/actual"
 
+printf 'src/main.c\nsrc/README.md\nREADME.md\nother.c\nfoo bar baz\nfoo qux\n' > "$TmpDir/input"
 printf 'src/main.c\n' > "$TmpDir/expected"
 "$Bin" --extended --fuzzy --filter 'smc' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended fuzzy terms use subsequence matching' "$TmpDir/expected" "$TmpDir/actual"

@@ -394,6 +394,19 @@ printf 'Alpha\nalpha\nALPHA\n' > "$TmpDir/expected"
 LC_ALL=C "$Bin" --filter alpha < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'ASCII-insensitive substring matching works in the C locale' "$TmpDir/expected" "$TmpDir/actual"
 
+# Longer case-insensitive needles exercise skip-table advances, overlapping
+# candidates, and candidate/query case differences without changing result order.
+printf 'xaaaaac\nxaaaaab\nxAAAAAB\naaaaaab\nxxAAAAAb\n' > "$TmpDir/input"
+printf 'xaaaaab\nxAAAAAB\naaaaaab\nxxAAAAAb\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter aaaaab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'long substring search preserves case folding and overlapping matches' "$TmpDir/expected" "$TmpDir/actual"
+
+# High-bit bytes remain exact while ASCII bytes in the same query are folded.
+printf 'Éabcdef\néabcdef\nxéAbCdEf\n' > "$TmpDir/input"
+printf 'éabcdef\nxéAbCdEf\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'long substring search preserves non-ASCII bytes and folds ASCII only' "$TmpDir/expected" "$TmpDir/actual"
+
 # Explicit case policies apply consistently to substring, fuzzy, and extended queries.
 printf 'Alpha\nalpha\nALPHA\nbeta\nBeta\nalpha Beta\nAlpha Beta\n' > "$TmpDir/input"
 printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"

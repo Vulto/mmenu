@@ -10,6 +10,7 @@
 - Interactive `--reverse-list` layout renders the first result at the bottom while keeping the query at the top.
 - Interactive `--height N` and `--height PCT%` options with configured C API row limits.
 - Explicit ASCII case-sensitive and smart-case matching modes for CLI and C API; default matching remains ASCII-case-insensitive.
+- Latin-script normalization in substring, fuzzy, and extended matching, with `--literal` and `MMENU_LITERAL` opt-outs.
 - Interactive fuzzy `--no-sort` mode to preserve input order, including while streaming new records.
 - Interactive `--disabled` mode keeps all options visible while queries are edited.
 - `--nth` field selection for batch and interactive matching, with POSIX extended-regex delimiters, empty-width delimiter validation, and raw-record output preservation.

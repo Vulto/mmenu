@@ -57,6 +57,11 @@ Use ASCII-case-sensitive matching.
 .B --smart-case
 Ignore case unless the query contains an ASCII uppercase letter.
 .TP
+.B --literal
+Do not normalize recognized Latin-script and selected fullwidth compatibility
+characters for matching. This does not change whole-record byte equality in
+.BR --exact .
+.TP
 .BR -v ", " --invert-match
 In batch mode, print records that do not match. Requires
 .BR --filter .

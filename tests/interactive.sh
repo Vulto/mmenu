@@ -469,6 +469,8 @@ CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current loca
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
 
 CheckSelection 'case-sensitive matching is exposed through the C API' 1 '\n' case-sensitive
+CheckSelection 'C API fuzzy matching normalizes Latin characters by default' 0 '\n' latin-normalization
+CheckSelection 'C API MMENU_LITERAL disables Latin normalization' 1 '\n' latin-normalization-literal
 CheckSelection 'extended query AND terms work in the interactive C API' 1 '\n' extended
 CheckSelection 'escaped spaces stay inside one interactive extended term' 1 '\n' extended-escaped-space
 CheckSelection 'escaped extended-query metacharacters stay literal in the C API' 0 '\n' extended-escaped-metachar

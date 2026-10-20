@@ -478,6 +478,7 @@ CheckSelection 'escaped-space prefix terms work in the interactive C API' 1 '\n'
 CheckSelection 'escaped-space suffix terms work in the interactive C API' 1 '\n' extended-escaped-space-suffix
 CheckSelection 'escaped-space inverse terms work in the interactive C API' 1 '\n' extended-escaped-space-inverse
 CheckSelection 'escaped-space quoted terms match contiguous text in the interactive C API' 0 '\n' extended-escaped-space-quoted
+CheckSelection 'paired quote terms require word boundaries in the interactive C API' 2 '\n' extended-boundary
 CheckSelection 'escaped-space term preserves whitespace in fuzzy C API matching' 1 '\n' extended-escaped-space-fuzzy
 
 CheckStreamApi 'configured C API accepts asynchronously supplied records' stream 1

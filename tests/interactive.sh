@@ -278,7 +278,7 @@ CheckSelection 'C API tiebreak length orders equal-score matches' 1 '\n' tiebrea
 
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
-CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'
+CheckSelection 'non-ASCII case matching remains byte-exact under MMENU_LITERAL' -1 'CAFÉ\n' literal
 CheckSelection 'Backspace clears an unmatched query' 0 'x\177\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty
@@ -469,6 +469,8 @@ CheckInvalidLocaleText C invalid-prompt 'prompt is not valid in the current loca
 CheckInvalidLocaleText C.UTF-8 invalid-prompt 'prompt is not valid in the current locale'
 
 CheckSelection 'case-sensitive matching is exposed through the C API' 1 '\n' case-sensitive
+CheckSelection 'C API fuzzy matching normalizes Latin characters by default' 0 '\n' latin-normalization
+CheckSelection 'C API MMENU_LITERAL disables Latin normalization' 1 '\n' latin-normalization-literal
 CheckSelection 'extended query AND terms work in the interactive C API' 1 '\n' extended
 CheckSelection 'escaped spaces stay inside one interactive extended term' 1 '\n' extended-escaped-space
 CheckSelection 'escaped extended-query metacharacters stay literal in the C API' 0 '\n' extended-escaped-metachar

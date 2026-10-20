@@ -780,6 +780,7 @@ static void print_usage(FILE *out) {
         "--no-sort with --fuzzy preserves input order in batch and interactive modes.\n"
         "--ignore-case/-i folds ASCII case (default); --no-ignore-case/+i is case-sensitive.\n"
         "--smart-case is case-insensitive unless the query contains ASCII uppercase.\n"
+        "--literal disables Latin-script normalization for matching.\n"
         "--extended enables AND/OR, inverse, exact-substring, prefix (^), and suffix ($) terms.\n"
         "--invert-match or -v emits records that do not match the batch query.\n"
         "--format FORMAT expands {}, {index}, and {query} for each batch result.\n");
@@ -893,6 +894,7 @@ int main(int argc, char **argv) {
     char tiebreak_error[256];
     int exact_mode = 0;
     int extended_mode = 0;
+    int literal_mode = 0;
     int disabled_mode = 0;
     unsigned int case_mode = 0;
     int invert_mode = 0;
@@ -962,6 +964,10 @@ int main(int argc, char **argv) {
         }
         if (!strcmp(arg, "--smart-case")) {
             case_mode = MMENU_SMART_CASE;
+            continue;
+        }
+        if (!strcmp(arg, "--literal")) {
+            literal_mode = 1;
             continue;
         }
         if (!strcmp(arg, "--exact")) {
@@ -1274,7 +1280,8 @@ int main(int argc, char **argv) {
                                (exact_mode ? MMENU_EXACT : 0u) |
                                (extended_mode ? MMENU_EXTENDED : 0u) |
                                (no_sort ? MMENU_NO_SORT : 0u) |
-                               (disabled_mode ? MMENU_DISABLED : 0u) | case_mode;
+                               (disabled_mode ? MMENU_DISABLED : 0u) |
+                               (literal_mode ? MMENU_LITERAL : 0u) | case_mode;
     menu_config.initial_query = initial_query_seen ? initial_query : NULL;
     menu_config.cycle = cycle_mode;
     menu_config.tiebreak = tiebreak_seen ? tiebreak_spec_string : NULL;

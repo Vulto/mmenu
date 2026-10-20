@@ -26,7 +26,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
 - [x] Case-sensitive matching (--no-ignore-case / +i) — present — ASCII case-sensitive matching in substring, fuzzy, extended, and interactive paths.
 - [x] Smart-case matching (--smart-case) — present — query-wide ASCII uppercase detection with CLI/API coverage.
-- [ ] Literal matching and Latin normalization controls (--literal) — missing — no equivalent option.
+- [ ] Literal matching and Latin normalization controls (--literal) — implementation added — the fzf normalization table now covers substring, fuzzy, and extended matching; `--literal` and `MMENU_LITERAL` disable normalization. Mark complete only after the exact-head CI matrix passes.
 - [ ] Scoring schemes (--scheme=default|path|history) — missing — no selectable scoring scheme.
 - [ ] Fuzzy algorithms (--algo=v1|v2) — missing — only the existing matcher is available.
 - [x] Search field selection (--nth) — present — 1-based field indexes, negative indexes, and ranges apply to batch and interactive matching while raw records remain displayed/output.
@@ -38,7 +38,7 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
 - [x] Configurable tie-breaking (--tiebreak) — present — equal-score fuzzy matches can be ordered by length, begin/end position, index, chunk count, pathname/basename match; input index remains the stable fallback.
 - [x] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — present — covered by CLI and interactive API regressions.
-- [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.
+- [ ] Unicode-aware matching and normalization semantics — partial — the recognized Latin/fullwidth normalization policy is being added; grapheme-aware matching and broader Unicode case folding remain incomplete.
 - [ ] Ranking-quality fixtures and stable ranking baseline — partial — a baseline exists; the current matcher still needs comprehensive quality comparison.
 
 ### Input, streaming, and output
@@ -440,6 +440,14 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 - [ ] Add batch CLI and interactive C API regressions, including inverse boundary terms and repeated candidate occurrences.
 - [ ] Document boundary classification and the active-locale Unicode alphanumeric policy.
 - [ ] Pass the full GCC/Clang release and sanitizer matrix on the exact PR head before marking this subtask complete.
+
+### M2a4 — Latin normalization and literal matching
+
+- [x] Port the fzf Latin normalization mapping and apply it before the existing ASCII case policy.
+- [x] Apply normalization consistently to substring search, fuzzy scores/highlighting, and extended prefix/suffix/equal/boundary terms.
+- [x] Add the `--literal` CLI option and `MMENU_LITERAL` C API flag; preserve byte-wise whole-record `--exact` semantics.
+- [x] Add CLI, fuzzy, extended-query, and interactive C API regression coverage; document the behavior and record it in the changelog.
+- [ ] Pass all four GCC/Clang release and sanitizer jobs, including the full CLI/API, fuzz, allocation-failure, and performance checks on the exact PR head.
 
 ### M2b — Searchable, display, and accepted field expressions
 

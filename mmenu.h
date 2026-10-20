@@ -40,18 +40,20 @@
 /* MMENU_FUZZY enables subsequence matching and score-ranked results unless
    MMENU_NO_SORT is set; MMENU_NO_SORT requires MMENU_FUZZY. MMENU_DISABLED
    keeps all options visible regardless of the query. */
-enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u, MMENU_DISABLED = 64u };
+enum { MMENU_FUZZY = 1u, MMENU_EXACT = 2u, MMENU_EXTENDED = 4u, MMENU_CASE_SENSITIVE = 8u, MMENU_SMART_CASE = 16u, MMENU_NO_SORT = 32u, MMENU_DISABLED = 64u, MMENU_LITERAL = 128u };
 
 /* Options and prompt must be valid multibyte strings in the active locale.
-   Default matching is ASCII-case-insensitive substring matching; non-ASCII
-   characters are matched exactly. MMENU_CASE_SENSITIVE disables ASCII case
-   folding; MMENU_SMART_CASE enables case-sensitive matching when the query
-   contains an ASCII uppercase letter. These two flags are mutually exclusive.
-   MMENU_FUZZY enables ranked subsequence matching and MMENU_EXACT enables
-   byte-exact equality matching. MMENU_EXTENDED enables AND/OR terms, inverse
-   terms, exact substring terms, and prefix/suffix anchors; it cannot be
-   combined with MMENU_EXACT. Invalid multibyte strings return -1 before
-   terminal initialization. */
+   By default, matching normalizes the recognized Latin-script and fullwidth
+   characters in the fzf normalization table before applying ASCII case
+   policy. MMENU_LITERAL disables that normalization. Other non-ASCII
+   characters remain exact. MMENU_CASE_SENSITIVE disables ASCII case folding;
+   MMENU_SMART_CASE enables case-sensitive matching when the query contains an
+   ASCII uppercase letter. These two flags are mutually exclusive. MMENU_FUZZY
+   enables ranked subsequence matching and MMENU_EXACT enables byte-exact
+   equality matching. MMENU_EXTENDED enables AND/OR terms, inverse terms,
+   exact substring terms, and prefix/suffix anchors; it cannot be combined with
+   MMENU_EXACT. Invalid multibyte strings return -1 before terminal
+   initialization. */
 int mmenu(const char *const *options, int n_options, const char *prompt);
 int mmenuEx(const char *const *options, int n_options, const char *prompt,
             unsigned int flags);
@@ -420,6 +422,733 @@ static int MmenuCaseSensitiveWide(unsigned int flags, const wchar_t *query)
     return 0;
 }
 
+/* Latin normalization map derived from fzf's src/algo/normalize.go.
+   The upstream project is MIT-licensed (Junegunn Choi); preserve its
+   code-point-to-ASCII mappings and use a binary search over sorted keys. */
+typedef struct {
+    uint32_t codepoint;
+    wchar_t normalized;
+} MmenuLatinNormalizationEntry;
+
+static const MmenuLatinNormalizationEntry MmenuLatinNormalization[] = {
+    {0x00C0u, L'A'},
+    {0x00C1u, L'A'},
+    {0x00C2u, L'A'},
+    {0x00C3u, L'A'},
+    {0x00C4u, L'A'},
+    {0x00C5u, L'A'},
+    {0x00C7u, L'C'},
+    {0x00C8u, L'E'},
+    {0x00C9u, L'E'},
+    {0x00CAu, L'E'},
+    {0x00CBu, L'E'},
+    {0x00CCu, L'I'},
+    {0x00CDu, L'I'},
+    {0x00CEu, L'I'},
+    {0x00CFu, L'I'},
+    {0x00D1u, L'N'},
+    {0x00D2u, L'O'},
+    {0x00D3u, L'O'},
+    {0x00D4u, L'O'},
+    {0x00D5u, L'O'},
+    {0x00D6u, L'O'},
+    {0x00D8u, L'O'},
+    {0x00D9u, L'U'},
+    {0x00DAu, L'U'},
+    {0x00DBu, L'U'},
+    {0x00DCu, L'U'},
+    {0x00DDu, L'Y'},
+    {0x00DFu, L's'},
+    {0x00E0u, L'a'},
+    {0x00E1u, L'a'},
+    {0x00E2u, L'a'},
+    {0x00E3u, L'a'},
+    {0x00E4u, L'a'},
+    {0x00E5u, L'a'},
+    {0x00E7u, L'c'},
+    {0x00E8u, L'e'},
+    {0x00E9u, L'e'},
+    {0x00EAu, L'e'},
+    {0x00EBu, L'e'},
+    {0x00ECu, L'i'},
+    {0x00EDu, L'i'},
+    {0x00EEu, L'i'},
+    {0x00EFu, L'i'},
+    {0x00F1u, L'n'},
+    {0x00F2u, L'o'},
+    {0x00F3u, L'o'},
+    {0x00F4u, L'o'},
+    {0x00F5u, L'o'},
+    {0x00F6u, L'o'},
+    {0x00F8u, L'o'},
+    {0x00F9u, L'u'},
+    {0x00FAu, L'u'},
+    {0x00FBu, L'u'},
+    {0x00FCu, L'u'},
+    {0x00FDu, L'y'},
+    {0x00FFu, L'y'},
+    {0x0101u, L'a'},
+    {0x0103u, L'a'},
+    {0x0105u, L'a'},
+    {0x0107u, L'c'},
+    {0x0109u, L'c'},
+    {0x010Bu, L'c'},
+    {0x010Du, L'c'},
+    {0x010Fu, L'd'},
+    {0x0111u, L'd'},
+    {0x0113u, L'e'},
+    {0x0115u, L'e'},
+    {0x0117u, L'e'},
+    {0x0119u, L'e'},
+    {0x011Bu, L'e'},
+    {0x011Du, L'g'},
+    {0x011Fu, L'g'},
+    {0x0121u, L'g'},
+    {0x0123u, L'g'},
+    {0x0125u, L'h'},
+    {0x0127u, L'h'},
+    {0x0129u, L'i'},
+    {0x012Bu, L'i'},
+    {0x012Du, L'i'},
+    {0x012Fu, L'i'},
+    {0x0130u, L'I'},
+    {0x0131u, L'i'},
+    {0x0135u, L'j'},
+    {0x0137u, L'k'},
+    {0x013Au, L'l'},
+    {0x013Cu, L'l'},
+    {0x013Eu, L'l'},
+    {0x0140u, L'l'},
+    {0x0142u, L'l'},
+    {0x0144u, L'n'},
+    {0x0146u, L'n'},
+    {0x0148u, L'n'},
+    {0x014Du, L'o'},
+    {0x014Fu, L'o'},
+    {0x0151u, L'o'},
+    {0x0155u, L'r'},
+    {0x0157u, L'r'},
+    {0x0159u, L'r'},
+    {0x015Bu, L's'},
+    {0x015Du, L's'},
+    {0x015Fu, L's'},
+    {0x0161u, L's'},
+    {0x0163u, L't'},
+    {0x0165u, L't'},
+    {0x0167u, L't'},
+    {0x0169u, L'u'},
+    {0x016Bu, L'u'},
+    {0x016Du, L'u'},
+    {0x016Fu, L'u'},
+    {0x0171u, L'u'},
+    {0x0173u, L'u'},
+    {0x0175u, L'w'},
+    {0x0177u, L'y'},
+    {0x0178u, L'Y'},
+    {0x017Au, L'z'},
+    {0x017Cu, L'z'},
+    {0x017Eu, L'z'},
+    {0x017Fu, L's'},
+    {0x0180u, L'b'},
+    {0x0181u, L'B'},
+    {0x0183u, L'b'},
+    {0x0186u, L'O'},
+    {0x0188u, L'c'},
+    {0x0189u, L'D'},
+    {0x018Au, L'D'},
+    {0x018Cu, L'd'},
+    {0x018Eu, L'E'},
+    {0x0190u, L'E'},
+    {0x0192u, L'f'},
+    {0x0193u, L'G'},
+    {0x0197u, L'I'},
+    {0x0199u, L'k'},
+    {0x019Au, L'l'},
+    {0x019Cu, L'M'},
+    {0x019Du, L'N'},
+    {0x019Eu, L'n'},
+    {0x019Fu, L'O'},
+    {0x01A1u, L'o'},
+    {0x01A5u, L'p'},
+    {0x01ABu, L't'},
+    {0x01ADu, L't'},
+    {0x01AEu, L'T'},
+    {0x01B0u, L'u'},
+    {0x01B2u, L'V'},
+    {0x01B4u, L'y'},
+    {0x01B6u, L'z'},
+    {0x01CEu, L'a'},
+    {0x01D0u, L'i'},
+    {0x01D2u, L'o'},
+    {0x01D4u, L'u'},
+    {0x01DDu, L'e'},
+    {0x01E5u, L'g'},
+    {0x01E7u, L'g'},
+    {0x01E9u, L'k'},
+    {0x01EBu, L'o'},
+    {0x01F0u, L'j'},
+    {0x01F5u, L'g'},
+    {0x01F9u, L'n'},
+    {0x0201u, L'a'},
+    {0x0203u, L'a'},
+    {0x0205u, L'e'},
+    {0x0207u, L'e'},
+    {0x0209u, L'i'},
+    {0x020Bu, L'i'},
+    {0x020Du, L'o'},
+    {0x020Fu, L'o'},
+    {0x0211u, L'r'},
+    {0x0213u, L'r'},
+    {0x0215u, L'u'},
+    {0x0217u, L'u'},
+    {0x0219u, L's'},
+    {0x021Bu, L't'},
+    {0x021Fu, L'h'},
+    {0x0220u, L'N'},
+    {0x0221u, L'd'},
+    {0x0225u, L'z'},
+    {0x0227u, L'a'},
+    {0x0229u, L'e'},
+    {0x022Fu, L'o'},
+    {0x0233u, L'y'},
+    {0x0234u, L'l'},
+    {0x0235u, L'n'},
+    {0x0236u, L't'},
+    {0x0237u, L'j'},
+    {0x023Au, L'A'},
+    {0x023Bu, L'C'},
+    {0x023Cu, L'c'},
+    {0x023Du, L'L'},
+    {0x023Eu, L'T'},
+    {0x023Fu, L's'},
+    {0x0240u, L'z'},
+    {0x0243u, L'B'},
+    {0x0244u, L'U'},
+    {0x0245u, L'V'},
+    {0x0246u, L'E'},
+    {0x0247u, L'e'},
+    {0x0248u, L'J'},
+    {0x0249u, L'j'},
+    {0x024Au, L'Q'},
+    {0x024Bu, L'q'},
+    {0x024Cu, L'R'},
+    {0x024Du, L'r'},
+    {0x024Eu, L'Y'},
+    {0x024Fu, L'y'},
+    {0x0250u, L'a'},
+    {0x0251u, L'a'},
+    {0x0253u, L'b'},
+    {0x0254u, L'o'},
+    {0x0255u, L'c'},
+    {0x0256u, L'd'},
+    {0x0257u, L'd'},
+    {0x0258u, L'e'},
+    {0x025Bu, L'e'},
+    {0x025Cu, L'e'},
+    {0x025Du, L'e'},
+    {0x025Eu, L'e'},
+    {0x025Fu, L'j'},
+    {0x0260u, L'g'},
+    {0x0261u, L'g'},
+    {0x0262u, L'G'},
+    {0x0265u, L'h'},
+    {0x0266u, L'h'},
+    {0x0268u, L'i'},
+    {0x026Au, L'I'},
+    {0x026Bu, L'l'},
+    {0x026Cu, L'l'},
+    {0x026Du, L'l'},
+    {0x026Fu, L'm'},
+    {0x0270u, L'm'},
+    {0x0271u, L'm'},
+    {0x0272u, L'n'},
+    {0x0273u, L'n'},
+    {0x0274u, L'N'},
+    {0x0275u, L'o'},
+    {0x0279u, L'r'},
+    {0x027Au, L'r'},
+    {0x027Bu, L'r'},
+    {0x027Cu, L'r'},
+    {0x027Du, L'r'},
+    {0x027Eu, L'r'},
+    {0x027Fu, L'r'},
+    {0x0280u, L'R'},
+    {0x0281u, L'R'},
+    {0x0282u, L's'},
+    {0x0287u, L't'},
+    {0x0288u, L't'},
+    {0x0289u, L'u'},
+    {0x028Bu, L'v'},
+    {0x028Cu, L'v'},
+    {0x028Du, L'w'},
+    {0x028Eu, L'y'},
+    {0x028Fu, L'Y'},
+    {0x0290u, L'z'},
+    {0x0291u, L'z'},
+    {0x0297u, L'c'},
+    {0x0299u, L'B'},
+    {0x029Au, L'e'},
+    {0x029Bu, L'G'},
+    {0x029Cu, L'H'},
+    {0x029Du, L'j'},
+    {0x029Eu, L'k'},
+    {0x029Fu, L'L'},
+    {0x02A0u, L'q'},
+    {0x02AEu, L'h'},
+    {0x0363u, L'a'},
+    {0x0364u, L'e'},
+    {0x0365u, L'i'},
+    {0x0366u, L'o'},
+    {0x0367u, L'u'},
+    {0x0368u, L'c'},
+    {0x0369u, L'd'},
+    {0x036Au, L'h'},
+    {0x036Bu, L'm'},
+    {0x036Cu, L'r'},
+    {0x036Du, L't'},
+    {0x036Eu, L'v'},
+    {0x036Fu, L'x'},
+    {0x1D00u, L'A'},
+    {0x1D03u, L'B'},
+    {0x1D04u, L'C'},
+    {0x1D05u, L'D'},
+    {0x1D07u, L'E'},
+    {0x1D08u, L'e'},
+    {0x1D09u, L'i'},
+    {0x1D0Au, L'J'},
+    {0x1D0Bu, L'K'},
+    {0x1D0Cu, L'L'},
+    {0x1D0Du, L'M'},
+    {0x1D0Eu, L'N'},
+    {0x1D0Fu, L'O'},
+    {0x1D10u, L'O'},
+    {0x1D11u, L'o'},
+    {0x1D12u, L'o'},
+    {0x1D13u, L'o'},
+    {0x1D16u, L'o'},
+    {0x1D17u, L'o'},
+    {0x1D18u, L'P'},
+    {0x1D19u, L'R'},
+    {0x1D1Au, L'R'},
+    {0x1D1Bu, L'T'},
+    {0x1D1Cu, L'U'},
+    {0x1D1Du, L'u'},
+    {0x1D1Eu, L'u'},
+    {0x1D1Fu, L'm'},
+    {0x1D20u, L'V'},
+    {0x1D21u, L'W'},
+    {0x1D22u, L'Z'},
+    {0x1D62u, L'i'},
+    {0x1D63u, L'r'},
+    {0x1D64u, L'u'},
+    {0x1D65u, L'v'},
+    {0x1E01u, L'a'},
+    {0x1E03u, L'b'},
+    {0x1E05u, L'b'},
+    {0x1E07u, L'b'},
+    {0x1E0Bu, L'd'},
+    {0x1E0Du, L'd'},
+    {0x1E0Fu, L'd'},
+    {0x1E11u, L'd'},
+    {0x1E13u, L'd'},
+    {0x1E19u, L'e'},
+    {0x1E1Bu, L'e'},
+    {0x1E1Fu, L'f'},
+    {0x1E21u, L'g'},
+    {0x1E23u, L'h'},
+    {0x1E25u, L'h'},
+    {0x1E27u, L'h'},
+    {0x1E29u, L'h'},
+    {0x1E2Bu, L'h'},
+    {0x1E2Du, L'i'},
+    {0x1E31u, L'k'},
+    {0x1E33u, L'k'},
+    {0x1E35u, L'k'},
+    {0x1E37u, L'l'},
+    {0x1E3Bu, L'l'},
+    {0x1E3Du, L'l'},
+    {0x1E3Fu, L'm'},
+    {0x1E41u, L'm'},
+    {0x1E43u, L'm'},
+    {0x1E45u, L'n'},
+    {0x1E47u, L'n'},
+    {0x1E49u, L'n'},
+    {0x1E4Bu, L'n'},
+    {0x1E55u, L'p'},
+    {0x1E57u, L'p'},
+    {0x1E59u, L'r'},
+    {0x1E5Bu, L'r'},
+    {0x1E5Fu, L'r'},
+    {0x1E61u, L's'},
+    {0x1E63u, L's'},
+    {0x1E6Bu, L't'},
+    {0x1E6Du, L't'},
+    {0x1E6Fu, L't'},
+    {0x1E71u, L't'},
+    {0x1E73u, L'u'},
+    {0x1E75u, L'u'},
+    {0x1E77u, L'u'},
+    {0x1E7Du, L'v'},
+    {0x1E7Fu, L'v'},
+    {0x1E81u, L'w'},
+    {0x1E83u, L'w'},
+    {0x1E85u, L'w'},
+    {0x1E87u, L'w'},
+    {0x1E89u, L'w'},
+    {0x1E8Bu, L'x'},
+    {0x1E8Du, L'x'},
+    {0x1E8Fu, L'y'},
+    {0x1E91u, L'z'},
+    {0x1E93u, L'z'},
+    {0x1E95u, L'z'},
+    {0x1E96u, L'h'},
+    {0x1E97u, L't'},
+    {0x1E98u, L'w'},
+    {0x1E99u, L'y'},
+    {0x1E9Au, L'a'},
+    {0x1E9Bu, L's'},
+    {0x1EA1u, L'a'},
+    {0x1EA3u, L'a'},
+    {0x1EA4u, L'A'},
+    {0x1EA5u, L'a'},
+    {0x1EA6u, L'A'},
+    {0x1EA7u, L'a'},
+    {0x1EA8u, L'A'},
+    {0x1EA9u, L'a'},
+    {0x1EAAu, L'A'},
+    {0x1EABu, L'a'},
+    {0x1EACu, L'A'},
+    {0x1EADu, L'a'},
+    {0x1EAEu, L'A'},
+    {0x1EAFu, L'a'},
+    {0x1EB0u, L'A'},
+    {0x1EB1u, L'a'},
+    {0x1EB2u, L'A'},
+    {0x1EB3u, L'a'},
+    {0x1EB4u, L'A'},
+    {0x1EB5u, L'a'},
+    {0x1EB6u, L'A'},
+    {0x1EB7u, L'a'},
+    {0x1EB9u, L'e'},
+    {0x1EBBu, L'e'},
+    {0x1EBDu, L'e'},
+    {0x1EBEu, L'E'},
+    {0x1EBFu, L'e'},
+    {0x1EC0u, L'E'},
+    {0x1EC1u, L'e'},
+    {0x1EC2u, L'E'},
+    {0x1EC3u, L'e'},
+    {0x1EC4u, L'E'},
+    {0x1EC5u, L'e'},
+    {0x1EC6u, L'E'},
+    {0x1EC7u, L'e'},
+    {0x1EC9u, L'i'},
+    {0x1ECBu, L'i'},
+    {0x1ECDu, L'o'},
+    {0x1ECFu, L'o'},
+    {0x1ED0u, L'O'},
+    {0x1ED1u, L'o'},
+    {0x1ED2u, L'O'},
+    {0x1ED3u, L'o'},
+    {0x1ED4u, L'O'},
+    {0x1ED5u, L'o'},
+    {0x1ED6u, L'O'},
+    {0x1ED7u, L'o'},
+    {0x1ED8u, L'O'},
+    {0x1ED9u, L'o'},
+    {0x1EDAu, L'O'},
+    {0x1EDBu, L'o'},
+    {0x1EDCu, L'O'},
+    {0x1EDDu, L'o'},
+    {0x1EDEu, L'O'},
+    {0x1EDFu, L'o'},
+    {0x1EE0u, L'O'},
+    {0x1EE1u, L'o'},
+    {0x1EE2u, L'O'},
+    {0x1EE3u, L'o'},
+    {0x1EE5u, L'u'},
+    {0x1EE7u, L'u'},
+    {0x1EE8u, L'U'},
+    {0x1EE9u, L'u'},
+    {0x1EEAu, L'U'},
+    {0x1EEBu, L'u'},
+    {0x1EECu, L'U'},
+    {0x1EEDu, L'u'},
+    {0x1EEEu, L'U'},
+    {0x1EEFu, L'u'},
+    {0x1EF0u, L'U'},
+    {0x1EF1u, L'u'},
+    {0x1EF3u, L'y'},
+    {0x1EF5u, L'y'},
+    {0x1EF7u, L'y'},
+    {0x1EF9u, L'y'},
+    {0x2071u, L'i'},
+    {0x2095u, L'h'},
+    {0x2096u, L'k'},
+    {0x2097u, L'l'},
+    {0x2098u, L'm'},
+    {0x2099u, L'n'},
+    {0x209Au, L'p'},
+    {0x209Bu, L's'},
+    {0x209Cu, L't'},
+    {0x2184u, L'c'},
+    {0xFF01u, L'!'},
+    {0xFF02u, L'"'},
+    {0xFF03u, L'#'},
+    {0xFF04u, L'$'},
+    {0xFF05u, L'%'},
+    {0xFF06u, L'&'},
+    {0xFF07u, L'\''},
+    {0xFF08u, L'('},
+    {0xFF09u, L')'},
+    {0xFF0Au, L'*'},
+    {0xFF0Bu, L'+'},
+    {0xFF0Cu, L','},
+    {0xFF0Du, L'-'},
+    {0xFF0Eu, L'.'},
+    {0xFF0Fu, L'/'},
+    {0xFF10u, L'0'},
+    {0xFF11u, L'1'},
+    {0xFF12u, L'2'},
+    {0xFF13u, L'3'},
+    {0xFF14u, L'4'},
+    {0xFF15u, L'5'},
+    {0xFF16u, L'6'},
+    {0xFF17u, L'7'},
+    {0xFF18u, L'8'},
+    {0xFF19u, L'9'},
+    {0xFF1Au, L':'},
+    {0xFF1Bu, L';'},
+    {0xFF1Cu, L'<'},
+    {0xFF1Du, L'='},
+    {0xFF1Eu, L'>'},
+    {0xFF1Fu, L'?'},
+    {0xFF20u, L'@'},
+    {0xFF21u, L'A'},
+    {0xFF22u, L'B'},
+    {0xFF23u, L'C'},
+    {0xFF24u, L'D'},
+    {0xFF25u, L'E'},
+    {0xFF26u, L'F'},
+    {0xFF27u, L'G'},
+    {0xFF28u, L'H'},
+    {0xFF29u, L'I'},
+    {0xFF2Au, L'J'},
+    {0xFF2Bu, L'K'},
+    {0xFF2Cu, L'L'},
+    {0xFF2Du, L'M'},
+    {0xFF2Eu, L'N'},
+    {0xFF2Fu, L'O'},
+    {0xFF30u, L'P'},
+    {0xFF31u, L'Q'},
+    {0xFF32u, L'R'},
+    {0xFF33u, L'S'},
+    {0xFF34u, L'T'},
+    {0xFF35u, L'U'},
+    {0xFF36u, L'V'},
+    {0xFF37u, L'W'},
+    {0xFF38u, L'X'},
+    {0xFF39u, L'Y'},
+    {0xFF3Au, L'Z'},
+    {0xFF3Bu, L'['},
+    {0xFF3Cu, L'\\'},
+    {0xFF3Du, L']'},
+    {0xFF3Eu, L'^'},
+    {0xFF3Fu, L'_'},
+    {0xFF40u, L'`'},
+    {0xFF41u, L'a'},
+    {0xFF42u, L'b'},
+    {0xFF43u, L'c'},
+    {0xFF44u, L'd'},
+    {0xFF45u, L'e'},
+    {0xFF46u, L'f'},
+    {0xFF47u, L'g'},
+    {0xFF48u, L'h'},
+    {0xFF49u, L'i'},
+    {0xFF4Au, L'j'},
+    {0xFF4Bu, L'k'},
+    {0xFF4Cu, L'l'},
+    {0xFF4Du, L'm'},
+    {0xFF4Eu, L'n'},
+    {0xFF4Fu, L'o'},
+    {0xFF50u, L'p'},
+    {0xFF51u, L'q'},
+    {0xFF52u, L'r'},
+    {0xFF53u, L's'},
+    {0xFF54u, L't'},
+    {0xFF55u, L'u'},
+    {0xFF56u, L'v'},
+    {0xFF57u, L'w'},
+    {0xFF58u, L'x'},
+    {0xFF59u, L'y'},
+    {0xFF5Au, L'z'},
+    {0xFF5Bu, L'{'},
+    {0xFF5Cu, L'|'},
+    {0xFF5Du, L'}'},
+    {0xFF5Eu, L'~'},
+    {0xFF61u, L'.'},
+};
+
+static wchar_t MmenuNormalizeLatinRune(wchar_t character)
+{
+    if (character < 0) return character;
+    uint32_t codepoint = (uint32_t)character;
+    size_t low = 0;
+    size_t high = sizeof(MmenuLatinNormalization) / sizeof(MmenuLatinNormalization[0]);
+    while (low < high) {
+        size_t middle = low + (high - low) / 2;
+        if (MmenuLatinNormalization[middle].codepoint < codepoint)
+            low = middle + 1;
+        else
+            high = middle;
+    }
+    if (low < sizeof(MmenuLatinNormalization) / sizeof(MmenuLatinNormalization[0]) &&
+        MmenuLatinNormalization[low].codepoint == codepoint)
+        return MmenuLatinNormalization[low].normalized;
+    return character;
+}
+
+static wchar_t MmenuMatchRune(wchar_t character, unsigned int flags,
+                              int case_sensitive)
+{
+    if (!(flags & MMENU_LITERAL))
+        character = MmenuNormalizeLatinRune(character);
+    return case_sensitive ? character : FoldAscii(character);
+}
+
+static int MmenuMatchRuneEqual(wchar_t left, wchar_t right,
+                               unsigned int flags, int case_sensitive)
+{
+    return MmenuMatchRune(left, flags, case_sensitive) ==
+           MmenuMatchRune(right, flags, case_sensitive);
+}
+
+/* Decode UTF-8 without depending on LC_CTYPE. Invalid bytes are returned as
+   individual byte-valued characters, so batch filtering remains byte-safe. */
+static size_t MmenuDecodeUtf8(const char *text, wchar_t *character)
+{
+    const unsigned char *bytes = (const unsigned char *)text;
+    unsigned int first = bytes[0];
+    if (first < 0x80) {
+        *character = (wchar_t)first;
+        return 1;
+    }
+
+    size_t length;
+    uint32_t codepoint;
+    uint32_t minimum;
+    if (first >= 0xC2 && first <= 0xDF) {
+        length = 2; codepoint = first & 0x1Fu; minimum = 0x80u;
+    } else if (first >= 0xE0 && first <= 0xEF) {
+        length = 3; codepoint = first & 0x0Fu; minimum = 0x800u;
+    } else if (first >= 0xF0 && first <= 0xF4) {
+        length = 4; codepoint = first & 0x07u; minimum = 0x10000u;
+    } else {
+        *character = (wchar_t)first;
+        return 1;
+    }
+
+    for (size_t i = 1; i < length; i++) {
+        unsigned int next = bytes[i];
+        if (!next || (next & 0xC0u) != 0x80u) {
+            *character = (wchar_t)first;
+            return 1;
+        }
+        codepoint = (codepoint << 6) | (next & 0x3Fu);
+    }
+    if (codepoint < minimum || codepoint > 0x10FFFFu ||
+        (codepoint >= 0xD800u && codepoint <= 0xDFFFu)) {
+        *character = (wchar_t)first;
+        return 1;
+    }
+    *character = (wchar_t)codepoint;
+    return length;
+}
+
+static int MmenuHasNonAsciiBytes(const char *text)
+{
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++)
+        if (*p >= 0x80u) return 1;
+    return 0;
+}
+
+static int MmenuHasNonAsciiBefore(const char *text, const char *end)
+{
+    for (const unsigned char *p = (const unsigned char *)text;
+         (const char *)p < end; p++)
+        if (*p >= 0x80u) return 1;
+    return 0;
+}
+
+static int MmenuNormalizedPrefixMatch(const char *candidate, const char *needle,
+                                      unsigned int flags, const char **match_end)
+{
+    int case_sensitive = MmenuCaseSensitiveBytes(flags, needle);
+    const char *candidate_cursor = candidate;
+    const char *needle_cursor = needle;
+    while (*needle_cursor) {
+        if (!*candidate_cursor) return 0;
+        wchar_t candidate_char, needle_char;
+        size_t candidate_bytes = MmenuDecodeUtf8(candidate_cursor, &candidate_char);
+        size_t needle_bytes = MmenuDecodeUtf8(needle_cursor, &needle_char);
+        if (!MmenuMatchRuneEqual(candidate_char, needle_char, flags, case_sensitive))
+            return 0;
+        candidate_cursor += candidate_bytes;
+        needle_cursor += needle_bytes;
+    }
+    if (match_end) *match_end = candidate_cursor;
+    return 1;
+}
+
+static const char *MmenuNormalizedFindFrom(const char *haystack,
+                                           const char *needle,
+                                           const char *start,
+                                           unsigned int flags,
+                                           const char **match_end)
+{
+    if (!*needle) {
+        if (match_end) *match_end = start;
+        return start;
+    }
+    const char *end = haystack + strlen(haystack);
+    for (const char *cursor = start; cursor < end; ) {
+        const char *candidate_end = NULL;
+        if (MmenuNormalizedPrefixMatch(cursor, needle, flags, &candidate_end)) {
+            if (match_end) *match_end = candidate_end;
+            return cursor;
+        }
+        wchar_t ignored;
+        cursor += MmenuDecodeUtf8(cursor, &ignored);
+    }
+    return NULL;
+}
+
+static int MmenuNormalizedSuffixMatch(const char *candidate, const char *needle,
+                                      unsigned int flags, const char **match_at)
+{
+    const char *candidate_end = candidate + strlen(candidate);
+    for (const char *cursor = candidate; cursor < candidate_end; ) {
+        const char *match_end = NULL;
+        if (MmenuNormalizedPrefixMatch(cursor, needle, flags, &match_end) &&
+            match_end == candidate_end) {
+            if (match_at) *match_at = cursor;
+            return 1;
+        }
+        wchar_t ignored;
+        cursor += MmenuDecodeUtf8(cursor, &ignored);
+    }
+    return 0;
+}
+
+static int MmenuNormalizedEqualMatch(const char *candidate, const char *needle,
+                                     unsigned int flags)
+{
+    const char *match_end = NULL;
+    return MmenuNormalizedPrefixMatch(candidate, needle, flags, &match_end) &&
+           match_end == candidate + strlen(candidate);
+}
+
+
 static int MmenuAsciiNcmpPolicy(const char *left, const char *right,
                                 size_t length, int case_sensitive)
 {
@@ -500,12 +1229,42 @@ static const char *MmenuAsciiStrcasestr(const char *haystack, const char *needle
     return NULL;
 }
 
-static const char *MmenuStrstrPolicy(const char *haystack, const char *needle,
-                                     unsigned int flags)
+static const char *MmenuStrstrPolicyRaw(const char *haystack, const char *needle,
+                                        unsigned int flags)
 {
     if (MmenuCaseSensitiveBytes(flags, needle))
         return strstr(haystack, needle);
     return MmenuAsciiStrcasestr(haystack, needle);
+}
+
+static const char *MmenuStrstrPolicyEx(const char *haystack, const char *needle,
+                                       unsigned int flags, const char **match_end)
+{
+    const char *raw_match = MmenuStrstrPolicyRaw(haystack, needle, flags);
+    if (flags & MMENU_LITERAL) {
+        if (match_end) *match_end = raw_match ? raw_match + strlen(needle) : NULL;
+        return raw_match;
+    }
+
+    /* Keep the optimized ASCII-only path on the common case. If a raw
+       match follows only ASCII bytes, it is also the first normalized match. */
+    if (!MmenuHasNonAsciiBytes(needle)) {
+        if (raw_match && !MmenuHasNonAsciiBefore(haystack, raw_match)) {
+            if (match_end) *match_end = raw_match + strlen(needle);
+            return raw_match;
+        }
+        if (!raw_match && !MmenuHasNonAsciiBytes(haystack)) {
+            if (match_end) *match_end = NULL;
+            return NULL;
+        }
+    }
+    return MmenuNormalizedFindFrom(haystack, needle, haystack, flags, match_end);
+}
+
+static const char *MmenuStrstrPolicy(const char *haystack, const char *needle,
+                                     unsigned int flags)
+{
+    return MmenuStrstrPolicyEx(haystack, needle, flags, NULL);
 }
 
 /* fzf-style exact-boundary terms require non-word characters on both sides.
@@ -549,14 +1308,13 @@ static int MmenuQueryWordCharacterBefore(const char *begin, const char *position
 }
 
 static int MmenuQueryBoundaryMatch(const char *candidate, const char *match_at,
-                                   size_t match_length)
+                                   const char *match_end)
 {
     if (match_at != candidate &&
         MmenuQueryWordCharacterBefore(candidate, match_at))
         return 0;
 
-    const char *end = match_at + match_length;
-    return !MmenuQueryWordCharacterAt(end);
+    return !MmenuQueryWordCharacterAt(match_end);
 }
 
 static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
@@ -595,7 +1353,7 @@ static int FuzzyScoreLengthMetrics(const char *candidate, const wchar_t *query,
 
         if (current == L'/' || current == L'\\') last_separator = candidate_pos;
         if (query_pos < query_len &&
-            (case_sensitive ? current == query[query_pos] : FoldAscii(current) == FoldAscii(query[query_pos]))) {
+            MmenuMatchRuneEqual(current, query[query_pos], flags, case_sensitive)) {
             score += 10;
             if (candidate_pos == 0 || IsFuzzyBoundary(previous, current))
                 score += 8;
@@ -664,7 +1422,7 @@ static void RenderFuzzyOption(const wchar_t *option, int columns,
         if (width > 0 && used_columns + width > columns) break;
 
         int matched = query[query_pos] != L'\0' &&
-                      (case_sensitive ? ch == query[query_pos] : FoldAscii(ch) == FoldAscii(query[query_pos]));
+                      MmenuMatchRuneEqual(ch, query[query_pos], flags, case_sensitive);
         if (matched) {
             query_pos++;
             attron(A_BOLD | A_UNDERLINE);
@@ -1018,8 +1776,10 @@ static int mmenu_query_term_match(const char *candidate,
         break;
     case MMENU_QUERY_BOUNDARY: {
         const char *cursor = candidate;
-        while ((match_at = MmenuStrstrPolicy(cursor, term->bytes, flags)) != NULL) {
-            if (MmenuQueryBoundaryMatch(candidate, match_at, term->bytes_len)) break;
+        const char *match_end = NULL;
+        while ((match_at = MmenuStrstrPolicyEx(cursor, term->bytes, flags,
+                                               &match_end)) != NULL) {
+            if (MmenuQueryBoundaryMatch(candidate, match_at, match_end)) break;
             cursor = match_at + 1;
         }
         matched = match_at != NULL;
@@ -1029,21 +1789,38 @@ static int mmenu_query_term_match(const char *candidate,
         break;
     }
     case MMENU_QUERY_PREFIX:
-        matched = candidate_len >= term->bytes_len &&
-                  MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+        if (flags & MMENU_LITERAL) {
+            matched = candidate_len >= term->bytes_len &&
+                      MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len,
+                          MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+        } else {
+            matched = MmenuNormalizedPrefixMatch(candidate, term->bytes, flags, NULL);
+        }
         if (matched && (flags & MMENU_FUZZY)) *score = 20;
         if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
     case MMENU_QUERY_SUFFIX:
-        matched = candidate_len >= term->bytes_len &&
-                  MmenuAsciiNcmpPolicy(candidate + candidate_len - term->bytes_len, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+        if (flags & MMENU_LITERAL) {
+            matched = candidate_len >= term->bytes_len &&
+                      MmenuAsciiNcmpPolicy(candidate + candidate_len - term->bytes_len,
+                          term->bytes, term->bytes_len,
+                          MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+            match_at = matched ? candidate + candidate_len - term->bytes_len : NULL;
+        } else {
+            matched = MmenuNormalizedSuffixMatch(candidate, term->bytes, flags, &match_at);
+        }
         if (matched && (flags & MMENU_FUZZY)) *score = 15;
         if (matched && metrics)
-            MmenuSubstringMetrics(candidate, candidate + candidate_len - term->bytes_len, term->wide_len, metrics);
+            MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
         break;
     case MMENU_QUERY_EQUAL:
-        matched = candidate_len == term->bytes_len &&
-                  MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+        if (flags & MMENU_LITERAL) {
+            matched = candidate_len == term->bytes_len &&
+                      MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len,
+                          MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;
+        } else {
+            matched = MmenuNormalizedEqualMatch(candidate, term->bytes, flags);
+        }
         if (matched && (flags & MMENU_FUZZY)) *score = 30;
         if (matched && metrics) MmenuSubstringMetrics(candidate, candidate, term->wide_len, metrics);
         break;
@@ -1704,7 +2481,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT | MMENU_DISABLED)) ||
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT | MMENU_DISABLED | MMENU_LITERAL)) ||
         ((flags & MMENU_CASE_SENSITIVE) && (flags & MMENU_SMART_CASE)) ||
         ((flags & MMENU_NO_SORT) && !(flags & MMENU_FUZZY)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||

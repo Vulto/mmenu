@@ -35,6 +35,11 @@ if grep -Fq -- '--layout MODE (or --layout=MODE) selects default, reverse, or re
 else
     Fail '--help must document the available layout presets'
 fi
+if grep -Fq -- '--literal disables Latin-script normalization for matching.' "$TmpDir/help"; then
+    Pass 'help documents the Latin normalization opt-out'
+else
+    Fail '--help must document --literal'
+fi
 
 # Batch output templates substitute records, original indexes, and the query.
 printf 'alpha needle\nbeta needle\nneedle\n' > "$TmpDir/input"
@@ -430,7 +435,7 @@ CheckEqual 'long substring search preserves case folding and overlapping matches
 # High-bit bytes remain exact while ASCII bytes in the same query are folded.
 printf 'Éabcdef\néabcdef\nxéAbCdEf\n' > "$TmpDir/input"
 printf 'éabcdef\nxéAbCdEf\n' > "$TmpDir/expected"
-LC_ALL=C "$Bin" --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
+LC_ALL=C "$Bin" --literal --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'long substring search preserves non-ASCII bytes and folds ASCII only' "$TmpDir/expected" "$TmpDir/actual"
 
 # Force the long-record Boyer-Moore-Horspool path and verify a late match.
@@ -463,8 +468,8 @@ CheckEqual 'smart-case is resolved across the complete extended query' "$TmpDir/
 # ASCII folding must not case-fold non-ASCII UTF-8 bytes.
 printf 'ÄLPHA\nälpha\n' > "$TmpDir/input"
 printf 'älpha\n' > "$TmpDir/expected"
-"$Bin" --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
-CheckEqual 'non-ASCII case variants remain distinct' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --literal --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'non-ASCII case variants remain distinct under --literal' "$TmpDir/expected" "$TmpDir/actual"
 
 # Ranking corpus smoke cases: source paths, identifiers, separators, and ambiguous partial words.
 printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\ngit-status\ngit-stash\nHTTPServer\nhttp_server\nfoo bar\nfoo-baz\nfoobar\n' > "$TmpDir/input"
@@ -581,7 +586,7 @@ awk 'BEGIN {
 }' > "$TmpDir/input"
 for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value 'café-日本語'; do
     LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
-    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    "$Bin" --literal --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
     CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
 done
 
@@ -1126,6 +1131,47 @@ else
         Pass 'stdin read failures are reported'
     fi
 fi
+
+
+# Latin normalization applies before case policy in substring and fuzzy modes.
+printf 'café\nCAFE\ncaffè\n' > "$TmpDir/input"
+printf 'café\nCAFE\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'substring search normalizes accented Latin letters by default' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'CAFE\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --literal --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization without disabling ASCII case folding' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --no-ignore-case --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'case-sensitive matching preserves case after Latin normalization' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'Só Danço Samba\nSodanco\n' > "$TmpDir/input"
+printf 'Só Danço Samba\nSodanco\n' > "$TmpDir/expected"
+LC_ALL=C.UTF-8 "$Bin" --fuzzy --no-sort --filter sodanco < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy matching normalizes accented Latin characters' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'Sodanco\n' > "$TmpDir/expected"
+LC_ALL=C.UTF-8 "$Bin" --literal --fuzzy --no-sort --filter sodanco < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization in fuzzy matching' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\ncafeteria\ndecafé\n' > "$TmpDir/input"
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter '^cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended whole-record terms compare normalized code points' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\ndecafé\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter 'cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended suffix terms normalize Latin characters across UTF-8 byte lengths' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter "'cafe'" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended boundary terms retain the normalized match byte span' "$TmpDir/expected" "$TmpDir/actual"
+
+: > "$TmpDir/expected"
+LC_ALL=C "$Bin" --literal --extended --filter '^cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization in extended matching' "$TmpDir/expected" "$TmpDir/actual"
 
 if [ "$Failures" -ne 0 ]; then
     printf '%s regression check(s) failed.\n' "$Failures" >&2

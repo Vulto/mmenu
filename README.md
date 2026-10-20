@@ -50,11 +50,12 @@ mmenu --exact --filter QUERY [-t]
 mmenu --invert-match --filter QUERY [-t] [--read0] [--print0]
 ```
 
-Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. Use `--no-ignore-case` (or `+i`) for ASCII-case-sensitive matching, `--ignore-case` (or `-i`) to restore the default, and `--smart-case` to ignore case unless the query contains an ASCII uppercase letter. These policies also apply to fuzzy and extended matching. `--exact` matches whole records byte-for-byte (case-sensitive), preserving input order and duplicates. An empty
+Default batch mode emits ASCII-case-insensitive contiguous-substring matches in input order. Unless `--literal` is set, recognized Latin-script and selected fullwidth compatibility characters normalize to ASCII equivalents before the case policy is applied; `--literal` disables that normalization. These matching policies also apply to fuzzy and extended matching. `--exact` remains whole-record byte equality, case-sensitive, preserving input order and duplicates. An empty
 query matches every input record; an empty input is valid. Batch mode is byte-oriented and
 preserves invalid UTF-8 bytes, but rejects embedded NUL bytes in newline-delimited mode. The interactive C API
-requires valid multibyte options and prompt text in the active locale; matching folds ASCII
-case only, while non-ASCII bytes must match exactly. `-h`/`--help` prints usage.
+requires valid multibyte options and prompt text in the active locale; matching applies the
+same Latin-normalization table and ASCII case policy as the CLI. Characters outside the
+normalization table remain exact. `-h`/`--help` prints usage.
 `--invert-match` (or `-v`) emits records that do not match the selected batch matcher, in original input order; it requires `--filter` and also supports `-t` indexes. The optional `--exact` mode matches only records exactly equal to the query, including case and all bytes. An empty exact query matches only empty records. The `--exact` and `--fuzzy` modes cannot be combined. The optional `--fuzzy` mode matches query characters as an ordered subsequence and ranks
 results by early, adjacent, and word-boundary matches; ties retain input order by default, and `--tiebreak` can order equal-score matches by length, begin/end position, chunk count, pathname, or input index. In the
 interactive menu, matched fuzzy characters are bolded and underlined. In fuzzy
@@ -120,8 +121,9 @@ Options (in addition to the legacy positional prompt and `t`/`true` index argume
 - `--filter QUERY`, `--filter=QUERY`, or `-f QUERY`: non-interactive batch mode. Outputs matching records (or indices with `-t`), without initializing ncurses.
 - `--read0`: read NUL-delimited input records instead of newline-delimited records.
 - `--print0`: terminate each output record with NUL instead of newline.
-- `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode. It cannot be combined with `--extended`.
-- `--ignore-case`/`-i`: ASCII-case-insensitive matching (the default); `--no-ignore-case`/`+i`: ASCII-case-sensitive matching; `--smart-case`: case-insensitive unless the complete query contains an ASCII uppercase letter. Non-ASCII bytes are always matched exactly.
+- `--exact`: match whole records byte-for-byte, case-sensitively, in interactive or batch mode. It cannot be combined with `--extended`; `--literal` does not change `--exact` byte equality.
+- `--ignore-case`/`-i`: ASCII-case-insensitive matching (the default); `--no-ignore-case`/`+i`: ASCII-case-sensitive matching; `--smart-case`: case-insensitive unless the complete query contains an ASCII uppercase letter.
+- `--literal`: disable Latin-script normalization. By default, recognized accented Latin letters and selected fullwidth compatibility characters normalize to ASCII equivalents before the ASCII case policy is applied. Characters not in the normalization table and invalid UTF-8 bytes remain exact.
 - `--invert-match` or `-v`: invert batch filter results; requires `--filter` and works with substring, exact, and fuzzy modes.
 - `--fuzzy`: match subsequences and rank by score; mutually exclusive with `--exact`.
 - `--extended` or `-x`: parse AND terms separated by whitespace, OR groups separated by `|`, inverse terms prefixed by `!`, exact contiguous terms prefixed by `'`, exact-boundary terms wrapped in `'` (for example `'wild'`), prefix terms prefixed by `^`, and suffix terms ending in `$`. A paired-quote term must begin and end at a word boundary; Unicode letters and numbers are classified using the active locale. Backslash escapes spaces and syntax characters to match them literally (e.g. `foo\ bar`, `\|literal`, `\!danger`, `\^caret`, `price\$`, `\'quote`, and `path\\name`). `--no-extended` or `+x` keeps legacy literal-query behavior. Extended mode can be combined with `--fuzzy`, but not whole-record `--exact`.

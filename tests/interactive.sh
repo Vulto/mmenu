@@ -278,7 +278,7 @@ CheckSelection 'C API tiebreak length orders equal-score matches' 1 '\n' tiebrea
 
 CheckSelection 'incremental edits followed by Backspace preserve the match' 2 'needle\177\n'
 CheckSelection 'ASCII case-insensitive matching works in C locale' 2 'NEEDLE\n' ascii '' '' C
-CheckSelection 'non-ASCII case matching remains byte-exact' -1 'CAFÉ\n'
+CheckSelection 'non-ASCII case matching remains byte-exact under MMENU_LITERAL' -1 'CAFÉ\n' literal
 CheckSelection 'Backspace clears an unmatched query' 0 'x\177\n'
 CheckSelection 'no matching options returns -1 on Enter' -1 'absent\n'
 CheckSelection 'empty option list returns -1 on Enter' -1 '\n' empty

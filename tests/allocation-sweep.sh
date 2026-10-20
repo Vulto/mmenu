@@ -145,6 +145,9 @@ ProbeApi() {
         Fail "API probe failed for $Name"
     fi
     StripTerminalCodes "$TmpDir/api-probe.raw" "$TmpDir/api-probe.txt"
+    if [ "$Name" = preview-callback ] && ! grep -aFq "api-preview:" "$TmpDir/api-probe.txt"; then
+        Fail "API preview callback was not invoked in the successful probe"
+    fi
     Count=$(GetAllocationCount "$TmpDir/api-probe.txt")
     [ -n "$Count" ] || Fail "API allocation count missing for $Name"
     printf '%s\n' "$Count"
@@ -249,5 +252,7 @@ SweepApi unicode-query '' 'café\n'
 SweepApi fuzzy fuzzy 'ndl\n'
 SweepApi fuzzy-result-growth fuzzy-many 'a\n'
 SweepApi extended-query extended '\n'
+SweepApi field-projection nth-api '\n'
+SweepApi preview-callback preview-callback '\n'
 
 printf 'All exhaustive allocation-failure sweeps passed.\n'

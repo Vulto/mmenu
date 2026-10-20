@@ -147,6 +147,25 @@ CheckEqual 'extended inverse terms exclude matching records' "$TmpDir/expected" 
 printf 'src/README.md\nREADME.md\n' > "$TmpDir/expected"
 "$Bin" --extended --filter "'README" < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended single quote forces contiguous matching' "$TmpDir/expected" "$TmpDir/actual"
+
+# A matching quote pair requests a contiguous term at both word boundaries.
+printf 'wild\nfoo-wild-bar\n_wild_\nwildlife\nrewild\nfooWild\nrewild:wild:ok\nfoo.wild.png\n' > "$TmpDir/input"
+printf 'wild\nfoo-wild-bar\n_wild_\nrewild:wild:ok\nfoo.wild.png\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "'wild'" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'paired quote terms require start and end word boundaries' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'wildlife\nfoo-wild-bar\nrewild\n' > "$TmpDir/input"
+printf 'wildlife\nrewild\n' > "$TmpDir/expected"
+"$Bin" --extended --filter "!'wild'" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'inverse paired-quote term excludes only boundary matches' "$TmpDir/expected" "$TmpDir/actual"
+
+# An escaped final apostrophe remains a literal part of a contiguous term.
+printf "wild'\nwild\n" > "$TmpDir/input"
+printf "wild'\n" > "$TmpDir/expected"
+EscapedQuote=$(printf '\047wild\134\047')
+"$Bin" --extended --filter "$EscapedQuote" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'escaped final apostrophe is not treated as a closing quote' "$TmpDir/expected" "$TmpDir/actual"
+
 printf 'src/main.c\n' > "$TmpDir/expected"
 "$Bin" --extended --fuzzy --filter 'smc' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'extended fuzzy terms use subsequence matching' "$TmpDir/expected" "$TmpDir/actual"

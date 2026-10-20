@@ -435,7 +435,7 @@ CheckEqual 'long substring search preserves case folding and overlapping matches
 # High-bit bytes remain exact while ASCII bytes in the same query are folded.
 printf 'Éabcdef\néabcdef\nxéAbCdEf\n' > "$TmpDir/input"
 printf 'éabcdef\nxéAbCdEf\n' > "$TmpDir/expected"
-LC_ALL=C "$Bin" --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
+LC_ALL=C "$Bin" --literal --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'long substring search preserves non-ASCII bytes and folds ASCII only' "$TmpDir/expected" "$TmpDir/actual"
 
 # Force the long-record Boyer-Moore-Horspool path and verify a late match.
@@ -468,8 +468,8 @@ CheckEqual 'smart-case is resolved across the complete extended query' "$TmpDir/
 # ASCII folding must not case-fold non-ASCII UTF-8 bytes.
 printf 'ÄLPHA\nälpha\n' > "$TmpDir/input"
 printf 'älpha\n' > "$TmpDir/expected"
-"$Bin" --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
-CheckEqual 'non-ASCII case variants remain distinct' "$TmpDir/expected" "$TmpDir/actual"
+"$Bin" --literal --filter 'ä' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'non-ASCII case variants remain distinct under --literal' "$TmpDir/expected" "$TmpDir/actual"
 
 # Ranking corpus smoke cases: source paths, identifiers, separators, and ambiguous partial words.
 printf 'src/main.c\nsrc/m-m-h.c\nsrc/mmh.c\ngit-status\ngit-stash\nHTTPServer\nhttp_server\nfoo bar\nfoo-baz\nfoobar\n' > "$TmpDir/input"
@@ -586,7 +586,7 @@ awk 'BEGIN {
 }' > "$TmpDir/input"
 for Query in case-001 group-07 token-12 'literal.[*]?' needle other absent-value 'café-日本語'; do
     LC_ALL=C grep -i -F -- "$Query" "$TmpDir/input" > "$TmpDir/expected" || [ "$Query" = absent-value ]
-    "$Bin" --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
+    "$Bin" --literal --filter "$Query" < "$TmpDir/input" > "$TmpDir/actual"
     CheckEqual "generated corpus differential oracle: $Query" "$TmpDir/expected" "$TmpDir/actual"
 done
 

@@ -243,6 +243,14 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    if (argc > 1 && strcmp(argv[1], "extended-boundary") == 0) {
+        const char *options[] = {"wildlife", "rewild", "foo-wild-bar", "_wild_", "wild"};
+        mmenu_config config = {.initial_query = "'wild'"};
+        int result = mmenuConfigured(options, 5, prompt, MMENU_EXTENDED, &config);
+        printf("MMENU_RESULT=%d\n", result);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "extended-escaped-space") == 0) {
         const char *extended_options[] = {"foo qux", "foo bar baz", "bar foo"};
         mmenu_config config = {.initial_query = "foo\\ bar"};

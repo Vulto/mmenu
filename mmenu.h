@@ -33,6 +33,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
 

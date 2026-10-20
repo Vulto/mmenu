@@ -9,7 +9,8 @@ subsequence matching, rewarding early, adjacent, and word-boundary matches and s
 score with stable input-order ties. The fuzzy score is a practical heuristic, not a learned
 relevance model. Interactive fuzzy mode underlines and bolds the greedily matched
 subsequence characters.
-The insensitive byte search uses a Boyer–Moore–Horspool skip table for needles of four bytes or longer; shorter needles retain the straightforward scan. This is an implementation optimization only and does not change the documented match semantics.
+
+The insensitive byte search skips impossible first-byte positions in short records and uses a Boyer–Moore–Horspool skip table for long records. This is an implementation optimization only and does not change the documented match semantics.
 
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
 synthetic path-like corpus with manually assigned relevance grades. It is an initial

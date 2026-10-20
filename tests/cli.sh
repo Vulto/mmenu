@@ -1127,6 +1127,47 @@ else
     fi
 fi
 
+
+# Latin normalization applies before case policy in substring and fuzzy modes.
+printf 'café\nCAFE\ncaffè\n' > "$TmpDir/input"
+printf 'café\nCAFE\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'substring search normalizes accented Latin letters by default' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'CAFE\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --literal --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization without disabling ASCII case folding' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --no-ignore-case --filter cafe < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'case-sensitive matching preserves case after Latin normalization' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'Só Danço Samba\nSodanco\n' > "$TmpDir/input"
+printf 'Só Danço Samba\nSodanco\n' > "$TmpDir/expected"
+LC_ALL=C.UTF-8 "$Bin" --fuzzy --no-sort --filter sodanco < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'fuzzy matching normalizes accented Latin characters' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'Sodanco\n' > "$TmpDir/expected"
+LC_ALL=C.UTF-8 "$Bin" --literal --fuzzy --no-sort --filter sodanco < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization in fuzzy matching' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\ncafeteria\ndecafé\n' > "$TmpDir/input"
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter '^cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended whole-record terms compare normalized code points' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\ndecafé\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter 'cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended suffix terms normalize Latin characters across UTF-8 byte lengths' "$TmpDir/expected" "$TmpDir/actual"
+
+printf 'café\n' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --extended --filter "'cafe'" < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'extended boundary terms retain the normalized match byte span' "$TmpDir/expected" "$TmpDir/actual"
+
+: > "$TmpDir/expected"
+LC_ALL=C "$Bin" --literal --extended --filter '^cafe$' < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual '--literal disables Latin normalization in extended matching' "$TmpDir/expected" "$TmpDir/actual"
+
 if [ "$Failures" -ne 0 ]; then
     printf '%s regression check(s) failed.\n' "$Failures" >&2
     exit 1

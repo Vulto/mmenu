@@ -20,7 +20,51 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 ### Search and matching
 
 - [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
-- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'` contiguous, `^` prefix, `$` suffix, `^term$` whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
+- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'term` contiguous terms, paired quotes such as `'term'` for word-boundary contiguous matches, `^` prefix, `# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+ suffix, `^term# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+ whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
 - [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
 - [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
 - [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
@@ -428,10 +472,490 @@ Status legend: present = behavior exists and is tested; partial = an incomplete 
 
 ### M2a2 — Escaped query metacharacters
 
-- [x] Treat escaped `|`, `!`, `'`, `^`, `$`, and backslash as literal query text without changing the meaning of unescaped operators and anchors.
+- [x] Treat escaped `|`, `!`, `'`, `^`, `# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+- [ ] Extended query syntax — partial — supports whitespace AND, `|` OR groups, `!` inverse, `'term` contiguous terms, paired quotes such as `'term'` for word-boundary contiguous matches, `^` prefix, `# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+ suffix, `^term# Plan
+
+## Current state (factual only)
+
+- Repository: Vulto/mmenu; default branch: master.
+- Baseline commit: 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- Implementation is a single-header ncursesw C library plus a CLI in main.c. Strict GCC and Clang configurations use -std=c2x for C23 language-mode compatibility with the available toolchains.
+- Public entry points include mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured. The public configuration structure provides an initial query, preview callback, key bindings, and an optional incremental stream callback.
+- Existing CLI options include --fuzzy, --exact, --invert-match, --no-sort, --read0, --print0, --multi, --query, --preview, --filter, --format, -t, and six dedicated single-key binding options.
+- Interactive CLI input uses an additive stream callback and a nonblocking reader that retains completed records in the existing arena. CI run 38273624428 passed all four jobs, including early-toggle and streaming/preview tests. This revision strengthens preview validation by asserting the callback is invoked again when a later record arrives. The CLI batch filter remains a complete-input path.
+- The existing CI includes strict GCC/Clang release builds, ASan/UBSan builds, CLI and PTY/API regression suites, static analysis, Valgrind, allocation-failure testing, matcher fuzzing, and performance artifacts.
+- Existing measurement scripts: tests/benchmark.sh (batch throughput/RSS at 1k, 10k, 100k, 1M records) and tests/interactive-benchmark.sh (interactive first paint at 1k, 10k, 100k records). These report measurements rather than imposing absolute timing thresholds.
+- No implementation or checklist item is considered complete without regression coverage and successful full CI on its commit.
+- Authoritative option/action reference inspected for this inventory: https://github.com/junegunn/fzf/blob/master/man/man1/fzf.1 (fzf 0.74.5, checked 2026-10-12). The complete option and action surface below is tracked as individual entries; new upstream options must be added when the reference version changes.
+
+## Complete fzf feature checklist
+
+Status legend: present = behavior exists and is tested; partial = an incomplete or narrower analogue exists; missing = no equivalent verified.
+
+### Search and matching
+
+- [ ] Extended query mode (--extended / -x) — partial — the documented subset is implemented in batch, interactive, and streaming paths; full upstream fzf query parity remains incomplete.
+ whole-record terms, and backslash escaping for spaces and syntax metacharacters; broader upstream fzf syntax remains unimplemented.
+- [ ] Exact matching (--exact / -e) — partial — batch and interactive exact modes exist, but full fzf query semantics are absent.
+- [x] Extended-search disable (--no-extended / +x) — present — opts back into legacy literal-query semantics.
+- [x] Case-insensitive matching (--ignore-case / -i) — present — default ASCII-only folding with explicit CLI/API policy flags.
+- [x] Case-sensitive matching (--no-ignore-case / +i) — present — ASCII case-sensitive matching in substring, fuzzy, extended, and interactive paths.
+- [x] Smart-case matching (--smart-case) — present — query-wide ASCII uppercase detection with CLI/API coverage.
+- [ ] Literal matching and Latin normalization controls (--literal) — missing — no equivalent option.
+- [ ] Scoring schemes (--scheme=default|path|history) — missing — no selectable scoring scheme.
+- [ ] Fuzzy algorithms (--algo=v1|v2) — missing — only the existing matcher is available.
+- [x] Search field selection (--nth) — present — 1-based field indexes, negative indexes, and ranges apply to batch and interactive matching while raw records remain displayed/output.
+- [x] Display field transformation (--with-nth) — present — interactive-only field projection with original-record output preserved.
+- [x] Accepted-output field selection/template (--accept-nth) — present — supports selected fields and ranges while preserving the raw record for matching/display.
+- [x] Unsorted matching (--no-sort / +s) — present — fuzzy batch, interactive, extended, and streaming results preserve input order.
+- [x] Custom field delimiter (--delimiter / -d) — present — POSIX extended regular expressions support alternatives, repetitions, and character classes; invalid and empty-width expressions are rejected.
+- [ ] Tail-limited input (--tail) — missing.
+- [x] Disabled search (--disabled) — present — interactive query edits never filter options; batch-filter combination is rejected explicitly.
+- [x] Configurable tie-breaking (--tiebreak) — present — equal-score fuzzy matches can be ordered by length, begin/end position, index, chunk count, pathname/basename match; input index remains the stable fallback.
+- [x] Prefix, suffix, inverse, exact-boundary, quoted exact, and OR query operators — present — covered by CLI and interactive API regressions.
+- [ ] Unicode-aware matching and normalization semantics — partial — wide-character UI support exists, but matching and normalization need a defined/tested policy.
+- [ ] Ranking-quality fixtures and stable ranking baseline — partial — a baseline exists; the current matcher still needs comprehensive quality comparison.
+
+### Input, streaming, and output
+
+- [ ] Interactive incremental streaming input; show and update results before stdin closes — partial — an additive callback and nonblocking CLI reader are implemented; a streaming C API regression now covers escaped-space AND matching, while overall acceptance validation remains pending.
+- [ ] Keep arena/slab allocation for streaming input without per-record allocation — partial — streamed record bytes use the existing arena; one reusable record buffer grows only as needed.
+- [ ] NUL-delimited input (--read0) — present — existing CLI option and regression coverage.
+- [ ] NUL-delimited output (--print0) — present — existing CLI option and regression coverage.
+- [ ] ANSI escape parsing and color preservation (--ansi) — missing.
+- [ ] Synchronous input/search mode (--sync) — missing — no asynchronous streaming mode yet.
+- [ ] TTY default-input behavior and --no-tty-default — missing.
+- [ ] Preserve raw records separately from display/transformed records — partial — current arena/list model needs to be extended for ANSI, field transforms, and multiline presentation.
+- [ ] Multi-line items and --no-multi-line — missing.
+- [ ] Reverse input order (--tac) — missing.
+- [ ] Track the current item across updates (--track) — missing.
+- [ ] Stable item identity (--id-nth) — missing.
+- [ ] Batch filter (--filter / -f) — present — existing mode; expand its semantics without changing current defaults.
+- [ ] Print query (--print-query) — missing.
+- [ ] Expected-key output (--expect) — missing.
+- [ ] Select the sole match automatically (--select-1 / -1) — missing.
+- [ ] Exit immediately on zero matches (--exit-0 / -0) — missing.
+- [ ] No-clear terminal behavior (--no-clear) — missing.
+- [ ] Standard exit statuses (0 selected, 1 no match, 2 error, 126/127 become failures, 130 interruption) — partial — current CLI status conventions are narrower.
+- [ ] Batch output templates and original-index output — present — preserve existing --format and -t behavior while adding compatible conventions.
+- [ ] Robust stdout/stderr failure handling and prompt option validation — present — keep regression coverage.
+
+### Global style and color
+
+- [ ] Style presets (--style=default|minimal|full[:border]) — missing.
+- [ ] Named color/theme configuration (--color) — missing.
+- [ ] Disable color (--no-color) — missing.
+- [ ] Disable bold (--no-bold) — missing.
+- [ ] Black terminal background preset (--black) — missing.
+- [ ] Honor NO_COLOR consistently — missing.
+- [ ] ANSI color names, 256-color, RGB color, attributes, and per-component colors — missing.
+- [ ] Preserve matching highlights while rendering ANSI-colored input — missing.
+
+### Display size, layout, and chrome
+
+- [ ] Height modes (--height, percentages, auto/inverted sizing) — partial — fixed positive row-count `--height N` and percentage `--height PCT%` with `mmenu_config.height`/`height_percent` limit visible option rows; automatic and inverted modes remain missing.
+- [ ] Minimum height (--min-height) — missing.
+- [ ] Popup placement and sizing (--popup) — missing.
+- [ ] tmux popup integration (--tmux) — missing.
+- [ ] Layout modes (--layout=default|reverse|reverse-list) and --reverse — partial — the three CLI presets and both shorthand aliases are implemented with conflicting selections rejected; the preset implementation is merged to master after passing exact-head CI. Margins, padding, borders, and other M3 layout/chrome features remain incomplete.
+- [ ] Margin geometry (--margin) — missing.
+- [ ] Padding geometry (--padding) — missing.
+- [ ] Border styles and placement (--border, including none, rounded, sharp, bold, block, thinblock, double, dashed, horizontal, vertical, top, bottom, left, right, line, inline) — missing.
+- [ ] Global border label and position (--border-label, --border-label-pos) — missing.
+- [ ] List border (--list-border) — missing.
+- [ ] List label and position (--list-label, --list-label-pos) — missing.
+- [ ] Header/footer/input/preview borders and labels — missing.
+- [ ] Header label (--header-label) — missing.
+- [ ] Header label position (--header-label-pos) — missing.
+- [ ] Footer label (--footer-label) — missing.
+- [ ] Footer label position (--footer-label-pos) — missing.
+- [ ] Header/footer label positioning — missing.
+- [ ] Multi-selection limit (--multi[=MAX]) — partial — unlimited multi-select exists; limits do not.
+- [ ] Highlight selected/current line (--highlight-line) — missing.
+- [ ] Cursor wrapping (--cycle) — CLI wraparound, filtered-query, batch-validation, and PTY/C API regressions are on branch `m3-cycle-navigation`. The bounded-navigation CLI regression verifies repeated Down presses remain on the last option without `--cycle`; the C API suite also covers bounded navigation. CI run 38727535977 passed all four required GCC/Clang release and sanitizer jobs on code/test head `cca5d932bbe89fb3da688acaad6add185e2cb25e`; CLI, interactive C API, streaming, and applicable allocation-failure regression steps passed, while conditional optional steps were skipped where configured. This result does not validate later commits; keep unchecked until the exact current PR head has passing required CI, a matching QA marker, and is merged.
+- [ ] Multiline wrapping modes and wrap signs (--wrap, --wrap-sign, --no-multi-line) — missing.
+- [ ] Raw mode (--raw) — missing.
+- [ ] Gap between list entries (--gap, --gap-line) — missing.
+- [ ] Freeze fields on left/right (--freeze-left, --freeze-right) — missing.
+- [ ] Keep right side visible (--keep-right) — missing.
+- [ ] Scroll offset (--scroll-off) — missing.
+- [ ] Horizontal scrolling control and offset (--no-hscroll, --hscroll-off) — missing.
+- [ ] Jump labels (--jump-labels) — missing.
+- [ ] Gutter and raw gutter (--gutter, --gutter-raw) — missing.
+- [ ] Configurable pointer (--pointer) — missing.
+- [ ] Configurable multi-select marker (--marker, --marker-multi-line) — partial — basic selection state exists, but no configurable marker parity.
+- [ ] Ellipsis (--ellipsis) — missing.
+- [ ] Tab width (--tabstop) — missing.
+- [ ] Scrollbar glyphs and disabling (--scrollbar, --no-scrollbar) — missing.
+- [ ] List position controls (--list) — missing.
+- [ ] Input visibility (--no-input) — missing.
+- [ ] Prompt text (--prompt) — partial — current positional prompt exists, but not full fzf prompt semantics or runtime action.
+- [ ] Info-line styles and disabling (--info, --no-info) — missing.
+- [ ] Dynamic info command (--info-command) — missing.
+- [ ] Item separator (--separator, --no-separator) — missing.
+- [ ] Ghost text (--ghost) — missing.
+- [ ] Filepath-aware word movement (--filepath-word) — missing.
+- [ ] Input border, label, and label position (--input-border, --input-label, --input-label-pos) — missing.
+- [ ] Header text, placement, and borders (--header, --header-lines, --header-first, --header-border, --header-lines-border) — missing.
+- [ ] Footer text and border (--footer, --footer-border) — missing.
+- [ ] Unicode glyph toggle (--no-unicode) — missing.
+- [ ] East Asian ambiguous-width handling (--ambidouble) — partial — wide prompt cursor geometry has regression coverage, but no matching option.
+
+### Preview system
+
+- [ ] Preview command (--preview) — partial — a synchronous preview command exists.
+- [ ] Asynchronous preview execution without blocking input/rendering — missing.
+- [ ] Preview layout and sizing (--preview-window) — missing.
+- [ ] Right, left, top, bottom, center, and next-to-input preview positions — partial — current implementation provides a side pane only.
+- [ ] Preview width/height in cells and percentages — missing.
+- [ ] Preview border styles and placement (--preview-border) — missing.
+- [ ] Preview label and label position (--preview-label, --preview-label-pos) — missing.
+- [ ] Preview wrapping, word wrapping, and wrap sign (--preview-window wrap options) — missing.
+- [ ] Preview wrap sign (--preview-wrap-sign) — missing.
+- [ ] Preview follow and cycle modes — missing.
+- [ ] Preview hidden/visible initial state and runtime toggles — partial — no complete fzf-equivalent state/action surface.
+- [ ] Preview info display and suppression — missing.
+- [ ] Preview scroll offsets, fractional scroll, header lines, default layout, and size-threshold alternative layout — missing.
+- [ ] Runtime preview command changes, multiple preview bindings, and refresh — missing.
+- [ ] Preview up/down/page/half-page/top/bottom scrolling — missing.
+- [ ] Preview placeholders for item, index, query, selected items, fields, and field ranges — partial — only a narrow placeholder set is available.
+- [ ] Correct shell quoting for every placeholder and safe handling of embedded quotes/newlines — partial — preserve current quoting tests and expand adversarial coverage.
+- [ ] Preview process cancellation/reaping and resize handling — missing.
+
+### Query input, selection, history, and mouse
+
+- [ ] Prefilled query (--query / -q) — partial — exists for interactive mode, but lacks fzf query semantics and history integration.
+- [ ] Query editing with Unicode-aware cursor movement — partial — current cursor behavior is tested; complete readline-style editing is absent.
+- [ ] Persistent query history (--history) — missing.
+- [ ] History size limit (--history-size) — missing.
+- [ ] Previous/next history actions — missing.
+- [ ] Full multi-selection behavior (--multi, selected-item ordering, limits, deselection) — partial — current multi-select exists but action/limit semantics are incomplete.
+- [ ] Mouse support, wheel scrolling, clicks, and double-click acceptance — missing.
+- [ ] Mouse disable (--no-mouse) — missing.
+- [ ] Keyboard key-name parser and all fzf key aliases/chords — missing — current custom bindings accept a single printable key.
+- [ ] Jump-label interaction — missing.
+- [ ] Resize events and robust geometry recomputation — partial — geometry helpers and resize handling exist, but no event binding system.
+
+### Scripting, actions, and runtime events
+
+- [ ] General key/action binding grammar (--bind), comma-separated bindings, action arguments, and action composition — missing — only dedicated one-key flags exist.
+- [ ] Action argument quoting/alternate delimiters and parser escaping — missing.
+- [ ] All fzf action names below — only the basic up/down/accept/cancel/toggle/backspace behaviors have partial equivalents; every other action is missing.
+- [ ] Event names below and correct event timing — missing.
+- [ ] Environment-driven default options (FZF_DEFAULT_OPTS, FZF_DEFAULT_OPTS_FILE) — missing.
+- [ ] Configurable child shell (--with-shell) — missing.
+- [ ] Local HTTP/Unix socket action server (--listen) — missing.
+- [ ] Explicit unsafe remote execution mode (--listen-unsafe) — missing.
+- [ ] Thread-count option (--threads) — missing.
+- [ ] Built-in benchmark mode (--bench) — missing — external benchmark scripts exist.
+- [ ] Directory walker (--walker, --walker-root, --walker-skip) — missing.
+- [ ] Shell integration scripts (--bash, --zsh, --fish, --nushell) — missing.
+- [ ] Version/help/man output (--version, --help, --man) — partial — --help exists; version and man output do not.
+- [ ] No-TTY default behavior and terminal output clearing control — missing.
+- [ ] Remote-listener authentication boundary (FZF_API_KEY) — missing, depends on listener feature.
+
+#### Complete action inventory
+
+- [ ] abort — missing.
+- [ ] accept — partial — existing accept key behavior only.
+- [ ] accept-non-empty — missing.
+- [ ] accept-or-print-query — missing.
+- [ ] backward-char — missing.
+- [ ] backward-delete-char — partial — basic backspace only.
+- [ ] backward-delete-char/eof — missing.
+- [ ] backward-kill-subword — missing.
+- [ ] backward-kill-word — missing.
+- [ ] backward-subword — missing.
+- [ ] backward-word — missing.
+- [ ] become(...) — missing.
+- [ ] beginning-of-line — missing.
+- [ ] bell — missing.
+- [ ] best — missing.
+- [ ] bg-cancel — missing.
+- [ ] cancel — partial — basic cancel behavior only.
+- [ ] change-border-label(...) — missing.
+- [ ] change-ghost(...) — missing.
+- [ ] change-header(...) — missing.
+- [ ] change-header-lines(...) — missing.
+- [ ] change-header-label(...) — missing.
+- [ ] change-input-label(...) — missing.
+- [ ] change-list-label(...) — missing.
+- [ ] change-multi — partial — multi-select is configured at startup only.
+- [ ] change-multi(...) — missing.
+- [ ] change-nth(...) — missing.
+- [ ] change-with-nth(...) — missing.
+- [ ] change-pointer(...) — missing.
+- [ ] change-preview(...) — missing.
+- [ ] change-preview-label(...) — missing.
+- [ ] change-preview-window(...) — missing.
+- [ ] change-prompt(...) — missing.
+- [ ] change-query(...) — missing.
+- [ ] clear-screen — missing.
+- [ ] clear-multi — missing.
+- [ ] close — missing.
+- [ ] clear-query — missing.
+- [ ] delete-char — missing.
+- [ ] delete-char/eof — missing.
+- [ ] deselect — missing.
+- [ ] deselect-all — missing.
+- [ ] disable-raw — missing.
+- [ ] disable-search — missing.
+- [ ] down — partial — basic movement exists.
+- [ ] down-match — missing.
+- [ ] down-selected — missing.
+- [ ] enable-raw — missing.
+- [ ] enable-search — missing.
+- [ ] end-of-line — missing.
+- [ ] exclude — missing.
+- [ ] exclude-multi — missing.
+- [ ] execute(...) — missing.
+- [ ] execute-silent(...) — missing.
+- [ ] first — missing.
+- [ ] forward-char — missing.
+- [ ] forward-subword — missing.
+- [ ] forward-word — missing.
+- [ ] half-page-down — missing.
+- [ ] half-page-up — missing.
+- [ ] hide-header — missing.
+- [ ] hide-input — missing.
+- [ ] hide-preview — partial — no complete action system.
+- [ ] ignore — missing.
+- [ ] jump — missing.
+- [ ] kill-line — missing.
+- [ ] kill-subword — missing.
+- [ ] kill-word — missing.
+- [ ] last — missing.
+- [ ] next-history — missing.
+- [ ] next-selected — missing.
+- [ ] offset-down — missing.
+- [ ] offset-middle — missing.
+- [ ] offset-up — missing.
+- [ ] page-down — missing.
+- [ ] page-up — missing.
+- [ ] pos(...) — missing.
+- [ ] prev-history — missing.
+- [ ] prev-selected — missing.
+- [ ] preview(...) — partial — one configured preview command exists, but runtime preview action is missing.
+- [ ] preview-bottom — missing.
+- [ ] preview-down — missing.
+- [ ] preview-half-page-down — missing.
+- [ ] preview-half-page-up — missing.
+- [ ] preview-page-down — missing.
+- [ ] preview-page-up — missing.
+- [ ] preview-top — missing.
+- [ ] preview-up — missing.
+- [ ] print(...) — missing.
+- [ ] put — missing.
+- [ ] put(...) — missing.
+- [ ] rebind(...) — missing.
+- [ ] refresh-preview — missing.
+- [ ] reload(...) — missing.
+- [ ] reload-sync(...) — missing.
+- [ ] replace-query — missing.
+- [ ] search(...) — missing.
+- [ ] select — partial — current toggle-based selection only.
+- [ ] select-all — missing.
+- [ ] show-header — missing.
+- [ ] show-input — missing.
+- [ ] show-preview — partial — preview can be configured initially, but runtime action is missing.
+- [ ] toggle — partial — selection toggle exists in multi mode.
+- [ ] toggle-all — missing.
+- [ ] toggle-bind — missing.
+- [ ] toggle-header — missing.
+- [ ] toggle-hscroll — missing.
+- [ ] toggle-in — missing.
+- [ ] toggle-input — missing.
+- [ ] toggle-multi-line — missing.
+- [ ] toggle-out — missing.
+- [ ] toggle-preview — partial — no complete runtime binding action.
+- [ ] toggle-preview-wrap — missing.
+- [ ] toggle-preview-wrap-word — missing.
+- [ ] toggle-raw — missing.
+- [ ] toggle-search — missing.
+- [ ] toggle-sort — missing.
+- [ ] toggle-track — missing.
+- [ ] toggle-track-current — missing.
+- [ ] toggle-wrap — missing.
+- [ ] toggle-wrap-word — missing.
+- [ ] track-current — missing.
+- [ ] transform(...) — missing.
+- [ ] transform-border-label(...) — missing.
+- [ ] transform-ghost(...) — missing.
+- [ ] transform-header(...) — missing.
+- [ ] transform-header-lines(...) — missing.
+- [ ] transform-header-label(...) — missing.
+- [ ] transform-input-label(...) — missing.
+- [ ] transform-list-label(...) — missing.
+- [ ] transform-nth(...) — missing.
+- [ ] transform-with-nth(...) — missing.
+- [ ] transform-pointer(...) — missing.
+- [ ] transform-preview-label(...) — missing.
+- [ ] transform-prompt(...) — missing.
+- [ ] transform-query(...) — missing.
+- [ ] transform-search(...) — missing.
+- [ ] trigger(...) — missing.
+- [ ] unbind(...) — missing.
+- [ ] unix-line-discard — missing.
+- [ ] unix-word-rubout — missing.
+- [ ] untrack-current — missing.
+- [ ] up — partial — basic movement exists.
+- [ ] up-match — missing.
+- [ ] up-selected — missing.
+- [ ] wait — missing.
+- [ ] yank — missing.
+- [ ] bg-transform(...) and bg-transform-* variants — missing.
+
+#### Complete event inventory
+
+- [ ] start — missing.
+- [ ] load — missing.
+- [ ] resize — partial — resize handling exists but is not bindable as an event.
+- [ ] result — missing.
+- [ ] result-final — missing.
+- [ ] change — missing.
+- [ ] focus — missing.
+- [ ] multi — missing.
+- [ ] one — missing.
+- [ ] zero — missing.
+- [ ] jump — missing.
+- [ ] N (numeric event) — missing.
+- [ ] Event ordering, re-entrancy, cancellation, and background-process semantics — missing.
+
+#### Search expression and placeholder inventory
+
+- [x] Unanchored fuzzy query terms — present — --extended uses fuzzy subsequence matching for ordinary terms when combined with --fuzzy.
+- [x] Exact query term syntax (single-quoted terms) — present — 'term forces contiguous substring matching.
+- [x] Prefix/anchored query terms (caret syntax) — present — ^term matches at the start.
+- [x] Suffix/ending query terms (dollar syntax) — present — term$ matches at the end.
+- [x] Exact-boundary terms (both ends anchored) — present — ^term$ matches the whole record.
+- [x] Inverse/negative terms — present — !term excludes candidates matching that term.
+- [x] OR expression syntax — present — | separates OR groups; terms within each group are ANDed.
+- [ ] Field index expressions (positive/negative indices and ranges) — missing.
+- [ ] Item placeholder {} and escaped literal placeholder — partial — narrow preview placeholder handling exists.
+- [ ] Index placeholder {n} — missing.
+- [ ] Query placeholder {q} — missing.
+- [ ] Multi-selection placeholder {+} and selected-field variants — missing.
+- [ ] Field/range placeholders and delimiter-aware extraction — missing.
+- [ ] Placeholder shell-quoting contract for embedded apostrophes, newlines, and empty values — partial.
+- [ ] FZF_* runtime variables for dimensions, query, current item, selection, counts, action, and preview context — missing.
+
+### C API compatibility and capability checklist
+
+- [ ] Preserve ABI/source behavior of mmenu, mmenuEx, mmenuMulti, mmenuConfigured, and mmenuMultiConfigured — present — compatibility is a hard invariant.
+- [ ] Keep the existing arena loader and batch modes unchanged by default — present — compatibility is a hard invariant.
+- [x] Add new configuration fields only additively and with documented defaults — present for implemented extensions; MMENU_EXTENDED, searchable-text callback, and display-text callback are additive, while broader configuration remains future work.
+- [x] Expose new interactive matching/display options through configured API without leaking ncurses types — present for extended queries, searchable-text/display-text callbacks, streaming, preview, and key aliases; broader configuration remains future work.
+- [ ] Provide C API configuration for match mode, case policy, scorer, layout, selection, bindings, preview, streaming, and output — missing.
+- [ ] Stable ownership/lifetime rules for selections, callback data, streamed records, and preview jobs — partial — existing multi-select ownership is documented; new facilities need contracts.
+- [x] C23 compiler mode and portable C23 implementation — present — strict builds, static analysis, fuzzing, benchmarks, release checks, and documented source builds use -std=c2x.
+- [ ] Keep binary size and dependency set measured — missing — establish baseline in M0.
+
+## Milestone list (ordered)
+
+- [x] M0 — Baseline & checklist: complete this inventory; run reproducible batch/interactive baselines and comparative fzf/fzy runs when available; record numbers and environment only in this file.
+- [x] M1 — Streaming input: incremental loader/UI updates before EOF, cancellation, loader/search synchronization, stable arena ownership, and tests for slow/never-ending input.
+- [ ] M2 — Matcher parity & speed: complete query grammar and match modes, case policy, scorer/algorithm choices, tie-breaks, field expressions, ranking tests, and measured performance.
+- [ ] M3 — Layout & chrome: dimensions, layout modes, borders, margins/padding, info/header/footer/input chrome, colors, scrolling, line wrapping, and presets.
+- [ ] M4 — Preview system: nonblocking child lifecycle, full layout/size/wrap/follow/scroll semantics, placeholders, quoting, runtime changes, and C API configuration.
+- [ ] M5 — Key bindings, multi-select, history, jump, mouse: general parser, complete action dispatch, events, history, selection behavior, key aliases, jump labels, and mouse input.
+- [ ] M6 — Remaining scripting options & polish: expected keys, output/exit conventions, ANSI, multiline, walker/shell integrations, listener if safe and supportable, remaining options, final measurement and complete regression coverage.
+
+## Tasks for the current milestone
+
+### M0 — Baseline & checklist (complete)
+
+- [x] Verify this checklist against the full upstream fzf 0.74.5 option, action, event, placeholder, environment-variable, and exit-status reference.
+- [x] Run the full existing regression suite unchanged on baseline commit 8ebed41eed3a742720deaa6efbc7045c951827e0.
+- [x] Run the existing batch benchmark at 1k, 10k, 100k, and 1M records with five samples per size.
+- [x] Run the existing interactive first-paint benchmark at 1k, 10k, and 100k records with three samples per size.
+- [x] Add and run a deterministic same-input throughput comparison for mmenu, fzf, and fzy, recording tool versions, compiler, exact match counts, timing samples, and RSS.
+- [x] Record C23-mode smoke-build support and executable sizes for GCC and Clang.
+- [x] Switch strict builds, static analysis, fuzzing, benchmark builds, release checks, and source build instructions to C23 language mode.
+- [x] Confirm the full four-job CI matrix passes with the C23 smoke build, throughput harness, and unchanged regression assertions.
+- [x] Preserve measurement limitations and avoid using noisy wall-clock comparisons as CI pass/fail thresholds.
+
+### M1 — Streaming input
+
+- Implementation commit acef01fe4b67abfa2a5a2e2a9e26e7acba3fd013 passed all four jobs in CI run 38273624428. This revision strengthens preview coverage by asserting that the callback refreshes when later records arrive; all four jobs must pass on this revision before merge.
+- [x] Define an additive public stream callback contract in mmenu.h; existing function signatures and behavior remain unchanged. The callback distinguishes record available, temporary no data, EOF, and read error.
+- [x] Specify record lifetime and ownership explicitly; the CLI keeps record bytes in the existing arena and reuses a growable record buffer.
+- [x] Add an incremental nonblocking stdin reader supporting newline and NUL delimiters, arbitrary record lengths, final unterminated records, and embedded-NUL validation in newline mode.
+- [x] Integrate the stream callback into the interactive event loop so the menu renders a prompt and newly arrived options without waiting for stdin EOF.
+- [x] Recompute results as records arrive while preserving the query, selected item when possible, multi-select state, and original indexes; the early-toggle regression covers input arriving before the first stream batch.
+- [x] Drain available input in bounded, adaptively sized batches and filter only newly arrived records; fuzzy results are batch-sorted and merged.
+- [x] Keep the current batch filter path synchronous and behavior-compatible. No additional synchronous interactive mode is required by existing documented behavior.
+- [x] Define and test EOF behavior, read errors, invalid multibyte records, allocation failure, accept/cancel while the producer remains open, and EOF before the first record.
+- [x] Add deterministic PTY regressions for prompt/first-item visibility before EOF, continued interaction while the producer is open, and correct output/indexes.
+- [x] Cover empty records, final unterminated records, both delimiters, long records, invalid input, and stream errors without weakening existing assertions.
+- [x] Verify preview output remains visible and its callback refreshes when additional records arrive.
+- [x] Run the full regression suite, allocation-failure tests/sweeps, static analysis, sanitizer/fuzz jobs, and performance artifacts on the current revision before merge.
+
+### M2a — Extended query grammar
+
+- [x] Add opt-in --extended/-x and --no-extended/+x CLI flags and additive MMENU_EXTENDED C API flag; preserve legacy query semantics when disabled.
+- [x] Parse whitespace-separated AND terms, |-separated OR groups, ! inverse terms, ' contiguous terms, ^ prefix terms, $ suffix terms, ^term$ whole-record terms, and backslash-escaped spaces within a term.
+- [x] Support the grammar with substring and fuzzy matchers in batch, interactive, and streaming paths; keep fuzzy result ordering score-based and stable.
+- [x] Define the combination rule: extended mode rejects whole-record --exact/MMENU_EXACT, while --fuzzy remains supported.
+- [x] Add CLI and interactive C API regressions for every operator, OR/AND composition, inversion, fuzzy mode, and legacy behavior.
+- [x] Include extended query parsing and fuzzy-result allocations in the exhaustive CLI/API allocation-failure sweeps.
+- [x] Document the new syntax and record it in the Unreleased changelog.
+- [x] Run the full four-job CI matrix and resolve all failures before merging (PR #60 merged as `488c01ad8b1ccd3ef3f80cb8b2cfd61562b71173`; exact-head run #39068543111 and post-merge master run #39069090746 both passed all four compiler/sanitizer jobs).
+
+, and backslash as literal query text without changing the meaning of unescaped operators and anchors.
 - [x] Add CLI regressions for escaped metacharacters and an interactive C API regression for an escaped inverse marker.
 - [x] Document escaping in the README and man page; keep broader extended-query compatibility marked partial.
 - [x] Pass all required GCC/Clang release and sanitizer jobs on the exact PR head (PR #61, run #39072576746; all four jobs passed; merged as `c14b7e01527da07e6d9a4fe702d57c78d2d5a6c5`).
+
+### M2a3 — Paired-quote exact-boundary terms
+
+- [ ] Interpret `'term'` as a contiguous match with non-word boundaries on both sides, while preserving `'term` as a contiguous substring.
+- [ ] Handle escaped trailing apostrophes as literal term characters.
+- [ ] Add batch CLI and interactive C API regressions, including inverse boundary terms and repeated candidate occurrences.
+- [ ] Document boundary classification and the active-locale Unicode alphanumeric policy.
+- [ ] Pass the full GCC/Clang release and sanitizer matrix on the exact PR head before marking this subtask complete.
 
 ### M2b — Searchable, display, and accepted field expressions
 

@@ -435,13 +435,49 @@ static int MmenuAsciiNcmpPolicy(const char *left, const char *right,
     return 0;
 }
 
+/* Use a byte-oriented Boyer-Moore-Horspool search for longer insensitive
+   substring queries. Folding is deliberately ASCII-only, so bytes outside
+   ASCII (including UTF-8 sequences) remain exact and locale-independent. */
 static const char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
 {
     if (!*needle) return haystack;
     size_t needleLength = strlen(needle);
-    for (const char *cursor = haystack; *cursor; cursor++) {
-        if (MmenuAsciiNcmpPolicy(cursor, needle, needleLength, 0) == 0)
-            return cursor;
+
+    /* Table setup costs more than the straightforward scan for short queries. */
+    if (needleLength < 4) {
+        for (const char *cursor = haystack; *cursor; cursor++) {
+            if (MmenuAsciiNcmpPolicy(cursor, needle, needleLength, 0) == 0)
+                return cursor;
+        }
+        return NULL;
+    }
+
+    size_t haystackLength = strlen(haystack);
+    if (needleLength > haystackLength) return NULL;
+
+    size_t skip[UCHAR_MAX + 1];
+    for (size_t i = 0; i <= UCHAR_MAX; i++) skip[i] = needleLength;
+    for (size_t i = 0; i + 1 < needleLength; i++) {
+        unsigned char ch = MmenuFoldAsciiByte((unsigned char)needle[i]);
+        skip[ch] = needleLength - i - 1;
+    }
+
+    size_t offset = 0;
+    while (offset <= haystackLength - needleLength) {
+        size_t i = needleLength;
+        while (i > 0) {
+            unsigned char candidate =
+                MmenuFoldAsciiByte((unsigned char)haystack[offset + i - 1]);
+            unsigned char query =
+                MmenuFoldAsciiByte((unsigned char)needle[i - 1]);
+            if (candidate != query) break;
+            i--;
+        }
+        if (i == 0) return haystack + offset;
+
+        unsigned char tail =
+            MmenuFoldAsciiByte((unsigned char)haystack[offset + needleLength - 1]);
+        offset += skip[tail];
     }
     return NULL;
 }

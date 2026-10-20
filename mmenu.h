@@ -507,6 +507,57 @@ static const char *MmenuStrstrPolicy(const char *haystack, const char *needle,
     return MmenuAsciiStrcasestr(haystack, needle);
 }
 
+/* fzf-style exact-boundary terms require non-word characters on both sides.
+   Use the active multibyte locale for Unicode letters/numbers. If an input byte
+   cannot be decoded in that locale, keep high bytes word-like rather than
+   treating a byte inside an encoded character as a boundary. */
+static int MmenuQueryWordCharacterAt(const char *text)
+{
+    if (!text || !*text) return 0;
+    mbstate_t state = {0};
+    wchar_t character;
+    size_t bytes = mbrtowc(&character, text, MB_CUR_MAX, &state);
+    if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0) {
+        unsigned char byte = (unsigned char)*text;
+        return byte >= 0x80 || isalnum(byte);
+    }
+    return iswalnum(character) != 0;
+}
+
+static int MmenuQueryWordCharacterBefore(const char *begin, const char *position)
+{
+    const char *cursor = begin;
+    mbstate_t state = {0};
+    int word = 0;
+
+    while (cursor < position) {
+        wchar_t character;
+        size_t bytes = mbrtowc(&character, cursor, MB_CUR_MAX, &state);
+        if (bytes == (size_t)-1 || bytes == (size_t)-2 || bytes == 0 ||
+            cursor + bytes > position) {
+            unsigned char byte = (unsigned char)*cursor;
+            word = byte >= 0x80 || isalnum(byte);
+            bytes = 1;
+            memset(&state, 0, sizeof(state));
+        } else {
+            word = iswalnum(character) != 0;
+        }
+        cursor += bytes;
+    }
+    return word;
+}
+
+static int MmenuQueryBoundaryMatch(const char *candidate, const char *match_at,
+                                   size_t match_length)
+{
+    if (match_at != candidate &&
+        MmenuQueryWordCharacterBefore(candidate, match_at))
+        return 0;
+
+    const char *end = match_at + match_length;
+    return !MmenuQueryWordCharacterAt(end);
+}
+
 static int IsFuzzyBoundary(wchar_t previous, wchar_t current)
 {
     if (previous == L'/' || previous == L'\\' || previous == L'_' ||
@@ -750,7 +801,8 @@ typedef enum {
     MMENU_QUERY_EXACT,
     MMENU_QUERY_PREFIX,
     MMENU_QUERY_SUFFIX,
-    MMENU_QUERY_EQUAL
+    MMENU_QUERY_EQUAL,
+    MMENU_QUERY_BOUNDARY
 } mmenu_query_kind;
 
 typedef struct {
@@ -877,14 +929,18 @@ static int mmenu_query_compile(const wchar_t *source, mmenu_query *query)
             pos++;
         }
         size_t end = pos;
-        if (end > start && source[end - 1] == L'\x24' &&
+        if (kind == MMENU_QUERY_EXACT && end > start &&
+            source[end - 1] == L'\\'' &&
+            !mmenu_query_char_escaped(source, start, end - 1)) {
+            end--;
+            kind = MMENU_QUERY_BOUNDARY;
+        }
+        if (end > start && source[end - 1] == L'\\x24' &&
             !mmenu_query_char_escaped(source, start, end - 1)) {
             end--;
             if (kind == MMENU_QUERY_PREFIX) kind = MMENU_QUERY_EQUAL;
             else if (kind == MMENU_QUERY_NORMAL) kind = MMENU_QUERY_SUFFIX;
         }
-        if (end == start) continue;
-
         size_t raw_len = end - start;
         if (raw_len >= wide_capacity - wide_used) {
             errno = ENOMEM;
@@ -957,6 +1013,18 @@ static int mmenu_query_term_match(const char *candidate,
         if (matched && metrics)
             MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
         break;
+    case MMENU_QUERY_BOUNDARY: {
+        const char *cursor = candidate;
+        while ((match_at = MmenuStrstrPolicy(cursor, term->bytes, flags)) != NULL) {
+            if (MmenuQueryBoundaryMatch(candidate, match_at, term->bytes_len)) break;
+            cursor = match_at + 1;
+        }
+        matched = match_at != NULL;
+        if (matched && (flags & MMENU_FUZZY)) *score = 30;
+        if (matched && metrics)
+            MmenuSubstringMetrics(candidate, match_at, term->wide_len, metrics);
+        break;
+    }
     case MMENU_QUERY_PREFIX:
         matched = candidate_len >= term->bytes_len &&
                   MmenuAsciiNcmpPolicy(candidate, term->bytes, term->bytes_len, MmenuCaseSensitiveBytes(flags, term->bytes)) == 0;

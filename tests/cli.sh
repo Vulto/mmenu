@@ -407,6 +407,12 @@ printf 'éabcdef\nxéAbCdEf\n' > "$TmpDir/expected"
 LC_ALL=C "$Bin" --filter 'éabcdef' < "$TmpDir/input" > "$TmpDir/actual"
 CheckEqual 'long substring search preserves non-ASCII bytes and folds ASCII only' "$TmpDir/expected" "$TmpDir/actual"
 
+# Force the long-record Boyer-Moore-Horspool path and verify a late match.
+awk 'BEGIN { for (i = 0; i < 300; i++) printf "x"; print "aaaaac"; for (i = 0; i < 300; i++) printf "x"; print "AAAAAb" }' > "$TmpDir/input"
+awk 'BEGIN { for (i = 0; i < 300; i++) printf "x"; print "AAAAAb" }' > "$TmpDir/expected"
+LC_ALL=C "$Bin" --filter aaaaab < "$TmpDir/input" > "$TmpDir/actual"
+CheckEqual 'long-record skip-table search finds late case-insensitive matches' "$TmpDir/expected" "$TmpDir/actual"
+
 # Explicit case policies apply consistently to substring, fuzzy, and extended queries.
 printf 'Alpha\nalpha\nALPHA\nbeta\nBeta\nalpha Beta\nAlpha Beta\n' > "$TmpDir/input"
 printf 'Alpha\nAlpha Beta\n' > "$TmpDir/expected"

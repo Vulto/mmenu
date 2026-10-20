@@ -2481,7 +2481,7 @@ static int mmenu_internal(const char *const *options, int n_options,
         *selected_count = 0;
     }
     /* Validate the public API before touching the terminal or initializing ncurses. */
-    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT | MMENU_DISABLED)) ||
+    if ((flags & ~(MMENU_FUZZY | MMENU_EXACT | MMENU_EXTENDED | MMENU_CASE_SENSITIVE | MMENU_SMART_CASE | MMENU_NO_SORT | MMENU_DISABLED | MMENU_LITERAL)) ||
         ((flags & MMENU_CASE_SENSITIVE) && (flags & MMENU_SMART_CASE)) ||
         ((flags & MMENU_NO_SORT) && !(flags & MMENU_FUZZY)) ||
         ((flags & MMENU_FUZZY) && (flags & MMENU_EXACT)) ||

@@ -10,6 +10,8 @@ score with stable input-order ties. The fuzzy score is a practical heuristic, no
 relevance model. Interactive fuzzy mode underlines and bolds the greedily matched
 subsequence characters.
 
+The insensitive byte search skips impossible first-byte positions in short records and uses a Boyer–Moore–Horspool skip table for long records. This is an implementation optimization only and does not change the documented match semantics.
+
 The ranking fixture in `tests/fixtures/ranking-judgments.tsv` is a small, deterministic,
 synthetic path-like corpus with manually assigned relevance grades. It is an initial
 regression fixture, not a representative user study. Each row records a query ID, query

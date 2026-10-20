@@ -435,13 +435,66 @@ static int MmenuAsciiNcmpPolicy(const char *left, const char *right,
     return 0;
 }
 
+/* Use a byte-oriented Boyer-Moore-Horspool search for longer insensitive
+   substring queries. Folding is deliberately ASCII-only, so bytes outside
+   ASCII (including UTF-8 sequences) remain exact and locale-independent. */
 static const char *MmenuAsciiStrcasestr(const char *haystack, const char *needle)
 {
     if (!*needle) return haystack;
     size_t needleLength = strlen(needle);
-    for (const char *cursor = haystack; *cursor; cursor++) {
-        if (MmenuAsciiNcmpPolicy(cursor, needle, needleLength, 0) == 0)
-            return cursor;
+    size_t haystackLength = strlen(haystack);
+    if (needleLength > haystackLength) return NULL;
+
+    size_t last_start = haystackLength - needleLength;
+    size_t offset = 0;
+
+    /* Most input records are short. Skip directly to possible first-byte
+       positions without paying to initialize a 256-entry table per record. */
+    if (haystackLength < 256 || needleLength < 4) {
+        unsigned char first = MmenuFoldAsciiByte((unsigned char)needle[0]);
+        unsigned char alternate = first;
+        if (first >= 'a' && first <= 'z')
+            alternate = (unsigned char)(first - ('a' - 'A'));
+
+        while (offset <= last_start) {
+            size_t remaining = last_start - offset + 1;
+            const char *search = haystack + offset;
+            const char *candidate = memchr(search, first, remaining);
+            if (alternate != first) {
+                const char *other = memchr(search, alternate, remaining);
+                if (other && (!candidate || other < candidate)) candidate = other;
+            }
+            if (!candidate) return NULL;
+            if (MmenuAsciiNcmpPolicy(candidate, needle, needleLength, 0) == 0)
+                return candidate;
+            offset = (size_t)(candidate - haystack) + 1;
+        }
+        return NULL;
+    }
+
+    /* Long records benefit from the skip table across stretches with no match. */
+    size_t skip[UCHAR_MAX + 1];
+    for (size_t i = 0; i <= UCHAR_MAX; i++) skip[i] = needleLength;
+    for (size_t i = 0; i + 1 < needleLength; i++) {
+        unsigned char ch = MmenuFoldAsciiByte((unsigned char)needle[i]);
+        skip[ch] = needleLength - i - 1;
+    }
+
+    while (offset <= last_start) {
+        size_t i = needleLength;
+        while (i > 0) {
+            unsigned char candidate =
+                MmenuFoldAsciiByte((unsigned char)haystack[offset + i - 1]);
+            unsigned char query =
+                MmenuFoldAsciiByte((unsigned char)needle[i - 1]);
+            if (candidate != query) break;
+            i--;
+        }
+        if (i == 0) return haystack + offset;
+
+        unsigned char tail =
+            MmenuFoldAsciiByte((unsigned char)haystack[offset + needleLength - 1]);
+        offset += skip[tail];
     }
     return NULL;
 }
